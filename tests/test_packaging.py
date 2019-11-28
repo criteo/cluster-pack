@@ -81,7 +81,7 @@ def test_get_empty_non_editable_requirements():
 
 def _create_venv(tempdir: str):
     print(os.environ["ROOT_PYTHON_INTERPRETER"])
-    subprocess.check_call([os.environ["ROOT_PYTHON_INTERPRETER"], "-m", "venv", f"{tempdir}", "--copies"])
+    subprocess.check_call(["virtualenv", "--python=python3.6", "-m", "venv", f"{tempdir}"])
 
 
 # def _pip_install(tempdir: str):
