@@ -18,7 +18,7 @@ install:
   - pip freeze
 
 script:
-  - pytest tests
+  - pytest -s tests
 
 notifications:
   email: false

@@ -80,6 +80,7 @@ def test_get_non_editable_requirements():
 
 
 def _create_venv(tempdir: str):
+    print(os.environ["ROOT_PYTHON_INTERPRETER"])
     subprocess.check_call([os.environ["ROOT_PYTHON_INTERPRETER"], "-m", "venv", f"{tempdir}"])
 
 
