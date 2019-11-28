@@ -80,7 +80,7 @@ def test_get_non_editable_requirements():
 
 
 def _create_venv(tempdir: str):
-    subprocess.check_call(["python3.6", "-m", "venv", f"{tempdir}"])
+    subprocess.check_call([subprocess.check_call([os.environ["ROOT_PYTHON_INTERPRETER"], "-m", "venv", f"{tempdir}"])
 
 
 def _pip_install(tempdir: str):
