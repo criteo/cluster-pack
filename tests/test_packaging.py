@@ -94,8 +94,8 @@ def _create_venv(tempdir: str):
 #         sys.path.append(pkg)
 
 
-# def _get_editable_package_name():
-#     return os.path.join(os.path.dirname(__file__), "user-lib")
+def _get_editable_package_name():
+    return os.path.join(os.path.dirname(__file__), "user-lib")
 
 
 # @mock.patch(f"{MODULE_TO_TEST}.tf")
