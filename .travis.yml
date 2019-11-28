@@ -5,9 +5,12 @@ python:
   - "3.6"
 
 install:
+  - set -x 
   - pip install .
   - pip install pytest
   - pip freeze
+  - which python3.6
+  - ls /bin
 
 script:
   - pytest tests
