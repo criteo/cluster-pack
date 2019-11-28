@@ -5,23 +5,9 @@ python:
   - "3.6"
 
 before_install:
-  - VENV_PYTHON_PATH=$(which python | xargs dirname | xargs dirname)
-  - echo $VENV_PYTHON_PATH
-  - deactivate
-  - export ROOT_PYTHON_INTERPRETER=$(which python3.6)
-  - echo $ROOT_PYTHON_INTERPRETER
-  - source $VENV_PYTHON_PATH/bin/activate
+  - env
 
 install:
-  - pwd
-  - which pip
-  - pip --version
-  - which python
-  - which python3.6
-  - virtualenv --python=python3.6 test_env
-  - source ./test_env/bin/activate
-  - which python
-  - which pip
   - pip --version
   - pip install .
   - pip install pytest
