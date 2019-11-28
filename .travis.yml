@@ -5,7 +5,6 @@ python:
   - "3.6"
 
 before_install:
-  - deactivate
   - VENV_PYTHON_PATH=$(which python | xargs dirname | xargs dirname)
   - echo $VENV_PYTHON_PATH
   - deactivate
