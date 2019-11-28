@@ -14,8 +14,12 @@ before_install:
 
 install:
   - pwd
+  - which python
+  - which python3.6
   - python -m venv test_env
   - source ./test_env/bin/activate
+  - which python
+  - which pip
   - pip install .
   - pip install pytest
   - pip freeze
