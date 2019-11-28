@@ -3,4 +3,3 @@ conda-pack
 pip>=18.1
 s3fs
 pyarrow
-tensorflow==1.12.2

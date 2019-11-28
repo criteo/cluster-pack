@@ -1,6 +1,7 @@
 import contextlib
 import json
 import os
+import pyarrow
 import subprocess
 from subprocess import check_output
 import sys
@@ -13,7 +14,7 @@ import pytest
 
 from pex.pex_info import PexInfo
 
-from cluster_pack import packaging
+from cluster_pack import packaging, filesystem
 
 
 MODULE_TO_TEST = "cluster_pack.packaging"
@@ -42,7 +43,7 @@ def test_get_empty_editable_requirements():
                         f"{tempdir}/bin/python", "-m", "pip", "install",
                         "cloudpickle", _get_editable_package_name(), "pip==18.1"
                         ])
-        editable_requirements = packaging.get_editable_requirements(f"{tempdir}/bin/python")
+        editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
         assert len(editable_requirements) == 0
 
 
@@ -53,7 +54,8 @@ def test_get_empty_non_editable_requirements():
                     f"{tempdir}/bin/python", "-m", "pip", "install",
                     "-e", _get_editable_package_name(), "pip==18.1"
                     ])
-        non_editable_requirements = packaging.get_non_editable_requirements(f"{tempdir}/bin/python")
+        non_editable_requirements = packaging._get_non_editable_requirements(
+            f"{tempdir}/bin/python")
         assert len(non_editable_requirements) == 0
 
 
@@ -61,16 +63,17 @@ def test_get_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
         _pip_install(tempdir)
-        editable_requirements = packaging.get_editable_requirements(f"{tempdir}/bin/python")
+        editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
         assert len(editable_requirements) == 1
         assert os.path.basename(editable_requirements[0]) == "user_lib"
 
 
-def test_get_non_editable_requirements():
+def test__get_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
         _pip_install(tempdir)
-        non_editable_requirements = packaging.get_non_editable_requirements(f"{tempdir}/bin/python")
+        non_editable_requirements = packaging._get_non_editable_requirements(
+            f"{tempdir}/bin/python")
         assert len(non_editable_requirements) == 1
         assert non_editable_requirements[0]["name"] == "cloudpickle"
 
@@ -92,19 +95,19 @@ def _get_editable_package_name():
     return os.path.join(os.path.dirname(__file__), "user-lib")
 
 
-@mock.patch(f"{MODULE_TO_TEST}.tf")
-def test_update_no_archive(mock_tf):
+def test_update_no_archive():
     map_is_exist = {MYARCHIVE_FILENAME: False}
-    mock_tf.gfile.Exists.side_effect = lambda arg: map_is_exist[arg]
-    assert not packaging._is_archive_up_to_date(MYARCHIVE_FILENAME, [])
+    mock_fs = mock.MagicMock()
+    mock_fs.exists = lambda arg: map_is_exist[arg]
+    assert not packaging._is_archive_up_to_date(MYARCHIVE_FILENAME, [], mock_fs)
 
 
-@mock.patch(f"{MODULE_TO_TEST}.tf")
-def test_update_no_metadata(mock_tf):
+def test_update_no_metadata():
     map_is_exist = {MYARCHIVE_FILENAME: True,
                     MYARCHIVE_METADATA: False}
-    mock_tf.gfile.Exists.side_effect = lambda arg: map_is_exist[arg]
-    assert not packaging._is_archive_up_to_date(MYARCHIVE_FILENAME, [])
+    mock_fs = mock.MagicMock()
+    mock_fs.exists = lambda arg: map_is_exist[arg]
+    assert not packaging._is_archive_up_to_date(MYARCHIVE_FILENAME, [], mock_fs)
 
 
 @pytest.mark.parametrize("current_packages, metadata_packages, expected", [
@@ -118,18 +121,18 @@ def test_update_no_metadata(mock_tf):
 ])
 def test_update_version_comparaison(current_packages, metadata_packages,
                                     expected):
+
     map_is_exist = {MYARCHIVE_FILENAME: True,
                     MYARCHIVE_METADATA: True}
-    with mock.patch(f"{MODULE_TO_TEST}.tf") as mock_tf:
-        mock_tf.gfile.Exists.side_effect = map_is_exist
-        # Mock metadata on hdfs
-        gFile = mock.MagicMock()
-        gFile.read.return_value = json.dumps(metadata_packages)
-        gFile.__enter__.return_value = gFile
-        mock_tf.gfile.GFile.return_value = gFile
-        # Test if package is updated
+
+    mock_fs = mock.MagicMock()
+    mock_fs.exists = lambda arg: map_is_exist[arg]
+
+    with mock.patch.object(mock_fs, 'open',
+        mock.mock_open(read_data=json.dumps(metadata_packages))
+    ):
         assert packaging._is_archive_up_to_date(MYARCHIVE_FILENAME,
-                                                current_packages) == expected
+                                                current_packages, mock_fs) == expected
 
 
 def Any(cls):
@@ -146,19 +149,21 @@ expected_file = """\
 }"""
 
 
-@mock.patch(f"{MODULE_TO_TEST}.tf")
-def test_dump_metadata(mock_tf):
+def test_dump_metadata():
+    mock_fs = mock.Mock()
+    mock_fs.rm.return_value = True
+    mock_fs.exists.return_value = True
     mock_open = mock.mock_open()
-    with mock.patch(f"{MODULE_TO_TEST}.open", mock_open):
-        mock_tf.gfile.Exists.return_value = True
+    with mock.patch.object(mock_fs, 'open', mock_open):
+        mock_fs.exists.return_value = True
         packages = {"a": "1.0", "b": "2.0"}
-        packaging._dump_archive_metadata(MYARCHIVE_FILENAME, packages)
+        packaging._dump_archive_metadata(
+            MYARCHIVE_FILENAME,
+            packages,
+            filesystem.EnhancedFileSystem(mock_fs))
         # Check previous file has been deleted
-        mock_tf.gfile.Remove.assert_called_once_with(MYARCHIVE_METADATA)
-        # Check file is ok
-        mock_fd = mock_open()
-        mock_fd.write.assert_called_once_with(expected_file)
-        mock_tf.gfile.Copy.assert_called_once_with(Any(str), MYARCHIVE_METADATA)
+        mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
+        mock_open().write.assert_called_once_with(b'{\n    "a": "1.0",\n    "b": "2.0"\n}')
 
 
 def test_upload_env():
@@ -167,8 +172,13 @@ def test_upload_env():
         mock_is_archive = stack.enter_context(
                 mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date"))
         mock_get_packages = stack.enter_context(
-                mock.patch(f"{MODULE_TO_TEST}.get_non_editable_requirements"))
-        mock_tf = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.tf"))
+                mock.patch(f"{MODULE_TO_TEST}._get_non_editable_requirements"))
+
+        mock_resolve_fs = stack.enter_context(
+            mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path"))
+        mock_fs = mock.MagicMock()
+        mock_resolve_fs.return_value = mock_fs, ""
+
         stack.enter_context(mock.patch(f"{MODULE_TO_TEST}._dump_archive_metadata"))
         stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.shutil.rmtree"))
         mock_packer = stack.enter_context(
@@ -182,16 +192,14 @@ def test_upload_env():
 
         mock_packer.return_value = MYARCHIVE_FILENAME
 
-        packaging.upload_env_to_hdfs(MYARCHIVE_FILENAME, packaging.PEX_PACKER)
+        packaging.upload_env(MYARCHIVE_FILENAME, packaging.PEX_PACKER)
         mock_packer.assert_called_once_with(
             {"a": "1.0", "b": "2.0"}, Any(str), []
         )
-        mock_tf.gfile.Copy.assert_called_once_with(MYARCHIVE_FILENAME,
-                                                   MYARCHIVE_FILENAME,
-                                                   overwrite=True)
+        mock_fs.put.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
 
         mock_packer.reset_mock()
-        packaging.upload_env_to_hdfs(
+        packaging.upload_env(
             MYARCHIVE_FILENAME, packaging.PEX_PACKER,
             additional_packages={"c": "3.0"},
             ignored_packages=["a"]
@@ -201,38 +209,39 @@ def test_upload_env():
         )
 
 
-def test_upload_env_to_hdfs_should_throw_error_if_wrong_extension():
+def test_upload_env_should_throw_error_if_wrong_extension():
     with pytest.raises(ValueError):
-        packaging.upload_env_to_hdfs("myarchive.tar.gz", packer=packaging.CONDA_PACKER)
+        packaging.upload_env("myarchive.tar.gz", packer=packaging.CONDA_PACKER)
 
 
-def test_upload_zip_to_hdfs():
-    home_hdfs_path = '/user/j.doe'
-    with mock.patch(f"{MODULE_TO_TEST}.tf") as mock_tf:
+def test_upload_zip():
+    home_fs_path = '/user/j.doe'
+    with mock.patch(
+            f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path") as mock_resolve_fs:
+        mock_fs = mock.MagicMock()
+        mock_resolve_fs.return_value = mock_fs, ""
         with mock.patch(f"{MODULE_TO_TEST}.request") as mock_request:
             with mock.patch(f"{MODULE_TO_TEST}.tempfile") as mock_tempfile:
 
-                mock_tf.gfile.Exists.return_value = False
+                mock_fs.exists.return_value = False
                 mock_tempfile.TemporaryDirectory.return_value.__enter__.return_value = "/tmp"
 
-                result = packaging.upload_zip_to_hdfs(
+                result = packaging.upload_zip(
                     "http://myserver/mypex.pex",
-                    f"{home_hdfs_path}/blah.pex"
+                    f"{home_fs_path}/blah.pex"
                 )
 
                 mock_request.urlretrieve.assert_called_once_with(
                     "http://myserver/mypex.pex",
                     "/tmp/mypex.pex")
-                mock_tf.gfile.MakeDirs.assert_called_once_with(home_hdfs_path)
-                mock_tf.gfile.Copy.assert_any_call(
-                    "/tmp/mypex.pex", f"{home_hdfs_path}/blah.pex", overwrite=True)
+                mock_fs.put.assert_any_call("/tmp/mypex.pex", f"{home_fs_path}/blah.pex")
 
                 assert "/user/j.doe/blah.pex" == result
 
 
-def test_upload_env_to_hdfs_in_a_pex():
+def test_upload_env_in_a_pex():
     home_path = '/home/j.doe'
-    home_hdfs_path = '/user/j.doe'
+    home_fs_path = '/user/j.doe'
     with contextlib.ExitStack() as stack:
         mock_running_from_pex = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}._running_from_pex"))
@@ -240,14 +249,19 @@ def test_upload_env_to_hdfs_in_a_pex():
         mock_pex_filepath = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}.get_current_pex_filepath"))
         mock_pex_filepath.return_value = f"{home_path}/myapp.pex"
-        mock_tf = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.tf"))
+
+        mock_resolve_fs = stack.enter_context(
+            mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path"))
+        mock_fs = mock.MagicMock()
+        mock_resolve_fs.return_value = mock_fs, ""
+
         mock__get_archive_metadata_path = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}._get_archive_metadata_path")
         )
-        mock__get_archive_metadata_path.return_value = f"{home_hdfs_path}/blah.json"
+        mock__get_archive_metadata_path.return_value = f"{home_fs_path}/blah.json"
 
-        # metadata & pex already exists on hdfs
-        mock_tf.gfile.Exists.return_value = True
+        # metadata & pex already exists on fs
+        mock_fs.exists.return_value = True
 
         mock_pex_info = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}.PexInfo")
@@ -261,17 +275,14 @@ def test_upload_env_to_hdfs_in_a_pex():
 
         mock_pex_info.from_pex.side_effect = _from_pex
 
-        result = packaging.upload_env_to_hdfs(f'{home_hdfs_path}/blah.pex')
+        result = packaging.upload_env(f'{home_fs_path}/blah.pex')
 
-        # Check existing pex on hdfs is downloaded to compare code_hash with file to upload
-        mock_tf.gfile.Copy.assert_any_call(
-            f'{home_hdfs_path}/blah.pex', mock.ANY)
         # Check copy pex to remote
-        mock_tf.gfile.MakeDirs.assert_called_once_with(home_hdfs_path)
-        mock_tf.gfile.Copy.assert_any_call(
-            f'{home_path}/myapp.pex', f'{home_hdfs_path}/blah.pex', overwrite=True)
+        mock_fs.put.assert_any_call(
+            f'{home_path}/myapp.pex',
+            f'{home_fs_path}/blah.pex')
         # Check metadata has been cleaned
-        mock_tf.gfile.Remove.assert_called_once_with(f'{home_hdfs_path}/blah.json')
+        mock_fs.rm.assert_called_once_with(f'{home_fs_path}/blah.json')
         # check envname
         assert 'myapp' == result[1]
 

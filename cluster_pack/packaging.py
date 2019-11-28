@@ -21,7 +21,7 @@ from typing import (
 from urllib import parse, request
 import uuid
 import zipfile
-import tensorflow as tf
+import pyarrow
 import __main__
 
 try:
@@ -37,6 +37,7 @@ from pex.resolver_options import ResolverOptionsBuilder
 from pex.pex_info import PexInfo
 from pex.interpreter import PythonInterpreter
 
+from cluster_pack import filesystem
 
 CRITEO_PYPI_URL = "http://build-nexus.prod.crto.in/repository/pypi/simple"
 
@@ -272,55 +273,59 @@ PEX_PACKER = Packer(
 )
 
 
-def get_editable_requirements(executable: str = sys.executable):
+def _get_editable_requirements(executable: str = sys.executable):
     def _get(name):
         pkg = __import__(name.replace("-", "_"))
         return os.path.dirname(pkg.__file__)
     return [_get(package["name"]) for package in _get_packages(True, executable)]
 
 
-def get_non_editable_requirements(executable: str = sys.executable):
+def _get_non_editable_requirements(executable: str = sys.executable):
     return _get_packages(False, executable)
 
 
-def _get_archive_metadata_path(archive_on_hdfs: str) -> str:
-    url = parse.urlparse(archive_on_hdfs)
+def _get_archive_metadata_path(package_path: str) -> str:
+    url = parse.urlparse(package_path)
     return url._replace(path=str(pathlib.Path(url.path).with_suffix('.json'))).geturl()
 
 
-def _is_archive_up_to_date(archive_on_hdfs: str,
-                           current_packages_list: Dict[str, str]
+def _is_archive_up_to_date(package_path: str,
+                           current_packages_list: Dict[str, str],
+                           resolved_fs=None
                            ) -> bool:
-    if not tf.gfile.Exists(archive_on_hdfs):
+    if not resolved_fs.exists(package_path):
         return False
-    archive_meta_data = _get_archive_metadata_path(archive_on_hdfs)
-    if not tf.gfile.Exists(archive_meta_data):
-        _logger.debug(f'metadata for archive {archive_on_hdfs} does not exist')
+    archive_meta_data = _get_archive_metadata_path(package_path)
+    if not resolved_fs.exists(archive_meta_data):
+        _logger.debug(f'metadata for archive {package_path} does not exist')
         return False
-    with tf.gfile.GFile(archive_meta_data, "rb") as fd:
+    with resolved_fs.open(archive_meta_data, "rb") as fd:
         packages_installed = json.loads(fd.read())
         return sorted(packages_installed.items()) == sorted(current_packages_list.items())
 
 
-def _dump_archive_metadata(archive_on_hdfs: str,
-                           current_packages_list: Dict[str, str]
+def _dump_archive_metadata(package_path: str,
+                           current_packages_list: Dict[str, str],
+                           resolved_fs=None
                            ):
-    archive_meta_data = _get_archive_metadata_path(archive_on_hdfs)
+    archive_meta_data = _get_archive_metadata_path(package_path)
     with tempfile.TemporaryDirectory() as tempdir:
         tempfile_path = os.path.join(tempdir, "metadata.json")
         with open(tempfile_path, "w") as fd:
             fd.write(json.dumps(current_packages_list, sort_keys=True, indent=4))
-        if tf.gfile.Exists(archive_meta_data):
-            tf.gfile.Remove(archive_meta_data)
-        tf.gfile.Copy(tempfile_path, archive_meta_data)
+        if resolved_fs.exists(archive_meta_data):
+            resolved_fs.rm(archive_meta_data)
+        resolved_fs.put(tempfile_path, archive_meta_data)
 
 
-def upload_zip_to_hdfs(
+def upload_zip(
     zip_file: str,
-    archive_on_hdfs: str = None
+    package_path: str = None
 ):
     packer = detect_packer_from_file(zip_file)
-    archive_on_hdfs, _, _ = detect_archive_names(packer, archive_on_hdfs)
+    package_path, _, _ = detect_archive_names(packer, package_path)
+
+    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path)
 
     with tempfile.TemporaryDirectory() as tempdir:
         parsed_url = parse.urlparse(zip_file)
@@ -329,36 +334,39 @@ def upload_zip_to_hdfs(
             request.urlretrieve(zip_file, tmp_zip_file)
             zip_file = tmp_zip_file
 
-        _upload_zip(zip_file, archive_on_hdfs)
+        _upload_zip(zip_file, package_path, resolved_fs)
 
-        return archive_on_hdfs
+        return package_path
 
 
-def upload_env_to_hdfs(
-        archive_on_hdfs: str = None,
+def upload_env(
+        package_path: str = None,
         packer=None,
         additional_packages: Dict[str, str] = {},
         ignored_packages: Collection[str] = []
 ) -> Tuple[str, str]:
     if packer is None:
         packer = detect_packer_from_env()
-    archive_on_hdfs, env_name, pex_file = detect_archive_names(packer, archive_on_hdfs)
+    package_path, env_name, pex_file = detect_archive_names(packer, package_path)
+
+    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path)
 
     if not _running_from_pex():
-        upload_env_to_hdfs_from_venv(
-            archive_on_hdfs, packer,
-            additional_packages, ignored_packages
+        _upload_env_from_venv(
+            package_path, packer,
+            additional_packages, ignored_packages,
+            resolved_fs
         )
     else:
-        _upload_zip(pex_file, archive_on_hdfs)
+        _upload_zip(pex_file, package_path, resolved_fs)
 
-    return (archive_on_hdfs,
+    return (package_path,
             env_name)
 
 
 def detect_archive_names(
         packer: Packer,
-        archive_on_hdfs: str = None
+        package_path: str = None
 ) -> Tuple[str, str, str]:
     if _running_from_pex():
         pex_file = get_current_pex_filepath()
@@ -367,38 +375,40 @@ def detect_archive_names(
         pex_file = ""
         env_name = packer.env_name
 
-    if not archive_on_hdfs:
-        archive_on_hdfs = (f"{get_default_fs()}/user/{getpass.getuser()}"
-                           f"/envs/{env_name}.{packer.extension}")
+    if not package_path:
+        package_path = (f"{get_default_fs()}/user/{getpass.getuser()}"
+                        f"/envs/{env_name}.{packer.extension}")
     else:
-        if pathlib.Path(archive_on_hdfs).suffix != f".{packer.extension}":
-            raise ValueError(f"{archive_on_hdfs} has the wrong extension"
+        if pathlib.Path(package_path).suffix != f".{packer.extension}":
+            raise ValueError(f"{package_path} has the wrong extension"
                              f", .{packer.extension} is expected")
 
-    return archive_on_hdfs, env_name, pex_file
+    return package_path, env_name, pex_file
 
 
-def _upload_zip(zip_file: str, archive_on_hdfs: str):
+def _upload_zip(zip_file: str, package_path: str, resolved_fs=None):
     packer = detect_packer_from_file(zip_file)
-    if packer == PEX_PACKER and tf.gfile.Exists(archive_on_hdfs):
+    if packer == PEX_PACKER and resolved_fs.exists(package_path):
         with tempfile.TemporaryDirectory() as tempdir:
-            local_copy_path = os.path.join(tempdir, os.path.basename(archive_on_hdfs))
-            tf.gfile.Copy(archive_on_hdfs, local_copy_path)
-            info_from_hdfs = PexInfo.from_pex(local_copy_path)
+            local_copy_path = os.path.join(tempdir, os.path.basename(package_path))
+            resolved_fs.get(package_path, local_copy_path)
+            info_from_storage = PexInfo.from_pex(local_copy_path)
             into_to_upload = PexInfo.from_pex(zip_file)
-            if info_from_hdfs.code_hash == into_to_upload.code_hash:
+            if info_from_storage.code_hash == into_to_upload.code_hash:
                 _logger.info(f"skip upload of current {zip_file}"
-                             f" as it is already on hdfs {archive_on_hdfs}")
+                             f" as it is already uploaded on {package_path}")
                 return
 
-    _logger.info(f"upload current {zip_file} to {archive_on_hdfs}")
+    _logger.info(f"upload current {zip_file} to {package_path}")
 
-    tf.gfile.MakeDirs(os.path.dirname(archive_on_hdfs))
-    tf.gfile.Copy(zip_file, archive_on_hdfs, overwrite=True)
+    dir = os.path.dirname(package_path)
+    if not resolved_fs.exists(dir):
+        resolved_fs.mkdir(dir)
+    resolved_fs.put(zip_file, package_path)
     # Remove previous metadata
-    archive_meta_data = _get_archive_metadata_path(archive_on_hdfs)
-    if tf.gfile.Exists(archive_meta_data):
-        tf.gfile.Remove(archive_meta_data)
+    archive_meta_data = _get_archive_metadata_path(package_path)
+    if resolved_fs.exists(archive_meta_data):
+        resolved_fs.rm(archive_meta_data)
 
 
 def detect_packer_from_env() -> Packer:
@@ -417,14 +427,15 @@ def detect_packer_from_file(zip_file: str) -> Packer:
         raise ValueError("Archive format unsupported. Must be .pex or conda .zip")
 
 
-def upload_env_to_hdfs_from_venv(
-        archive_on_hdfs: str,
+def _upload_env_from_venv(
+        package_path: str,
         packer=PEX_PACKER,
         additional_packages: Dict[str, str] = {},
-        ignored_packages: Collection[str] = []
+        ignored_packages: Collection[str] = [],
+        resolved_fs=None
 ):
     current_packages = {package["name"]: package["version"]
-                        for package in get_non_editable_requirements()}
+                        for package in _get_non_editable_requirements()}
 
     if len(additional_packages) > 0:
         current_packages.update(additional_packages)
@@ -434,9 +445,9 @@ def upload_env_to_hdfs_from_venv(
             if name in current_packages:
                 current_packages.pop(name)
 
-    if not _is_archive_up_to_date(archive_on_hdfs, current_packages):
+    if not _is_archive_up_to_date(package_path, current_packages, resolved_fs):
         _logger.info(
-            f"Zipping and uploading your env to {archive_on_hdfs}"
+            f"Zipping and uploading your env to {package_path}"
         )
 
         with tempfile.TemporaryDirectory() as tempdir:
@@ -446,12 +457,14 @@ def upload_env_to_hdfs_from_venv(
                 additional_packages=additional_packages,
                 ignored_packages=ignored_packages
             )
-            tf.gfile.MakeDirs(os.path.dirname(archive_on_hdfs))
-            tf.gfile.Copy(archive_local, archive_on_hdfs, overwrite=True)
+            dir = os.path.dirname(package_path)
+            if not resolved_fs.exists(dir):
+                resolved_fs.mkdir(dir)
+            resolved_fs.put(archive_local, package_path)
 
-            _dump_archive_metadata(archive_on_hdfs, current_packages)
+            _dump_archive_metadata(package_path, current_packages, resolved_fs)
     else:
-        _logger.info(f"{archive_on_hdfs} already exists on hdfs")
+        _logger.info(f"{package_path} already exists")
 
 
 def get_current_pex_filepath() -> str:
@@ -484,7 +497,7 @@ def get_editable_requirements_from_current_venv(
                                   f" repo exists={os.path.exists(package_name)}")
     else:
         editable_requirements = {os.path.basename(requirement_dir): requirement_dir
-                                 for requirement_dir in get_editable_requirements(executable)}
+                                 for requirement_dir in _get_editable_requirements(executable)}
 
     _logger.info(f"found editable requirements {editable_requirements}")
     return editable_requirements
