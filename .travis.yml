@@ -6,6 +6,8 @@ python:
 
 install:
   - set -x
+  - deactivate
+  - which python3.6
   - echo $PATH
   - pip install .
   - pip install pytest
