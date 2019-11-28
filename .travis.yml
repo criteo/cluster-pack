@@ -1,12 +1,18 @@
-language: python
-dist: trusty
+language: generic
 os: linux
-python:
-  - "3.6"
+python: 3.6
+
+before_install:
+  - env
+  - pyenv versions
+  - pyenv local 3.6.7
+  - pip --version
+  - python3.6 -m venv venv
+  - source venv/bin/activate
 
 install:
   - pip install .
-  - pip install pytest
+  - pip install -r tests-requirements.txt
   - pip freeze
 
 script:
