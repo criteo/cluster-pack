@@ -157,6 +157,8 @@ def pack_in_pex(requirements: Dict[str, str],
 
 def _get_packages(editable: bool, executable: str = sys.executable):
     editable_mode = "-e" if editable else "--exclude-editable"
+
+    print("executable=" + executable)
     results = subprocess.check_output(
         [f"{executable}", "-m", "pip", "list", "-l",
          f"{editable_mode}", "--format", "json"]).decode()
