@@ -4,20 +4,10 @@ os: linux
 python:
   - "3.6"
 
-
-before_install:
-  - set -x 
-  - ls /usr/local/bin
-  - ls /usr/bin/
-  - sudo ls /usr/bin/
-  - sudo ls /usr/local/bin
-
 install:
-  - set -x 
   - pip install .
   - pip install pytest
   - pip freeze
-  - which python3.6
 
 script:
   - pytest tests

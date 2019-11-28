@@ -37,8 +37,6 @@ def test_get_virtualenv_empty_returns_default():
         assert 'default' == packaging.get_env_name(VARNAME)
 
 
-@pytest.mark.skipif(not os.path.exists(PYTHON_SYSTEM_EXEC),
-                    reason=SKIP_REASON)
 def test_get_empty_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
@@ -50,8 +48,6 @@ def test_get_empty_editable_requirements():
         assert len(editable_requirements) == 0
 
 
-@pytest.mark.skipif(not os.path.exists(PYTHON_SYSTEM_EXEC),
-                    reason=SKIP_REASON)
 def test_get_empty_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
@@ -63,8 +59,6 @@ def test_get_empty_non_editable_requirements():
         assert len(non_editable_requirements) == 0
 
 
-@pytest.mark.skipif(not os.path.exists(PYTHON_SYSTEM_EXEC),
-                    reason=SKIP_REASON)
 def test_get_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
@@ -74,8 +68,6 @@ def test_get_editable_requirements():
         assert os.path.basename(editable_requirements[0]) == "user_lib"
 
 
-@pytest.mark.skipif(not os.path.exists(PYTHON_SYSTEM_EXEC),
-                    reason=SKIP_REASON)
 def test_get_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         print("tempdir " + tempdir)
@@ -88,7 +80,7 @@ def test_get_non_editable_requirements():
 
 
 def _create_venv(tempdir: str):
-    subprocess.check_call([PYTHON_SYSTEM_EXEC, "-m", "venv", f"{tempdir}"])
+    subprocess.check_call([sys.executable, "-m", "venv", f"{tempdir}"])
 
 
 def _pip_install(tempdir: str):
