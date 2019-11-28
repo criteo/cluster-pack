@@ -4,6 +4,10 @@ os: linux
 python:
   - "3.6"
 
+before_install:
+  - deactivate
+  - which python3.6
+
 install:
   - set -x
   - deactivate
