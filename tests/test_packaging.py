@@ -80,7 +80,7 @@ def test_get_non_editable_requirements():
 
 
 def _create_venv(tempdir: str):
-    print(os.environ["ROOT_PYTHON_INTERPRETER"])
+    #print(os.environ["ROOT_PYTHON_INTERPRETER"])
     subprocess.check_call(["virtualenv", "--python=python3.6", f"{tempdir}"])
 
 
