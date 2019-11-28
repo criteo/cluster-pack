@@ -5,6 +5,7 @@ python:
   - "3.6"
 
 install:
+  - echo $PATH
   - pip install .
   - pip install pytest
   - pip freeze
