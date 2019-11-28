@@ -6,15 +6,14 @@ python:
 
 before_install:
   - deactivate
-  - which python3.6
-  - echo $PATH
-  - echo $PYENV_ROOT
-  - env
+  - VENV_PYTHON_PATH=$(which python | xargs dirname | xargs dirname)
+  - echo $VENV_PYTHON_PATH
+  - deactivate
+  - export ROOT_PYTHON_INTERPRETER=$(which python3.6)
+  - echo $ROOT_PYTHON_INTERPRETER
+  - source $VENV_PYTHON_PATH/bin/activate
 
 install:
-  - set -x
-  - deactivate
-  - which python3.6
   - pip install .
   - pip install pytest
   - pip freeze
