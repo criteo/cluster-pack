@@ -1,4 +1,4 @@
-language: python
+language: generic
 dist: trusty
 os: linux
 python:
@@ -6,15 +6,15 @@ python:
 
 before_install:
   - env
+  - pip --version
+  - python3.6 -h
+  - python3.6 -m venv test_env
+  - test_env/bin/activate
+  - pip install conda-pack
 
 install:
-  - pip --version
-  - pip install .
-  - pip install pytest
-  - pip freeze
 
 script:
-  - pytest -s tests
 
 notifications:
   email: false
