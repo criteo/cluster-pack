@@ -1,8 +1,7 @@
 language: generic
 os: linux
 python:
-  - 3.6.7
-  - 3.6.9
+  - "3.6"
 
 before_install:
   - env
@@ -11,13 +10,16 @@ before_install:
   - pyenv local 3.6.7
   - pip --version
   - python3.6 -h
-  - python3.6 -m venv test_env
-  - source test_env/bin/activate
-  - pip install conda-pack
+  - python3.6 -m venv venv
+  - source venv/bin/activate
 
 install:
+  - pip install .
+  - pip install pytest
+  - pip freeze
 
 script:
+  - pytest tests
 
 notifications:
   email: false
