@@ -1,8 +1,7 @@
 language: generic
-dist: trusty
 os: linux
 python:
-  - "3.6"
+  - 3.6
 
 before_install:
   - env
