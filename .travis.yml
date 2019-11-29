@@ -12,7 +12,7 @@ before_install:
   - pip --version
   - python3.6 -h
   - python3.6 -m venv test_env
-  - test_env/bin/activate
+  - source test_env/bin/activate
   - pip install conda-pack
 
 install:
