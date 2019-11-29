@@ -17,8 +17,6 @@ from cluster_pack import packaging
 
 
 MODULE_TO_TEST = "cluster_pack.packaging"
-PYTHON_SYSTEM_EXEC = '/bin/python3.6'
-SKIP_REASON = f'system python must be installed at {PYTHON_SYSTEM_EXEC}'
 MYARCHIVE_FILENAME = "myarchive.pex"
 MYARCHIVE_METADATA = "myarchive.json"
 VARNAME = 'VARNAME'
@@ -37,8 +35,6 @@ def test_get_virtualenv_empty_returns_default():
         assert 'default' == packaging.get_env_name(VARNAME)
 
 
-@pytest.mark.skipif(not os.path.exists(PYTHON_SYSTEM_EXEC),
-                    reason=SKIP_REASON)
 def test_get_empty_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
@@ -50,8 +46,6 @@ def test_get_empty_editable_requirements():
         assert len(editable_requirements) == 0
 
 
-@pytest.mark.skipif(not os.path.exists(PYTHON_SYSTEM_EXEC),
-                    reason=SKIP_REASON)
 def test_get_empty_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
@@ -63,8 +57,6 @@ def test_get_empty_non_editable_requirements():
         assert len(non_editable_requirements) == 0
 
 
-@pytest.mark.skipif(not os.path.exists(PYTHON_SYSTEM_EXEC),
-                    reason=SKIP_REASON)
 def test_get_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
@@ -74,28 +66,23 @@ def test_get_editable_requirements():
         assert os.path.basename(editable_requirements[0]) == "user_lib"
 
 
-@pytest.mark.skipif(not os.path.exists(PYTHON_SYSTEM_EXEC),
-                    reason=SKIP_REASON)
 def test_get_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
-        print("tempdir " + tempdir)
         _create_venv(tempdir)
         _pip_install(tempdir)
         non_editable_requirements = packaging.get_non_editable_requirements(f"{tempdir}/bin/python")
-        print(f"non_editable_packages: {non_editable_requirements}")
         assert len(non_editable_requirements) == 1
         assert non_editable_requirements[0]["name"] == "cloudpickle"
 
 
 def _create_venv(tempdir: str):
-    subprocess.check_call([PYTHON_SYSTEM_EXEC, "-m", "venv", f"{tempdir}"])
+    subprocess.check_call([sys.executable, "-m", "venv", f"{tempdir}"])
 
 
 def _pip_install(tempdir: str):
     subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
                            "cloudpickle", "pip==18.1"])
     pkg = _get_editable_package_name()
-    print("pgk=" + pkg)
     subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install", "-e", pkg])
     if pkg not in sys.path:
         sys.path.append(pkg)
@@ -334,7 +321,6 @@ def test_get_editable_requirements_from_current_venv():
             editable_requirements = packaging.get_editable_requirements_from_current_venv(
                 editable_packages_dir=tempdir
             )
-            print(editable_requirements)
             assert editable_requirements == {os.path.basename(pkg): pkg}
 
 
