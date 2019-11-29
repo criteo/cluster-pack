@@ -5,6 +5,9 @@ python:
 
 before_install:
   - env
+  - pyenv versions
+  - pyenv version
+  - pyenv local  3.6
   - pip --version
   - python3.6 -h
   - python3.6 -m venv test_env
