@@ -1,13 +1,14 @@
 language: generic
 os: linux
 python:
-  - 3.6
+  - 3.6.7
+  - 3.6.9
 
 before_install:
   - env
   - pyenv versions
   - pyenv version
-  - pyenv local  3.6
+  - pyenv local 3.6.7
   - pip --version
   - python3.6 -h
   - python3.6 -m venv test_env
