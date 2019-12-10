@@ -2,6 +2,20 @@ language: generic
 os: linux
 python: 3.6
 
+jobs:
+  include:
+  - name: TOXENV=lint
+    script: tox -v -e lint
+  - name: py36-test
+    install: 
+      - pip install .
+      - pip install -r tests-requirements.txt
+    script: pytest -s tests
+  - name: TOXENV=mypy
+    script: tox -v -e mypy
+  - name: TOXENV=env-check
+    script: tox -v -e env-check
+
 before_install:
   - env
   - pyenv versions
@@ -10,13 +24,10 @@ before_install:
   - python3.6 -m venv venv
   - source venv/bin/activate
 
-install:
-  - pip install .
-  - pip install -r tests-requirements.txt
-  - pip freeze
 
-script:
-  - pytest tests
+install:
+  - pip install tox
+  - pip freeze
 
 notifications:
   email: false
