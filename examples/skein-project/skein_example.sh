@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # install venv
-python3.6 -m venv skein_env
-. skein_env/bin/activate
+python3.6 -m venv skein_project_env
+. skein_project_env/bin/activate
 pip install --upgrade pip
 pip install -e .
 

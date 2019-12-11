@@ -9,7 +9,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level="INFO")
 
-    package_path, _ = packaging.upload_env_to_hdfs()
+    package_path, _ = packaging.upload_env()
 
     script = skein_config_builder.get_script(
         package_path,
