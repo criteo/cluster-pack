@@ -43,6 +43,6 @@ setuptools.setup(
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
     classifiers=CLASSIFIERS,
-    keywords="",
-    url=""
+    keywords="hadoop distributed cluster S3 HDFS",
+    url="https://github.com/criteo/cluster-pack"
 )
