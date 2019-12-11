@@ -505,5 +505,6 @@ def _running_from_pex() -> bool:
     except ModuleNotFoundError:
         return False
 
+
 def _is_criteo():
     return "CRITEO_ENV" in os.environ
