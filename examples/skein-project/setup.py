@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import setuptools
 
 setuptools.setup(
@@ -10,5 +8,9 @@ setuptools.setup(
     install_requires=[
         "skein",
         "numpy",
-        "cluster-pack@git+git://github.com/criteo/cluster-pack@master#egg=cluster-pack"
-    ])
+        "cluster-pack"
+    ],
+    maintainer="Criteo",
+    maintainer_email="github@criteo.com",
+    url="https://github.com/criteo/cluster-pack"
+)
