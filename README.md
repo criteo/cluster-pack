@@ -29,7 +29,7 @@ cluster-pack supports Python ≥3.6.
 ## Basic example with [skein][skein]
 
 
-1) Prepare a [virtual environment][virtual environment] and install the sample project using skein
+1) Prepare a [virtual environment][virtual environment] and install the [sample project](https://github.com/criteo/cluster-pack/tree/master/examples/skein-project) using skein
 
 ```bash
 $ cd examples/skein-project
