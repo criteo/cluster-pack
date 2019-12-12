@@ -35,14 +35,15 @@ cluster-pack supports Python ≥3.6.
 $ cd examples/skein-project
 $ python3.6 -m venv skein_env
 $ . skein_env/bin/activate
-$ pip install --upgrade pip
-$ pip install .
+$ pip install --upgrade pip setuptools
+$ pip install -e .
 python
 ```
 
 2) Upload current virtual environment to the distributed storage
 
 ```python
+from cluster_pack import packaging
 package_path, _ = packaging.upload_env()
 ```
 
@@ -50,6 +51,7 @@ package_path, _ = packaging.upload_env()
    [`skein_project.worker`][skein_project.worker] is the module we want to call remotly (it has been shipped by cluster-pack)
 
 ```python
+from cluster_pack.skein import skein_config_builder
 script = skein_config_builder.get_script(
     package_path, 
     module_name="skein_project.worker")
@@ -59,14 +61,15 @@ files = skein_config_builder.get_files(package_path)
 4) Submit a simple skein application
 
 ```python
- with skein.Client() as client:
-        service = skein.Service(
-            resources=skein.model.Resources("1 GiB", 1),
-            files=files,
-            script=script
-        )
-        spec = skein.ApplicationSpec(services={"service": service})
-        app_id = client.submit(spec)
+import skein
+with skein.Client() as client:
+    service = skein.Service(
+        resources=skein.model.Resources("1 GiB", 1),
+        files=files,
+        script=script
+    )
+    spec = skein.ApplicationSpec(services={"service": service})
+    app_id = client.submit(spec)
 ```
 
 [pex]: (https://github.com/pantsbuild/pex)
