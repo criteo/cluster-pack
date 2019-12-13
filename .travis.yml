@@ -26,6 +26,7 @@ before_install:
 
 
 install:
+  - pip install -U pip setuptools
   - pip install tox
   - pip freeze
 

@@ -1,5 +1,6 @@
 import os
 import setuptools
+import versioneer
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -33,7 +34,7 @@ CLASSIFIERS = [
 setuptools.setup(
     name="cluster_pack",
     packages=setuptools.find_packages(),
-    version="0.0.1",
+    version=versioneer.get_version(),
     install_requires=REQUIREMENTS,
     tests_require=["pytest"],
     python_requires=">=3.6",

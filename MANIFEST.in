@@ -1,3 +1,8 @@
+recursive-include cluster_pack *.py
+include setup.py
 include *.md
 include LICENSE
+include MANIFEST.in
 include requirements.txt
+include versioneer.py
+include cluster_pack/_version.py
