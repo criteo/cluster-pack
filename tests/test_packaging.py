@@ -54,7 +54,7 @@ def test_get_empty_non_editable_requirements():
                     f"{tempdir}/bin/python", "-m", "pip", "install",
                     "-e", _get_editable_package_name(), "pip==18.1"
                     ])
-        non_editable_requirements = packaging._get_non_editable_requirements(
+        non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python")
         assert len(non_editable_requirements) == 0
 
@@ -68,11 +68,11 @@ def test__get_editable_requirements():
         assert os.path.basename(editable_requirements[0]) == "user_lib"
 
 
-def test__get_non_editable_requirements():
+def test_get_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
         _pip_install(tempdir)
-        non_editable_requirements = packaging._get_non_editable_requirements(
+        non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python")
         assert len(non_editable_requirements) == 1
         assert non_editable_requirements[0]["name"] == "cloudpickle"
@@ -172,7 +172,7 @@ def test_upload_env():
         mock_is_archive = stack.enter_context(
                 mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date"))
         mock_get_packages = stack.enter_context(
-                mock.patch(f"{MODULE_TO_TEST}._get_non_editable_requirements"))
+                mock.patch(f"{MODULE_TO_TEST}.get_non_editable_requirements"))
 
         mock_resolve_fs = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path"))

@@ -1,7 +1,7 @@
 import logging
 import skein
 
-from cluster_pack import packaging
+import cluster_pack
 from cluster_pack.skein import skein_config_builder, skein_helper
 
 
@@ -9,7 +9,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level="INFO")
 
-    package_path, _ = packaging.upload_env()
+    package_path, _ = cluster_pack.upload_env()
 
     script = skein_config_builder.get_script(
         package_path,

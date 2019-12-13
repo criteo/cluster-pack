@@ -280,7 +280,7 @@ def _get_editable_requirements(executable: str = sys.executable):
     return [_get(package["name"]) for package in _get_packages(True, executable)]
 
 
-def _get_non_editable_requirements(executable: str = sys.executable):
+def get_non_editable_requirements(executable: str = sys.executable):
     return _get_packages(False, executable)
 
 
@@ -435,7 +435,7 @@ def _upload_env_from_venv(
         resolved_fs=None
 ):
     current_packages = {package["name"]: package["version"]
-                        for package in _get_non_editable_requirements()}
+                        for package in get_non_editable_requirements()}
 
     if len(additional_packages) > 0:
         current_packages.update(additional_packages)

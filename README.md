@@ -43,8 +43,8 @@ python
 2) Upload current virtual environment to the distributed storage (HDFS in this case)
 
 ```python
-from cluster_pack import packaging
-package_path, _ = packaging.upload_env()
+import cluster_pack
+package_path, _ = cluster_pack.upload_env()
 ```
 
 3) Call skein config helper to get the config that easily accesses those uploaded packages on the cluster,
