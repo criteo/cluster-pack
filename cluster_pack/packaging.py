@@ -475,7 +475,7 @@ def get_current_pex_filepath() -> str:
     return os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(_pex.__file__))))
 
 
-def get_editable_requirements_from_current_venv(
+def get_editable_requirements(
     executable: str = sys.executable,
     editable_packages_dir: str = os.getcwd()
 ):
