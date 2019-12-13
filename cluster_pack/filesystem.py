@@ -53,9 +53,6 @@ class EnhancedFileSystem(filesystem.FileSystem):
                     target.write(out)
 
 
-_cached_hdfs_fs: Dict[str, EnhancedFileSystem] = {}
-
-
 def resolve_filesystem_and_path(uri: str, **kwargs) -> Tuple[EnhancedFileSystem, str]:
     parsed_uri = urlparse(uri)
     fs_path = parsed_uri.path
@@ -72,13 +69,8 @@ def resolve_filesystem_and_path(uri: str, **kwargs) -> Tuple[EnhancedFileSystem,
         if len(netloc_split) == 2 and netloc_split[1].isnumeric():
             port = int(netloc_split[1])
 
-        if host not in _cached_hdfs_fs:
-            _logger.debug(f"create hdfs fs with {host}")
-            fs = EnhancedFileSystem(pyarrow.hdfs.connect(host=host, port=port))
-            _cached_hdfs_fs[host] = fs
-            return fs, fs_path
-        else:
-            return _cached_hdfs_fs[host], fs_path
+        fs = EnhancedFileSystem(pyarrow.hdfs.connect(host=host, port=port))
+        return fs, fs_path
     elif parsed_uri.scheme == 's3' or parsed_uri.scheme == 's3a':
         fs = pyarrow.filesystem.S3FSWrapper(S3FileSystem(**kwargs))
         return EnhancedFileSystem(fs), fs_path
