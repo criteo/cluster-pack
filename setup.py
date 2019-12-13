@@ -4,8 +4,13 @@ import versioneer
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-DESCRIPTION = ""
-LONG_DESCRIPTION = ""
+DESCRIPTION = ("A library on top of either pex or conda-pack"
+               "to make your Python code easily available on a cluster")
+
+try:
+    LONG_DESCRIPTION = open(os.path.join(here, "README.md"), encoding="utf-8").read()
+except Exception:
+    LONG_DESCRIPTION = ""
 
 
 def _read_reqs(relpath):
