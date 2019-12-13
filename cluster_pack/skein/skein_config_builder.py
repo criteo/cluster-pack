@@ -44,7 +44,7 @@ def get_files(
                             for path in files_to_upload}
 
     editable_packages = {name: packaging.zip_path(path, False) for name, path in
-                         packaging.get_editable_requirements_from_current_venv().items()}
+                         packaging.get_editable_requirements().items()}
     dict_files_to_upload.update(editable_packages)
 
     return dict_files_to_upload

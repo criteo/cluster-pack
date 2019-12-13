@@ -59,7 +59,7 @@ def test_get_empty_non_editable_requirements():
         assert len(non_editable_requirements) == 0
 
 
-def test_get_editable_requirements():
+def test__get_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
         _pip_install(tempdir)
@@ -321,7 +321,7 @@ def test_create_conda_env():
         check_output([env_python_bin, "-m", "pycodestyle", "--version"])
 
 
-def test_get_editable_requirements_from_current_venv():
+def test_get_editable_requirements():
     with mock.patch(f"{MODULE_TO_TEST}._running_from_pex") as mock_running_from_pex:
         mock_running_from_pex.return_value = True
         with tempfile.TemporaryDirectory() as tempdir:
@@ -329,7 +329,7 @@ def test_get_editable_requirements_from_current_venv():
             _create_editable_files(tempdir, os.path.basename(pkg))
             shutil.copytree(pkg, f"{tempdir}/{os.path.basename(pkg)}")
 
-            editable_requirements = packaging.get_editable_requirements_from_current_venv(
+            editable_requirements = packaging.get_editable_requirements(
                 editable_packages_dir=tempdir
             )
             assert editable_requirements == {os.path.basename(pkg): pkg}
