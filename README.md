@@ -40,7 +40,7 @@ $ pip install -e .
 python
 ```
 
-2) Upload current virtual environment to the distributed storage
+2) Upload current virtual environment to the distributed storage (HDFS in this case)
 
 ```python
 from cluster_pack import packaging
@@ -72,10 +72,10 @@ with skein.Client() as client:
     app_id = client.submit(spec)
 ```
 
-[pex]: (https://github.com/pantsbuild/pex)
-[conda-pack]: (https://github.com/conda/conda-pack)
-[editable installs mode]: (https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs)
+[pex]: https://github.com/pantsbuild/pex
+[conda-pack]: https://github.com/conda/conda-pack
+[editable installs mode]: https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs
 [skein_project.worker]: https://github.com/criteo/cluster-pack/blob/master/cluster_pack/examples/skein-project/skein_project/worker.py
-[virtual environment]: (https://docs.python.org/3/tutorial/venv.html)
-[skein-github]: (https://github.com/jcrist/skein)
-[skein]: (https://jcrist.github.io/skein/quickstart.html)
+[virtual environment]: https://docs.python.org/3/tutorial/venv.html
+[skein-github]: https://github.com/jcrist/skein
+[skein]: https://jcrist.github.io/skein/quickstart.html
