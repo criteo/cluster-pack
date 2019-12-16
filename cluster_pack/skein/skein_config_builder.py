@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 def get_script(
         archive_hdfs: str,
         module_name: str,
-        args: Optional[str] = None,
-        additional_files: Optional[List[str]] = None
+        args: Optional[str] = None
 ) -> str:
     python_bin = f"./{os.path.basename(archive_hdfs)}" if archive_hdfs.endswith(
         '.pex') else f"./{os.path.basename(archive_hdfs)}/bin/python"
@@ -33,7 +32,8 @@ def get_script(
 
 def get_files(
         archive_hdfs: str,
-        additional_files: Optional[List[str]] = None
+        additional_files: Optional[List[str]] = None,
+        tmp_dir: str = packaging._get_tmp_dir()
 ) -> Dict[str, str]:
 
     files_to_upload = [archive_hdfs]
@@ -43,8 +43,24 @@ def get_files(
     dict_files_to_upload = {os.path.basename(path): path
                             for path in files_to_upload}
 
+    editable_requirements = packaging.get_editable_requirements()
+
     editable_packages = {name: packaging.zip_path(path, False) for name, path in
-                         packaging.get_editable_requirements().items()}
+                         editable_requirements.items()}
     dict_files_to_upload.update(editable_packages)
+
+    editable_packages_index = f"{tmp_dir}/{packaging.EDITABLE_PACKAGES_INDEX}"
+
+    try:
+        os.remove(editable_packages_index)
+    except OSError:
+        pass
+
+    with open(editable_packages_index, "w+") as file:
+        for repo in editable_requirements.keys():
+            file.write(repo + "\n")
+    dict_files_to_upload[
+        packaging.EDITABLE_PACKAGES_INDEX
+    ] = editable_packages_index
 
     return dict_files_to_upload
