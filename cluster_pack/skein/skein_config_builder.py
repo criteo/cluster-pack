@@ -1,25 +1,94 @@
+import cloudpickle
 import logging
 import os
 import skein
 import time
 
-from typing import Dict, List, Optional
+from typing import NamedTuple, Callable, Dict, List, Optional, Any
 
 from cluster_pack import packaging
 
 logger = logging.getLogger(__name__)
 
 
-def get_script(
-        archive_hdfs: str,
+class SkeinConfig(NamedTuple):
+    script: str
+    files: Dict[str, str]
+
+
+def build_with_func(
+        func: Callable,
+        args: List[Any] = [],
+        package_path: Optional[str] = None,
+        additional_files: Optional[List[str]] = None,
+        tmp_dir: str = packaging._get_tmp_dir()
+) -> SkeinConfig:
+    """Build the skein config from provided a function
+
+    The function is serialized and shipped to the container
+
+    Returns
+    -------
+    SkeinConfig
+    """
+    function_path = f'{tmp_dir}/function.dat'
+    val_to_serialize = {
+        "func": func,
+        "args": args
+    }
+    with open(function_path, "wb") as fd:
+        cloudpickle.dump(val_to_serialize, fd)
+
+    if additional_files:
+        additional_files.append(function_path)
+    else:
+        additional_files = [function_path]
+
+    return build(
+        'cluster_pack.skein._execute_fun',
+        ['function.dat'],
+        package_path,
+        additional_files,
+        tmp_dir)
+
+
+def build(
         module_name: str,
-        args: Optional[str] = None
+        args: List[Any] = [],
+        package_path: Optional[str] = None,
+        additional_files: Optional[List[str]] = None,
+        tmp_dir: str = packaging._get_tmp_dir()
+) -> SkeinConfig:
+    """Build the skein config for a module to execute
+
+    Returns
+    -------
+    SkeinConfig
+
+    """
+    if not package_path:
+        package_path, _ = packaging.upload_env()
+
+    script = _get_script(
+        package_path,
+        module_name,
+        args)
+
+    files = _get_files(package_path, additional_files, tmp_dir)
+
+    return SkeinConfig(script, files)
+
+
+def _get_script(
+        package_path: str,
+        module_name: str,
+        args: List[Any] = []
 ) -> str:
-    python_bin = f"./{os.path.basename(archive_hdfs)}" if archive_hdfs.endswith(
-        '.pex') else f"./{os.path.basename(archive_hdfs)}/bin/python"
+    python_bin = f"./{os.path.basename(package_path)}" if package_path.endswith(
+        '.pex') else f"./{os.path.basename(package_path)}/bin/python"
 
     launch_options = "-m" if not module_name.endswith(".py") else ""
-    launch_args = args if args else ""
+    launch_args = " ".join(args)
 
     script = f'''
                 export PEX_ROOT="./.pex"
@@ -30,13 +99,13 @@ def get_script(
     return script
 
 
-def get_files(
-        archive_hdfs: str,
+def _get_files(
+        package_path: str,
         additional_files: Optional[List[str]] = None,
         tmp_dir: str = packaging._get_tmp_dir()
 ) -> Dict[str, str]:
 
-    files_to_upload = [archive_hdfs]
+    files_to_upload = [package_path]
     if additional_files:
         files_to_upload = files_to_upload + additional_files
 

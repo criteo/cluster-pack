@@ -13,16 +13,17 @@ if __name__ == "__main__":
     package_path, _ = cluster_pack.upload_env()
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        script = skein_config_builder.get_script(
-            package_path,
-            module_name="skein_project.worker")
-        files = skein_config_builder.get_files(package_path, tmp_dir=tmp_dir)
+        skein_config = skein_config_builder.build(
+            module_name="skein_project.worker",
+            package_path=package_path,
+            tmp_dir=tmp_dir
+        )
 
         with skein.Client() as client:
             service = skein.Service(
                 resources=skein.model.Resources("1 GiB", 1),
-                files=files,
-                script=script
+                files=skein_config.files,
+                script=skein_config.script
             )
             spec = skein.ApplicationSpec(services={"service": service})
             app_id = client.submit(spec)
