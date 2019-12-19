@@ -5,8 +5,8 @@
 
 ```bash
 $ cd examples/skein-project
-$ python3.6 -m venv skein_env
-$ . skein_env/bin/activate
+$ python3.6 -m venv venv
+$ . venv/bin/activate
 $ pip install --upgrade pip setuptools
 $ pip install -e .
 python
