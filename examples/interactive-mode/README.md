@@ -5,9 +5,9 @@
 
 ```bash
 $ cd examples/interactive-mode
-$ python3.6 -m venv interactive_mode_env
-$ . interactive_mode_env/bin/activate
-$ pip install numpy skein
+$ python3.6 -m venv venv
+$ . venv/bin/activate
+$ pip install cluster-pack numpy skein
 python
 ```
 
@@ -33,7 +33,7 @@ package_path, _ = cluster_pack.upload_env()
 ```python
 from cluster_pack.skein import skein_config_builder
 skein_config = skein_config_builder.build_with_func(
-    compute_intersection,
+    func=compute_intersection,
     package_path=package_path
 )
 ```

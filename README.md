@@ -4,10 +4,18 @@ cluster-pack is a library on top of either [pex][pex] or [conda-pack][conda-pack
 
 Its goal is to make your prod/dev Python code & libraries easiliy available on any cluster. cluster-pack supports HDFS/S3 as a distributed storage.
 
-The first examples use [skein][skein-github]. We will add more examples for other applications (like Pyspark, Dask) with other compute clusters (like mesos, kubernetes) soon.
+The first examples use [Skein][skein]. We will add more examples for other applications (like Pyspark, Dask) with other compute clusters (like mesos, kubernetes) soon.
 
 
 ## Installation
+
+### Install with Pip
+
+```bash
+$ pip install cluster-pack
+```
+
+### Install from source
 
 ```bash
 $ git clone https://github.com/criteo/cluster-pack
@@ -28,9 +36,9 @@ cluster-pack supports Python ≥3.6.
 
 ## Basic examples with [skein][skein]
 
-1) [Interactive mode](https://github.com/criteo/cluster-pack/blob/master/examples/skein-project/README.md) 
+1) [Interactive mode](https://github.com/criteo/cluster-pack/blob/master/examples/interactive-mode/README.md)
 
-2) [Self shipping project](https://github.com/criteo/cluster-pack/blob/master/examples/interactive-mode/README.md) 
+2) [Self shipping project](https://github.com/criteo/cluster-pack/blob/master/examples/skein-project/README.md)
 
 [pex]: https://github.com/pantsbuild/pex
 [conda-pack]: https://github.com/conda/conda-pack
