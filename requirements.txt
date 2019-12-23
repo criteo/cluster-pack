@@ -1,5 +1,5 @@
 cloudpickle==1.0.0
-pex==1.6.12
+pex==2.1.0
 conda-pack
 pip>=18.1
 pyarrow
