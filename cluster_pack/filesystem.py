@@ -58,7 +58,7 @@ def resolve_filesystem_and_path(uri: str, **kwargs) -> Tuple[EnhancedFileSystem,
     fs_path = parsed_uri.path
     # from https://github.com/apache/arrow/blob/master/python/pyarrow/filesystem.py#L419
     # with viewfs support
-    if parsed_uri.scheme == 'hdfs' or parsed_uri.scheme == 'viewfs' or not parsed_uri.scheme:
+    if parsed_uri.scheme == 'hdfs' or parsed_uri.scheme == 'viewfs':
         netloc_split = parsed_uri.netloc.split(':')
         host = netloc_split[0]
         if host == '':
@@ -70,9 +70,11 @@ def resolve_filesystem_and_path(uri: str, **kwargs) -> Tuple[EnhancedFileSystem,
             port = int(netloc_split[1])
 
         fs = EnhancedFileSystem(pyarrow.hdfs.connect(host=host, port=port))
-        return fs, fs_path
     elif parsed_uri.scheme == 's3' or parsed_uri.scheme == 's3a':
-        fs = pyarrow.filesystem.S3FSWrapper(S3FileSystem(**kwargs))
-        return EnhancedFileSystem(fs), fs_path
+        fs = EnhancedFileSystem(pyarrow.filesystem.S3FSWrapper(S3FileSystem(**kwargs)))
     else:
-        raise ValueError(f"scheme not supported: {parsed_uri.scheme}")
+        # Input is local path such as /home/user/myfile.parquet
+        fs = EnhancedFileSystem(pyarrow.filesystem.LocalFileSystem.get_instance())
+
+    _logger.info(f"Resolved base filesystem: {type(fs.base_fs)}")
+    return fs, fs_path
