@@ -29,19 +29,14 @@ try:
 except NotImplementedError:
     # conda is not supported on windows
     pass
-from pex.fetcher import Fetcher, PyPIFetcher
 from pex.pex_builder import PEXBuilder
-from pex.resolvable import Resolvable
 from pex.resolver import resolve_multi, Unsatisfiable, Untranslateable
-from pex.resolver_options import ResolverOptionsBuilder
 from pex.pex_info import PexInfo
 from pex.interpreter import PythonInterpreter
 
 from cluster_pack import filesystem
 
 CRITEO_PYPI_URL = "http://build-nexus.prod.crto.in/repository/pypi/simple"
-
-CUSTOM_WHEELS_DIR = "custom_wheels"
 
 CONDA_DEFAULT_ENV = 'CONDA_DEFAULT_ENV'
 
@@ -114,20 +109,6 @@ def pack_in_pex(requirements: Dict[str, str],
     """
     requirements_to_install = format_requirements(requirements)
 
-    fetchers = []
-
-    if os.path.exists(CUSTOM_WHEELS_DIR):
-        _logger.info(f"Use wheels from repo {CUSTOM_WHEELS_DIR}")
-        fetchers.append(Fetcher([CUSTOM_WHEELS_DIR]))
-    if _is_criteo():
-        fetchers.append(PyPIFetcher(pypi_base=CRITEO_PYPI_URL))
-    fetchers.append(PyPIFetcher())
-    resolver_option_builder = ResolverOptionsBuilder(
-        use_manylinux=True,
-        fetchers=fetchers)
-    resolvables = [Resolvable.get(req, resolver_option_builder) for
-                   req in requirements_to_install]
-
     interpreter = PythonInterpreter.get()
     pex_info = PexInfo.default(interpreter)
     pex_info.ignore_errors = True
@@ -138,13 +119,14 @@ def pack_in_pex(requirements: Dict[str, str],
         pex_info=pex_info)
 
     try:
-        resolveds = resolve_multi(resolvables, use_manylinux=True)
+        resolveds = resolve_multi(
+            requirements=requirements_to_install,
+            indexes=[CRITEO_PYPI_URL] if _is_criteo() else None)
+
         for resolved in resolveds:
             if resolved.distribution.key in ignored_packages:
                 _logger.debug("Ignoring requirement %s", resolved.distribution)
                 continue
-
-            _logger.debug("Add requirement %s", resolved.distribution)
             pex_builder.add_distribution(resolved.distribution)
             pex_builder.add_requirement(resolved.requirement)
     except (Unsatisfiable, Untranslateable):
