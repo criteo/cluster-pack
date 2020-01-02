@@ -94,7 +94,8 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
 
 def pack_in_pex(requirements: Dict[str, str],
                 output: str,
-                ignored_packages: Collection[str] = []
+                ignored_packages: Collection[str] = [],
+                pex_inherit_path: str = "prefer"
                 ) -> str:
     """
     Pack current environment using a pex.
@@ -108,8 +109,7 @@ def pack_in_pex(requirements: Dict[str, str],
 
     interpreter = PythonInterpreter.get()
     pex_info = PexInfo.default(interpreter)
-    pex_info.ignore_errors = True
-    pex_info.inherit_path = "prefer"
+    pex_info.inherit_path = pex_inherit_path
     pex_builder = PEXBuilder(
         copy=True,
         interpreter=interpreter,

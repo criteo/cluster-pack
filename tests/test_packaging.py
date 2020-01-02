@@ -171,3 +171,35 @@ def _create_editable_files(tempdir, pkg):
     with open(f"{tempdir}/{packaging.EDITABLE_PACKAGES_INDEX}", "w") as file:
         for repo in [pkg, "not-existing-pgk"]:
             file.write(repo + "\n")
+
+
+@contextlib.contextmanager
+def does_not_raise():
+    yield
+
+
+# check fix of https://issues.apache.org/jira/browse/ARROW-5130
+# which only works with pulled manylinux2010 wheel
+@pytest.mark.parametrize(
+    "pyarrow_version,expectation",
+    [
+        ("0.14.1", does_not_raise()),
+        ("0.13.0", pytest.raises(subprocess.CalledProcessError)),
+    ]
+)
+def test_pack_in_pex(pyarrow_version, expectation):
+    with tempfile.TemporaryDirectory() as tempdir:
+        requirements = {"tensorflow": "1.15.0", "pyarrow": pyarrow_version}
+        packaging.pack_in_pex(
+            requirements,
+            f"{tempdir}/out.pex",
+            # make isolated pex from current pytest virtual env
+            pex_inherit_path="false")
+        assert os.path.exists(f"{tempdir}/out.pex")
+        with expectation:
+            subprocess.check_output([
+                f"{tempdir}/out.pex",
+                "-c",
+                """import pyarrow; import tensorflow;
+                   print("Successfully imported pyarrow and tensorflow!")"""]
+            )
