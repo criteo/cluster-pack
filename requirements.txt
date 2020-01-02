@@ -2,4 +2,4 @@ cloudpickle==1.0.0
 pex==2.0.3
 conda-pack
 pip>=18.1
-pyarrow
+pyarrow<0.15
