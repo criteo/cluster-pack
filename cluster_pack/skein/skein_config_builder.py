@@ -6,7 +6,7 @@ import time
 
 from typing import NamedTuple, Callable, Dict, List, Optional, Any
 
-from cluster_pack import packaging
+from cluster_pack import packaging, uploader
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ def build(
 
     """
     if not package_path:
-        package_path, _ = packaging.upload_env()
+        package_path, _ = uploader.upload_env()
 
     script = _get_script(
         package_path,
