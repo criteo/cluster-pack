@@ -96,22 +96,24 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
 
 def pack_in_pex(requirements: Dict[str, str],
                 output: str,
-                ignored_packages: Collection[str] = []
+                ignored_packages: Collection[str] = [],
+                pex_inherit_path: str = "prefer"
                 ) -> str:
     """
     Pack current environment using a pex.
 
-    :param requirements: list of requirements (ex ['tensorflow==0.1.10'])
+    :param requirements: list of requirements (ex {'tensorflow': '1.15.0'})
     :param output: location of the pex
     :param ignored_packages: packages to be exluded from pex
+    :param pex_inherit_path: see https://github.com/pantsbuild/pex/blob/master/pex/bin/pex.py#L264,
+                             possible values ['false', 'fallback', 'prefer']
     :return: destination of the archive, name of the pex
     """
     requirements_to_install = format_requirements(requirements)
 
     interpreter = PythonInterpreter.get()
     pex_info = PexInfo.default(interpreter)
-    pex_info.ignore_errors = True
-    pex_info.inherit_path = "prefer"
+    pex_info.inherit_path = pex_inherit_path
     pex_builder = PEXBuilder(
         copy=True,
         interpreter=interpreter,
