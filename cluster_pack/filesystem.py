@@ -2,7 +2,7 @@ import logging
 import pyarrow
 
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any, List
 from pyarrow import filesystem, util
 from urllib.parse import urlparse
 
@@ -22,17 +22,29 @@ def _make_function(base_fs, method_name):
     return f
 
 
+def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []):
+    """
+    expose all methods from base_class to child_class
+
+    :param base_class: instance of base class
+    :param child_class: instance of child class to add the methods to
+    :param ignored: methods that will be redefined manually
+    """
+    method_list = [func for func in dir(base_class)
+                   if callable(getattr(base_class, func))
+                   and not func.startswith("__")
+                   and not [f for f in ignored if func.startswith(f)]]
+    for method_name in method_list:
+        _logger.debug(f"add method impl from {type(base_class)}.{method_name}"
+                      f" to {type(child_class)}")
+        setattr(child_class, method_name, _make_function(base_class, method_name))
+
+
 class EnhancedFileSystem(filesystem.FileSystem):
 
     def __init__(self, base_fs):
         self.base_fs = base_fs
-        # expose all methods from base_fs
-        method_list = [func for func in dir(base_fs)
-                       if callable(getattr(base_fs, func)) and not func.startswith("__")]
-        for method_name in method_list:
-            _logger.debug(f"add method impl from {type(base_fs)}.{method_name}"
-                          " to EnhancedFileSystem")
-            setattr(self, method_name, _make_function(base_fs, method_name))
+        _expose_methods(self, base_fs, ignored=["open"])
 
     def put(self, filename, path, chunk=2**16):
         with self.base_fs.open(path, 'wb') as target:
@@ -51,6 +63,30 @@ class EnhancedFileSystem(filesystem.FileSystem):
                     if len(out) == 0:
                         break
                     target.write(out)
+
+    def open(self, path, mode='rb'):
+        return EnhancedHdfsFile(self.base_fs.open(path, mode))
+
+
+class EnhancedHdfsFile(pyarrow.HdfsFile):
+
+    def __init__(self, base_hdfs_file):
+        self.base_hdfs_file = base_hdfs_file
+        _expose_methods(self, base_hdfs_file, ignored=["write"])
+
+    def ensure_bytes(self, s):
+        if isinstance(s, bytes):
+            return s
+        if hasattr(s, 'encode'):
+            return s.encode()
+        if hasattr(s, 'tobytes'):
+            return s.tobytes()
+        if isinstance(s, bytearray):
+            return bytes(s)
+        return s
+
+    def write(self, data):
+        self.base_hdfs_file.write(self.ensure_bytes(data))
 
 
 def resolve_filesystem_and_path(uri: str, **kwargs) -> Tuple[EnhancedFileSystem, str]:
