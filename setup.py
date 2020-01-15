@@ -37,7 +37,7 @@ CLASSIFIERS = [
 
 
 setuptools.setup(
-    name="cluster_pack",
+    name="cluster-pack",
     packages=setuptools.find_packages(),
     version=versioneer.get_version(),
     install_requires=REQUIREMENTS,
