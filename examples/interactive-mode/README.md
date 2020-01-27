@@ -1,11 +1,12 @@
 ## Interactive example with [skein][skein]
 
+Here is an interactive example Skein and HDFS storage with a virtual environment. You can also execute it directly in a Jupyter notebook.
 
 1) Prepare a [virtual environment][virtual environment] with skein & numpy
 
 ```bash
 $ cd examples/interactive-mode
-$ python3.6 -m venv venv
+$ python3 -m venv venv
 $ . venv/bin/activate
 $ pip install cluster-pack numpy skein
 python
