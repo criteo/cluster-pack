@@ -1,5 +1,6 @@
 ## Interactive example with [skein][skein]
 
+Here is an interactive example Skein and HDFS storage with a virtual environment. You can also execute it directly in a Jupyter notebook.
 
 1) Prepare a [virtual environment][virtual environment] with skein & numpy
 
