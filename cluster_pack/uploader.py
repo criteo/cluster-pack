@@ -138,6 +138,29 @@ def _upload_zip(zip_file: str, package_path: str, resolved_fs=None, force_upload
         resolved_fs.rm(archive_meta_data)
 
 
+def _handle_packages(
+    current_packages: Dict[str, str],
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = []
+):
+    if len(additional_packages) > 0:
+        additional_package_names = list(additional_packages.keys())
+        current_packages_names = list(current_packages.keys())
+
+        for name in current_packages_names:
+            for additional_package_name in additional_package_names:
+                if name in additional_package_name:
+                    _logger.debug(f"Replace existing package {name} by {additional_package_name}")
+                    current_packages.pop(name)
+        current_packages.update(additional_packages)
+
+    if len(ignored_packages) > 0:
+        for name in ignored_packages:
+            if name in current_packages:
+                _logger.debug(f"Remove package {name}")
+                current_packages.pop(name)
+
+
 def _upload_env_from_venv(
         package_path: str,
         packer=packaging.PEX_PACKER,
@@ -149,13 +172,13 @@ def _upload_env_from_venv(
     current_packages = {package["name"]: package["version"]
                         for package in packaging.get_non_editable_requirements()}
 
-    if len(additional_packages) > 0:
-        current_packages.update(additional_packages)
+    _handle_packages(
+        current_packages,
+        additional_packages,
+        ignored_packages
+    )
 
-    if len(ignored_packages) > 0:
-        for name in ignored_packages:
-            if name in current_packages:
-                current_packages.pop(name)
+    _logger.debug(f"Packaging current_packages={current_packages}")
 
     if force_upload or not _is_archive_up_to_date(package_path, current_packages, resolved_fs):
         _logger.info(

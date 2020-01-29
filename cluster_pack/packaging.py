@@ -91,7 +91,9 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
     if requirements is None:
         return list()
     else:
-        return [name + "==" + version for name, version in requirements.items()]
+        return [name + "==" + version
+                if version else name
+                for name, version in requirements.items()]
 
 
 def pack_in_pex(requirements: Dict[str, str],
