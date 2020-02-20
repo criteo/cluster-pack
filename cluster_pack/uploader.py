@@ -66,7 +66,8 @@ def _dump_archive_metadata(package_path: str,
 
 def upload_zip(
     zip_file: str,
-    package_path: str = None
+    package_path: str = None,
+    force_upload: bool = False,
 ):
     packer = packaging.detect_packer_from_file(zip_file)
     package_path, _, _ = packaging.detect_archive_names(packer, package_path)
@@ -80,7 +81,7 @@ def upload_zip(
             request.urlretrieve(zip_file, tmp_zip_file)
             zip_file = tmp_zip_file
 
-        _upload_zip(zip_file, package_path, resolved_fs)
+        _upload_zip(zip_file, package_path, resolved_fs, force_upload)
 
         return package_path
 
@@ -89,7 +90,8 @@ def upload_env(
         package_path: str = None,
         packer=None,
         additional_packages: Dict[str, str] = {},
-        ignored_packages: Collection[str] = []
+        ignored_packages: Collection[str] = [],
+        force_upload: bool = False,
 ) -> Tuple[str, str]:
     if packer is None:
         packer = packaging.detect_packer_from_env()
@@ -101,16 +103,17 @@ def upload_env(
         _upload_env_from_venv(
             package_path, packer,
             additional_packages, ignored_packages,
-            resolved_fs
+            resolved_fs,
+            force_upload
         )
     else:
-        _upload_zip(pex_file, package_path, resolved_fs)
+        _upload_zip(pex_file, package_path, resolved_fs, force_upload)
 
     return (package_path,
             env_name)
 
 
-def _upload_zip(zip_file: str, package_path: str, resolved_fs=None):
+def _upload_zip(zip_file: str, package_path: str, resolved_fs=None, force_upload: bool = False):
     packer = packaging.detect_packer_from_file(zip_file)
     if packer == packaging.PEX_PACKER and resolved_fs.exists(package_path):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -118,7 +121,7 @@ def _upload_zip(zip_file: str, package_path: str, resolved_fs=None):
             resolved_fs.get(package_path, local_copy_path)
             info_from_storage = PexInfo.from_pex(local_copy_path)
             into_to_upload = PexInfo.from_pex(zip_file)
-            if info_from_storage.code_hash == into_to_upload.code_hash:
+            if not force_upload and info_from_storage.code_hash == into_to_upload.code_hash:
                 _logger.info(f"skip upload of current {zip_file}"
                              f" as it is already uploaded on {package_path}")
                 return
@@ -140,7 +143,8 @@ def _upload_env_from_venv(
         packer=packaging.PEX_PACKER,
         additional_packages: Dict[str, str] = {},
         ignored_packages: Collection[str] = [],
-        resolved_fs=None
+        resolved_fs=None,
+        force_upload: bool = False,
 ):
     current_packages = {package["name"]: package["version"]
                         for package in packaging.get_non_editable_requirements()}
@@ -153,7 +157,7 @@ def _upload_env_from_venv(
             if name in current_packages:
                 current_packages.pop(name)
 
-    if not _is_archive_up_to_date(package_path, current_packages, resolved_fs):
+    if force_upload or not _is_archive_up_to_date(package_path, current_packages, resolved_fs):
         _logger.info(
             f"Zipping and uploading your env to {package_path}"
         )
