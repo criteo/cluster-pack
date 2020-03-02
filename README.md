@@ -4,7 +4,7 @@ cluster-pack is a library on top of either [pex][pex] or [conda-pack][conda-pack
 
 Its goal is to make your prod/dev Python code & libraries easiliy available on any cluster. cluster-pack supports HDFS/S3 as a distributed storage.
 
-The first examples use [Skein][skein] (a simple library for deploying applications on Apache YARN) with HDFS storage. We intend to add more examples for other applications (like [PySpark](https://spark.apache.org/docs/latest/quick-start.html), [Dask](https://dask.org/), [Ray](https://ray.readthedocs.io/en/latest/index.html)) and S3 storage.
+The first examples use [Skein][skein] (a simple library for deploying applications on Apache YARN) and [PySpark](https://spark.apache.org/docs/latest/quick-start.html) with HDFS storage. We intend to add more examples for other applications (like [Dask](https://dask.org/), [Ray](https://ray.readthedocs.io/en/latest/index.html)) and S3 storage.
 
 
 ## Installation
@@ -47,6 +47,12 @@ cluster-pack supports Python ≥3.6.
 1) [Interactive mode](https://github.com/criteo/cluster-pack/blob/master/examples/interactive-mode/README.md)
 
 2) [Self shipping project](https://github.com/criteo/cluster-pack/blob/master/examples/skein-project/README.md)
+
+
+## Basic example with [PySpark](https://spark.apache.org/docs/latest/quick-start.html)
+
+1) [PySpark with HDFS on Yarn](https://github.com/criteo/cluster-pack/blob/master/examples/spark/spark_example.py)
+
 
 [pex]: https://github.com/pantsbuild/pex
 [conda-pack]: https://github.com/conda/conda-pack
