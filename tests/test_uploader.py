@@ -215,3 +215,29 @@ def test_upload_env_in_a_pex():
         mock_fs.rm.assert_called_once_with(f'{home_fs_path}/blah.json')
         # check envname
         assert 'myapp' == result[1]
+
+
+def test__handle_packages_use_local_wheel():
+    current_packages = {"horovod": "0.18.2"}
+    uploader._handle_packages(
+        current_packages,
+        additional_packages={"horovod-0.19.0-cp36-cp36m-linux_x86_64.whl": ""}
+    )
+
+    assert len(current_packages) == 1
+    assert next(iter(current_packages.keys())) == "horovod-0.19.0-cp36-cp36m-linux_x86_64.whl"
+    assert next(iter(current_packages.values())) == ""
+
+
+def test__handle_packages_use_other_package():
+    current_packages = {"tensorflow": "0.15.2"}
+    uploader._handle_packages(
+        current_packages,
+        additional_packages={"tensorflow_gpu": "0.15.3"},
+        ignored_packages="tensorflow"
+    )
+
+    print(current_packages)
+    assert len(current_packages) == 1
+    assert next(iter(current_packages.keys())) == "tensorflow_gpu"
+    assert next(iter(current_packages.values())) == "0.15.3"
