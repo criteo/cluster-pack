@@ -34,6 +34,6 @@ def _add_archive(ssb: SparkSession.Builder, path):
 def _add_or_merge(ssb: SparkSession.Builder, key: str, value: str):
     if key in ssb._options:
         old_value = ssb._options[key]
-        ssb.config(key, ",".join(old_value.split(",") + [value]))
+        ssb.config(key, f"{old_value},{value}")
     else:
         ssb.config(key, value)
