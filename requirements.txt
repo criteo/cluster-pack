@@ -1,4 +1,4 @@
-cloudpickle==1.0.0
+cloudpickle>=1.0.0,<1.4
 pex==2.1.1
 conda-pack
 pip>=18.1
