@@ -72,7 +72,10 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
 
     def __init__(self, base_hdfs_file):
         self.base_hdfs_file = base_hdfs_file
-        _expose_methods(self, base_hdfs_file, ignored=["write"])
+        _expose_methods(
+            self,
+            base_hdfs_file,
+            ignored=["write", "readline", "readlines"])
 
     def ensure_bytes(self, s):
         if isinstance(s, bytes):
@@ -87,6 +90,62 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
 
     def write(self, data):
         self.base_hdfs_file.write(self.ensure_bytes(data))
+
+    def _seek_delimiter(file, delimiter, blocksize=2 ** 16):
+        """ Seek current file to next byte after a delimiter
+        from https://github.com/dask/hdfs3/blob/master/hdfs3/utils.py#L11
+
+        Parameters
+        ----------
+        file: a file
+        delimiter: bytes
+            a delimiter like b'\n'
+        blocksize: int
+            number of bytes to read
+        """
+        last = b''
+        while True:
+            current = file.read(blocksize)
+            if not current:
+                return
+            full = last + current
+            try:
+                i = full.index(delimiter)
+                file.seek(file.tell() - (len(full) - i) + len(delimiter))
+                return
+            except ValueError:
+                pass
+            last = full[-len(delimiter):]
+
+    def readline(self, size=None):
+        """ Read and return a line of bytes from the file.
+
+        Line terminator is always b"\\n".
+
+        Parameters
+        -----------
+
+        size: int maximum number of bytes read until we stop
+
+        """
+        start = self.tell()
+        self._seek_delimiter(self.ensure_bytes("\n"))
+        end = self.tell()
+        self.seek(start)
+        return self.read(end - start)
+
+    def readlines(self, hint=None):
+        """ Read lines of the file
+
+        Line terminator is always b"\\n".
+
+        Parameters
+        -----------
+
+        hint: int maximum number of bytes read until we stop
+        """
+        lineterminator = self.ensure_bytes("\n")
+        return [l + lineterminator for l in self.read(hint).split(lineterminator) if l]
 
 
 def resolve_filesystem_and_path(uri: str, **kwargs) -> Tuple[EnhancedFileSystem, str]:
