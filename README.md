@@ -6,6 +6,9 @@ Its goal is to make your prod/dev Python code & libraries easiliy available on a
 
 The first examples use [Skein][skein] (a simple library for deploying applications on Apache YARN) and [PySpark](https://spark.apache.org/docs/latest/quick-start.html) with HDFS storage. We intend to add more examples for other applications (like [Dask](https://dask.org/), [Ray](https://ray.readthedocs.io/en/latest/index.html)) and S3 storage.
 
+An introducing blog post can be found [here](https://medium.com/criteo-labs/open-sourcing-cluster-pack-700f46c139a).
+
+![cluster-pack](https://github.com/criteo/cluster-pack/blob/master/cluster_pack.png?raw=true)
 
 ## Installation
 
