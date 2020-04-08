@@ -132,20 +132,49 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
         self._seek_delimiter(self.ensure_bytes("\n"))
         end = self.tell()
         self.seek(start)
-        return self.read(end - start)
+        bytes_to_read = min(end - start, size) if size else end - start
+        return self.read(bytes_to_read)
+
+    def _genline(self):
+        while True:
+            out = self.readline()
+            if out:
+                yield out
+            else:
+                raise StopIteration
+
+    def __iter__(self):
+        return self._genline()
 
     def readlines(self, hint=None):
-        """ Read lines of the file
+        """  Read and return a list of lines from the stream.
 
         Line terminator is always b"\\n".
 
         Parameters
         -----------
 
-        hint: int maximum number of bytes read until we stop
+        hint:  Can be specified to control the number of lines read.
+               No more lines will be read if the total size (in bytes/characters)
+               of all lines so far exceeds hint.
+               Note that it’s already possible to iterate on file objects
+               using for line in file: ... without calling file.readlines().
         """
-        lineterminator = self.ensure_bytes("\n")
-        return [l + lineterminator for l in self.read(hint).split(lineterminator) if l]
+
+        if not hint:
+            return list(self)
+        else:
+            lines = []
+            size = hint
+            line = self.readline()
+            lines.append(line)
+            size -= len(line)
+            while line and size >= 0:
+                line = self.readline()
+                lines.append(line)
+                size -= len(line)
+
+            return lines
 
 
 def resolve_filesystem_and_path(uri: str, **kwargs) -> Tuple[EnhancedFileSystem, str]:
