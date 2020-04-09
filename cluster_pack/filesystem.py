@@ -72,7 +72,10 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
 
     def __init__(self, base_hdfs_file):
         self.base_hdfs_file = base_hdfs_file
-        _expose_methods(self, base_hdfs_file, ignored=["write"])
+        _expose_methods(
+            self,
+            base_hdfs_file,
+            ignored=["write", "readline", "readlines"])
 
     def ensure_bytes(self, s):
         if isinstance(s, bytes):
@@ -87,6 +90,91 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
 
     def write(self, data):
         self.base_hdfs_file.write(self.ensure_bytes(data))
+
+    def _seek_delimiter(file, delimiter, blocksize=2 ** 16):
+        """ Seek current file to next byte after a delimiter
+        from https://github.com/dask/hdfs3/blob/master/hdfs3/utils.py#L11
+
+        Parameters
+        ----------
+        file: a file
+        delimiter: bytes
+            a delimiter like b'\n'
+        blocksize: int
+            number of bytes to read
+        """
+        last = b''
+        while True:
+            current = file.read(blocksize)
+            if not current:
+                return
+            full = last + current
+            try:
+                i = full.index(delimiter)
+                file.seek(file.tell() - (len(full) - i) + len(delimiter))
+                return
+            except ValueError:
+                pass
+            last = full[-len(delimiter):]
+
+    def readline(self, size=None):
+        """ Read and return a line of bytes from the file.
+
+        Line terminator is always b"\\n".
+
+        Parameters
+        -----------
+
+        size: int maximum number of bytes read until we stop
+
+        """
+        start = self.tell()
+        self._seek_delimiter(self.ensure_bytes("\n"))
+        end = self.tell()
+        self.seek(start)
+        bytes_to_read = min(end - start, size) if size else end - start
+        return self.read(bytes_to_read)
+
+    def _genline(self):
+        while True:
+            out = self.readline()
+            if out:
+                yield out
+            else:
+                raise StopIteration
+
+    def __iter__(self):
+        return self._genline()
+
+    def readlines(self, hint=None):
+        """  Read and return a list of lines from the stream.
+
+        Line terminator is always b"\\n".
+
+        Parameters
+        -----------
+
+        hint:  Can be specified to control the number of lines read.
+               No more lines will be read if the total size (in bytes/characters)
+               of all lines so far exceeds hint.
+               Note that it’s already possible to iterate on file objects
+               using for line in file: ... without calling file.readlines().
+        """
+
+        if not hint:
+            return list(self)
+        else:
+            lines = []
+            size = hint
+            line = self.readline()
+            lines.append(line)
+            size -= len(line)
+            while line and size >= 0:
+                line = self.readline()
+                lines.append(line)
+                size -= len(line)
+
+            return lines
 
 
 def resolve_filesystem_and_path(uri: str, **kwargs) -> Tuple[EnhancedFileSystem, str]:
