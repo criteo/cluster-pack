@@ -17,7 +17,7 @@ def add_packaged_environment(ssb: SparkSession.Builder, archive: str):
         os.environ['PYSPARK_DRIVER_PYTHON'] = archive.split('/')[-1]
     else:
         _add_archive(ssb, f"{archive}#condaenv")
-        os.environ['PYSPARK_PYTHON'] = f"./condaenv/bin/python"
+        os.environ['PYSPARK_PYTHON'] = "./condaenv/bin/python"
         os.environ['PYSPARK_DRIVER_PYTHON'] = 'python'
 
 

@@ -197,9 +197,30 @@ def test_pack_in_pex(pyarrow_version, expectation):
             pex_inherit_path="false")
         assert os.path.exists(f"{tempdir}/out.pex")
         with expectation:
-            subprocess.check_output([
+            print(subprocess.check_output([
                 f"{tempdir}/out.pex",
                 "-c",
-                ("""import pyarrow; import tensorflow;"""
+                ("""print("Start importing pyarrow and tensorflow..");"""
+                 """import pyarrow; import tensorflow;"""
                  """print("Successfully imported pyarrow and tensorflow!")""")]
-            )
+            ))
+
+
+def test_pack_in_pex_include_editable_requirements():
+    requirements = {}
+    requirement_dir = _get_editable_package_name()
+    with tempfile.TemporaryDirectory() as tempdir:
+        packaging.pack_in_pex(
+            requirements,
+            f"{tempdir}/out.pex",
+            # make isolated pex from current pytest virtual env
+            pex_inherit_path="false",
+            editable_requirements={os.path.basename(requirement_dir): requirement_dir})
+        assert os.path.exists(f"{tempdir}/out.pex")
+        with does_not_raise():
+            print(subprocess.check_output([
+                f"{tempdir}/out.pex",
+                "-c",
+                ("""print("Start importing user-lib..");import user_lib;"""
+                 """print("Successfully imported user-lib!")""")]
+            ))

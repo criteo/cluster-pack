@@ -96,10 +96,22 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
                 for name, version in requirements.items()]
 
 
+# from https://github.com/pantsbuild/pex/blob/451977efdf987dd299a1b4798ac2ee298cd6d61b/
+# pex/bin/pex.py#L644
+def _walk_and_do(fn, src_dir):
+    src_dir = os.path.normpath(src_dir)
+    for root, dirs, files in os.walk(src_dir):
+        for f in files:
+            src_file_path = os.path.join(root, f)
+            dst_path = os.path.relpath(src_file_path, src_dir)
+            fn(src_file_path, dst_path)
+
+
 def pack_in_pex(requirements: Dict[str, str],
                 output: str,
                 ignored_packages: Collection[str] = [],
-                pex_inherit_path: str = "prefer"
+                pex_inherit_path: str = "prefer",
+                editable_requirements:  Dict[str, str] = {}
                 ) -> str:
     """
     Pack current environment using a pex.
@@ -111,7 +123,6 @@ def pack_in_pex(requirements: Dict[str, str],
                              possible values ['false', 'fallback', 'prefer']
     :return: destination of the archive, name of the pex
     """
-    requirements_to_install = format_requirements(requirements)
 
     interpreter = PythonInterpreter.get()
     pex_info = PexInfo.default(interpreter)
@@ -121,6 +132,12 @@ def pack_in_pex(requirements: Dict[str, str],
         interpreter=interpreter,
         pex_info=pex_info)
 
+    for current_package in editable_requirements.values():
+        _logger.debug("Add current path as source", current_package)
+        _walk_and_do(pex_builder.add_source, current_package)
+
+    requirements_to_install = format_requirements(requirements)
+
     try:
         resolveds = resolve_multi(
             requirements=requirements_to_install,
@@ -128,8 +145,10 @@ def pack_in_pex(requirements: Dict[str, str],
 
         for resolved in resolveds:
             if resolved.distribution.key in ignored_packages:
-                _logger.debug("Ignoring requirement %s", resolved.distribution)
+                _logger.debug(f"Ignore requirement {resolved.distribution}")
                 continue
+            else:
+                _logger.debug(f"Add requirement {resolved.distribution}")
             pex_builder.add_distribution(resolved.distribution)
             pex_builder.add_requirement(resolved.requirement)
     except (Unsatisfiable, Untranslateable):
@@ -163,15 +182,17 @@ def pack_current_venv_in_pex(
         output: str,
         reqs: Dict[str, str],
         additional_packages: Dict[str, str],
-        ignored_packages: Collection[str]) -> str:
-    return pack_in_pex(reqs, output, ignored_packages)
+        ignored_packages: Collection[str],
+        editable_requirements:  Dict[str, str]) -> str:
+    return pack_in_pex(reqs, output, ignored_packages, editable_requirements=editable_requirements)
 
 
 def pack_venv_in_conda(
         output: str,
         reqs: Dict[str, str],
         additional_packages: Dict[str, str],
-        ignored_packages: Collection[str]) -> str:
+        ignored_packages: Collection[str],
+        editable_requirements: Dict[str, str]) -> str:
     if len(additional_packages) == 0 and len(ignored_packages) == 0:
         conda_pack.pack(output=output)
         return output
@@ -179,7 +200,7 @@ def pack_venv_in_conda(
         return create_and_pack_conda_env(output, reqs)
 
 
-def create_and_pack_conda_env(env_path: str, reqs: Dict[str, str], ) -> str:
+def create_and_pack_conda_env(env_path: str, reqs: Dict[str, str]) -> str:
     try:
         _call(["conda"])
     except CalledProcessError:
@@ -232,7 +253,7 @@ def _call(cmd, **kwargs):
 class Packer(NamedTuple):
     env_name: str
     extension: str
-    pack: Callable[[str, Dict[str, str], Dict[str, str], Collection[str]], str]
+    pack: Callable[[str, Dict[str, str], Dict[str, str], Collection[str], Dict[str, str]], str]
 
 
 def get_env_name(env_var_name) -> str:
@@ -318,7 +339,7 @@ def get_current_pex_filepath() -> str:
 def get_editable_requirements(
     executable: str = sys.executable,
     editable_packages_dir: str = os.getcwd()
-):
+) -> Dict[str, str]:
     editable_requirements: Dict[str, str] = {}
     if _running_from_pex():
         try:
