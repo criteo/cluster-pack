@@ -172,8 +172,7 @@ def _upload_env_from_venv(
         force_upload: bool = False,
         include_editable: bool = False
 ):
-    current_packages = {package["name"]: package["version"]
-                        for package in packaging.get_non_editable_requirements()}
+    current_packages = packaging.get_non_editable_requirements()
 
     _handle_packages(
         current_packages,

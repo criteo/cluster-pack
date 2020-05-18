@@ -75,7 +75,7 @@ def test_get_non_editable_requirements():
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python")
         assert len(non_editable_requirements) == 1
-        assert non_editable_requirements[0]["name"] == "cloudpickle"
+        assert list(non_editable_requirements.keys())[0] == "cloudpickle"
 
 
 def _create_venv(tempdir: str):

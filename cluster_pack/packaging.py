@@ -287,7 +287,8 @@ def _get_editable_requirements(executable: str = sys.executable):
 
 
 def get_non_editable_requirements(executable: str = sys.executable):
-    return _get_packages(False, executable)
+    return {package["name"]: package["version"]
+            for package in _get_packages(False, executable)}
 
 
 def detect_archive_names(

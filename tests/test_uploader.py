@@ -117,8 +117,8 @@ def test_upload_env():
 
         # Regenerate archive
         mock_is_archive.return_value = False
-        mock_get_packages.return_value = [{"name": "a", "version": "1.0"},
-                                          {"name": "b", "version": "2.0"}]
+        mock_get_packages.return_value = {"a": "1.0",
+                                          "b": "2.0"}
 
         mock_packer.return_value = MYARCHIVE_FILENAME
 
