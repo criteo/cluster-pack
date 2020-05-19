@@ -12,7 +12,7 @@ def local_spark_session_builder():
     if "SPARK_HOME" in os.environ.keys():
         del os.environ["SPARK_HOME"]
     os.environ["PYSPARK_PYTHON"] = sys.executable
-    ssb = SparkSession.builder.master(f"local[1]").config("spark.submit.deployMode", "client")
+    ssb = SparkSession.builder.master("local[1]").config("spark.submit.deployMode", "client")
     return ssb
 
 

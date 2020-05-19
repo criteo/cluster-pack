@@ -92,6 +92,7 @@ def upload_env(
         additional_packages: Dict[str, str] = {},
         ignored_packages: Collection[str] = [],
         force_upload: bool = False,
+        include_editable: bool = False
 ) -> Tuple[str, str]:
     if packer is None:
         packer = packaging.detect_packer_from_env()
@@ -104,7 +105,8 @@ def upload_env(
             package_path, packer,
             additional_packages, ignored_packages,
             resolved_fs,
-            force_upload
+            force_upload,
+            include_editable
         )
     else:
         _upload_zip(pex_file, package_path, resolved_fs, force_upload)
@@ -168,6 +170,7 @@ def _upload_env_from_venv(
         ignored_packages: Collection[str] = [],
         resolved_fs=None,
         force_upload: bool = False,
+        include_editable: bool = False
 ):
     current_packages = {package["name"]: package["version"]
                         for package in packaging.get_non_editable_requirements()}
@@ -185,12 +188,18 @@ def _upload_env_from_venv(
             f"Zipping and uploading your env to {package_path}"
         )
 
+        if include_editable:
+            editable_requirements = packaging.get_editable_requirements()
+        else:
+            editable_requirements = {}
+
         with tempfile.TemporaryDirectory() as tempdir:
             archive_local = packer.pack(
                 output=f"{tempdir}/{packer.env_name}.{packer.extension}",
                 reqs=current_packages,
                 additional_packages=additional_packages,
-                ignored_packages=ignored_packages
+                ignored_packages=ignored_packages,
+                editable_requirements=editable_requirements
             )
             dir = os.path.dirname(package_path)
             if not resolved_fs.exists(dir):

@@ -124,7 +124,7 @@ def test_upload_env():
 
         cluster_pack.upload_env(MYARCHIVE_FILENAME, cluster_pack.PEX_PACKER)
         mock_packer.assert_called_once_with(
-            {"a": "1.0", "b": "2.0"}, Any(str), []
+            {"a": "1.0", "b": "2.0"}, Any(str), [], editable_requirements={}
         )
         mock_fs.put.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
 
@@ -135,7 +135,7 @@ def test_upload_env():
             ignored_packages=["a"]
         )
         mock_packer.assert_called_once_with(
-            {"c": "3.0", "b": "2.0"}, Any(str), ["a"]
+            {"c": "3.0", "b": "2.0"}, Any(str), ["a"], editable_requirements={}
         )
 
 
