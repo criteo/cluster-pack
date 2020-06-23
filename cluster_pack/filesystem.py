@@ -8,6 +8,11 @@ from urllib.parse import urlparse
 
 try:
     from s3fs import S3FileSystem
+
+    def _makedirs(self, path, exist_ok=False):
+        bucket, _, _ = self.split_path(path)
+        self.mkdir(bucket)
+    S3FileSystem.makedirs = _makedirs
 except (ModuleNotFoundError, ImportError):
     pass
 

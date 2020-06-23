@@ -14,7 +14,8 @@ from typing import (
     NamedTuple,
     Callable,
     Collection,
-    List
+    List,
+    Any
 )
 from urllib import parse, request
 import uuid
@@ -68,11 +69,12 @@ def upload_zip(
     zip_file: str,
     package_path: str = None,
     force_upload: bool = False,
+    fs_args: Dict[str, Any] = {}
 ):
     packer = packaging.detect_packer_from_file(zip_file)
     package_path, _, _ = packaging.detect_archive_names(packer, package_path)
 
-    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path)
+    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
     with tempfile.TemporaryDirectory() as tempdir:
         parsed_url = parse.urlparse(zip_file)
@@ -92,13 +94,14 @@ def upload_env(
         additional_packages: Dict[str, str] = {},
         ignored_packages: Collection[str] = [],
         force_upload: bool = False,
-        include_editable: bool = False
+        include_editable: bool = False,
+        fs_args: Dict[str, Any] = {}
 ) -> Tuple[str, str]:
     if packer is None:
         packer = packaging.detect_packer_from_env()
     package_path, env_name, pex_file = packaging.detect_archive_names(packer, package_path)
 
-    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path)
+    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
     if not packaging._running_from_pex():
         _upload_env_from_venv(
