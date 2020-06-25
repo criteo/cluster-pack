@@ -24,23 +24,24 @@ docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
 
 ### Step by step
 
+We want to execute the pandas udf example from the [PySpark Pandas UDFs (a.k.a. Vectorized UDFs)](https://spark.apache.org/docs/2.4.4/sql-pyspark-pandas-with-arrow.html#grouped-map).
 
-#### Define the workload to be executed remotely
+As spark uses pandas & pyarrow under the hood we need them to be installed on the executor. cluster-pack will take care making everything easily available on the cluster.
 
-This function uses numpy as a dependency that won't be available on the cluster
+#### Create the current virtual environment
 
-```python
-def compute_intersection():
-    a = np.random.random_integers(0, 100, 100)
-    b = np.random.random_integers(0, 100, 100)
-    print("Computed intersection of two arrays:")
-    print(np.intersect1d(a, b))
+```bash
+python3.6 -m venv /tmp/pyspark_env
+. /tmp/pyspark_env/bin/activate
+pip install -U pip setuptools
+pip install pypandoc
+pip install s3fs pandas pyarrow==0.14.1 pyspark==2.4.4
+pip install cluster-pack
 ```
 
 #### Upload current virtual environment as a self contained zip file to the distributed storage 
 
-The self contained zip file contains all installed external packages i.e numpy.
-
+The self contained zip file contains all installed external packages pandas & pyarrow
 ```python
 import cluster_pack
 s3_args = {"use_ssl": False, "client_kwargs": {'endpoint_url': "http://s3:9000"}}
@@ -50,6 +51,7 @@ archive, _ = cluster_pack.upload_env(package_path="s3://test/envs/myenv.pex", fs
 #### Call spark config helper to generate the SparkConfig set up to use this executable zip file on the executors
 
 ```python
+from pyspark.sql import SparkSession
 from cluster_pack.spark import spark_config_builder
 ssb = SparkSession.builder
 spark_config_builder.add_s3_params(ssb, s3_args)
@@ -61,12 +63,18 @@ spark = ssb.getOrCreate()
 #### Submit the Spark application to the cluster
 
 ```python
-# create 2 arrays with random ints range 0 to 100
-a = np.random.random_integers(0, 100, 100)
-b = np.random.random_integers(0, 100, 100)
-rdd = spark.sparkContext.parallelize([(a, b)], numSlices=1)
-res = rdd.map(compute_intersection).collect()
-print(f"intersection of arrays len={len(res)} res={res}")
+import pandas as pd
+from pyspark.sql.functions import pandas_udf, PandasUDFType
+
+df = spark.createDataFrame(
+    [(1, 1.0), (1, 2.0), (2, 3.0), (2, 5.0), (2, 10.0)],
+    ("id", "v"))
+
+@pandas_udf("double", PandasUDFType.GROUPED_AGG)
+def mean_udf(v: pd.Series) -> float:
+    return v.mean()
+
+df.groupby("id").agg(mean_udf(df['v'])).toPandas()
 ```
 
  

@@ -1,13 +1,16 @@
 
 import logging
-import os
-from pyspark.sql import SparkSession
+import pandas as pd
+
 import cluster_pack
 from cluster_pack.spark import spark_config_builder
 
-import numpy as np
+from pyspark.sql.functions import pandas_udf, PandasUDFType
+from pyspark.sql import SparkSession
 
 logging.basicConfig(level="INFO")
+
+_logger = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
@@ -22,15 +25,17 @@ if __name__ == "__main__":
     spark_config_builder.add_editable_requirements(ssb)
     spark = ssb.getOrCreate()
 
-    # create 2 arrays with random ints range 0 to 100
-    a = np.random.random_integers(0, 100, 100)
-    b = np.random.random_integers(0, 100, 100)
+    # https://spark.apache.org/docs/2.4.4/sql-pyspark-pandas-with-arrow.html#grouped-map
+    # cluster-pack will ship pyarrow & pandas to the executor
 
-    # compute intersection of 2 arrays on the worker
-    def compute_intersection(x):
-        first, second = x
-        return np.intersect1d(first, second)
+    df = spark.createDataFrame(
+        [(1, 1.0), (1, 2.0), (2, 3.0), (2, 5.0), (2, 10.0)],
+        ("id", "v"))
 
-    rdd = spark.sparkContext.parallelize([(a, b)], numSlices=1)
-    res = rdd.map(compute_intersection).collect()
-    print(f"intersection of arrays len={len(res)} res={res}")
+    @pandas_udf("double", PandasUDFType.GROUPED_AGG)
+    def mean_udf(v: pd.Series) -> float:
+        return v.mean()
+
+    pd_df = df.groupby("id").agg(mean_udf(df['v'])).toPandas()
+
+    _logger.info(pd_df)

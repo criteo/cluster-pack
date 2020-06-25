@@ -11,7 +11,8 @@ try:
 
     def _makedirs(self, path, exist_ok=False):
         bucket, _, _ = self.split_path(path)
-        self.mkdir(bucket)
+        if not self.exists(bucket):
+            self.mkdir(bucket)
     S3FileSystem.makedirs = _makedirs
 except (ModuleNotFoundError, ImportError):
     pass
