@@ -36,6 +36,8 @@ services:
       SPARK_WORKER_PORT: 8881
       SPARK_WORKER_WEBUI_PORT: 8081
       SPARK_PUBLIC_DNS: localhost
+      AWS_ACCESS_KEY_ID: AAA
+      AWS_SECRET_ACCESS_KEY: BBBBBBBB
     links:
       - master
     expose:

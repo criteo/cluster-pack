@@ -41,8 +41,6 @@ def add_editable_requirements(ssb: SparkSession.Builder):
 
 def add_s3_params(ssb: SparkSession.Builder,  fs_args: Dict[str, Any] = {}):
     ssb.config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
-    ssb.config("spark.hadoop.fs.s3a.access.key", "AAA")
-    ssb.config("spark.hadoop.fs.s3a.secret.key", "BBBBBBBB")
     ssb.config("spark.hadoop.fs.s3a.path.style.access", "true")
     if "client_kwargs" in fs_args:
         ssb.config("spark.hadoop.fs.s3a.endpoint", fs_args["client_kwargs"]["endpoint_url"])
