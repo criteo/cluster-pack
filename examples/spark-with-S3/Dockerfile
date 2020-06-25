@@ -3,8 +3,6 @@
 FROM debian:stretch
 
 RUN apt-get update
-#    && apt-get install -y curl unzip \
-#    && apt-get install -y python-pkg-resources python3.6 python3.6-venv python3-venv
 
 # Python 3.6
 RUN apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev \
@@ -49,7 +47,3 @@ RUN curl -sL --retry 3 \
  && chown -R root:root $SPARK_HOME
 
 WORKDIR /cluster-pack
-
-
-
-

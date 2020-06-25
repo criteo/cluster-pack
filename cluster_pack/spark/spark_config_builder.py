@@ -4,11 +4,6 @@ import logging
 import pyspark
 from pyspark.sql import SparkSession
 
-try:
-    from s3fs import S3FileSystem
-except ModuleNotFoundError:
-    pass
-
 from cluster_pack import packaging, uploader
 
 from typing import Dict, Optional, Any
@@ -42,6 +37,10 @@ def add_editable_requirements(ssb: SparkSession.Builder):
 def add_s3_params(ssb: SparkSession.Builder,  fs_args: Dict[str, Any] = {}):
     ssb.config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
     ssb.config("spark.hadoop.fs.s3a.path.style.access", "true")
+    if "key" in fs_args:
+        ssb.config("spark.hadoop.fs.s3a.access.key", fs_args["key"])
+    if "secret" in fs_args:
+        ssb.config("spark.hadoop.fs.s3a.secret.key", fs_args["secret"])
     if "client_kwargs" in fs_args:
         ssb.config("spark.hadoop.fs.s3a.endpoint", fs_args["client_kwargs"]["endpoint_url"])
 
