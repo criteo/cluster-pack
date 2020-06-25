@@ -24,9 +24,9 @@ docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
 
 ### Step by step
 
-We want to execute the pandas udf example from the [PySpark Pandas UDFs (a.k.a. Vectorized UDFs)](https://spark.apache.org/docs/2.4.4/sql-pyspark-pandas-with-arrow.html#grouped-map).
+We want to execute the pandas udf example from [PySpark Pandas UDFs (a.k.a. Vectorized UDFs)](https://spark.apache.org/docs/2.4.4/sql-pyspark-pandas-with-arrow.html#grouped-map).
 
-As spark uses pandas & pyarrow under the hood we need them to be installed on the executor. cluster-pack will take care making everything easily available on the cluster.
+As Spark uses pandas & pyarrow under the hood we need them to be installed on the executor. cluster-pack will take care making everything easily available on the cluster.
 
 #### Create the current virtual environment
 
