@@ -52,10 +52,11 @@ cluster-pack supports Python ≥3.6.
 2) [Self shipping project](https://github.com/criteo/cluster-pack/blob/master/examples/skein-project/README.md)
 
 
-## Basic example with [PySpark](https://spark.apache.org/docs/latest/quick-start.html)
+## Basic examples with [PySpark](https://spark.apache.org/docs/latest/quick-start.html)
 
 1) [PySpark with HDFS on Yarn](https://github.com/criteo/cluster-pack/blob/master/examples/spark/spark_example.py)
 
+2) [Docker with PySpark on S3](https://github.com/criteo/cluster-pack/blob/master/examples/spark-with-S3/README.md)
 
 [pex]: https://github.com/pantsbuild/pex
 [conda-pack]: https://github.com/conda/conda-pack

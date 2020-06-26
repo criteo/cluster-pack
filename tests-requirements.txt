@@ -1,4 +1,4 @@
 pypandoc
-pyspark==2.4.1
+pyspark==2.4.4
 coverage
 pytest

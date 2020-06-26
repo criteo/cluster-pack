@@ -8,6 +8,14 @@ from urllib.parse import urlparse
 
 try:
     from s3fs import S3FileSystem
+
+    # pyarrow calls mkdirs which is an alias to makedirs which is implemented as no-op
+    # remove this once https://github.com/dask/s3fs/pull/331 is released
+    def _makedirs(self, path, exist_ok=False):
+        bucket, _, _ = self.split_path(path)
+        if not self.exists(bucket):
+            self.mkdir(bucket)
+    S3FileSystem.makedirs = _makedirs
 except (ModuleNotFoundError, ImportError):
     pass
 
