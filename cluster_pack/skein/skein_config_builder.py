@@ -21,7 +21,8 @@ def build_with_func(
         args: List[Any] = [],
         package_path: Optional[str] = None,
         additional_files: Optional[List[str]] = None,
-        tmp_dir: str = packaging._get_tmp_dir()
+        tmp_dir: str = packaging._get_tmp_dir(),
+        log_level="INFO"
 ) -> SkeinConfig:
     """Build the skein config from provided a function
 
@@ -46,7 +47,7 @@ def build_with_func(
 
     return build(
         'cluster_pack.skein._execute_fun',
-        ['function.dat'],
+        ['function.dat', log_level],
         package_path,
         additional_files,
         tmp_dir)
