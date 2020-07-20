@@ -43,7 +43,7 @@ def wait_for_finished(client: skein.Client, app_id: str, poll_every_secs: int = 
 
         if report.final_status != "undefined":
             logger.info(report.final_status)
-            return report.final_status == "succeeded"
+            return report.final_status == skein.model.FinalStatus.SUCCEEDED
 
         time.sleep(poll_every_secs)
         state = report.state
