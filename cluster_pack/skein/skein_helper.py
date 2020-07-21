@@ -30,15 +30,35 @@ def get_application_logs(
     return None
 
 
-def wait_for_finished(client: skein.Client, app_id: str):
-    logger.info(f"application_id: {app_id}")
+def wait_for_finished(client: skein.Client, app_id: str, poll_every_secs: int = 5):
+    logger.info(f"waiting for application_id: {app_id}")
+    state = None
     while True:
         report = client.application_report(app_id)
 
-        logger.info(report)
+        logger.info(
+            f"Application report for {app_id} (state: {report.state})")
+        if state != report.state:
+            logger.info(_format_app_report(report))
 
         if report.final_status != "undefined":
             logger.info(report.final_status)
-            break
+            return report.final_status == skein.model.FinalStatus.SUCCEEDED
 
-        time.sleep(3)
+        time.sleep(poll_every_secs)
+        state = report.state
+
+    return False
+
+
+def _format_app_report(report: skein.model.ApplicationReport) -> str:
+    attrs = [
+        "queue",
+        "start_time",
+        "finish_time",
+        "final_status",
+        "tracking_url",
+        "user"
+    ]
+    return os.linesep + os.linesep.join(
+        f"{attr:>16}: {getattr(report, attr) or ''}" for attr in attrs)
