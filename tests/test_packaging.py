@@ -224,3 +224,21 @@ def test_pack_in_pex_include_editable_requirements():
                 ("""print("Start importing user-lib..");import user_lib;"""
                  """print("Successfully imported user-lib!")""")]
             ))
+
+
+def test_pack_in_pex_from_spec():
+    with tempfile.TemporaryDirectory() as tempdir:
+        spec_file = os.path.join(os.path.dirname(__file__), "resources", "requirements.txt")
+        packaging.pack_spec_in_pex(
+            spec_file,
+            f"{tempdir}/out.pex",
+            # make isolated pex from current pytest virtual env
+            pex_inherit_path="false")
+        assert os.path.exists(f"{tempdir}/out.pex")
+        with does_not_raise():
+            print(subprocess.check_output([
+                f"{tempdir}/out.pex",
+                "-c",
+                ("print('Start importing cloudpickle..');import cloudpickle;"
+                 "assert cloudpickle.__version__ == '1.4.1'")]
+            ))
