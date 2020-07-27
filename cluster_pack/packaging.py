@@ -113,7 +113,7 @@ def pack_spec_in_pex(spec_file: str,
         return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path)
 
 
-def pack_in_pex(requirements: Union[List[str], Dict[str, str]],
+def pack_in_pex(requirements: List[str],
                 output: str,
                 ignored_packages: Collection[str] = [],
                 pex_inherit_path: str = "prefer",
@@ -142,14 +142,9 @@ def pack_in_pex(requirements: Union[List[str], Dict[str, str]],
         _logger.debug("Add current path as source", current_package)
         _walk_and_do(pex_builder.add_source, current_package)
 
-    if isinstance(requirements, List):
-        requirements_to_install = requirements
-    else:
-        requirements_to_install = format_requirements(requirements)
-
     try:
         resolveds = resolve_multi(
-            requirements=requirements_to_install,
+            requirements=requirements,
             indexes=[CRITEO_PYPI_URL] if _is_criteo() else None)
 
         for resolved in resolveds:
@@ -187,31 +182,25 @@ def _get_packages(editable: bool, executable: str = sys.executable):
             ["distribute", "wheel", "pip", "setuptools"]]
 
 
-class Packer(NamedTuple):
-    env_name: str
-    extension: str
-    pack: Callable[[str, Dict[str, str], Dict[str, str], Collection[str], Dict[str, str]], str]
+class Packer(object):
+    def env_name(self) -> str:
+        raise NotImplementedError
 
+    def extension(self):
+        raise NotImplementedError
 
-def pack_current_venv_in_pex(
-        output: str,
-        reqs: Dict[str, str],
-        additional_packages: Dict[str, str],
-        ignored_packages: Collection[str],
-        editable_requirements:  Dict[str, str]) -> str:
-    return pack_in_pex(reqs, output, ignored_packages, editable_requirements=editable_requirements)
+    def pack(self,
+             output: str,
+             reqs: List[str],
+             additional_packages: Dict[str, str],
+             ignored_packages: Collection[str],
+             editable_requirements: Dict[str, str]) -> str:
+        raise NotImplementedError
 
-
-def pack_current_venv_in_conda(
-        output: str,
-        reqs: Dict[str, str],
-        additional_packages: Dict[str, str],
-        ignored_packages: Collection[str],
-        editable_requirements:  Dict[str, str]) -> str:
-    return conda.pack_venv_in_conda(
-        format_requirements(reqs),
-        len(additional_packages) > 0 or len(ignored_packages) > 0,
-        output)
+    def pack_from_spec(self,
+                       spec_file: str,
+                       output: str):
+        raise NotImplementedError
 
 
 def get_env_name(env_var_name) -> str:
@@ -225,16 +214,59 @@ def get_env_name(env_var_name) -> str:
         return os.path.basename(virtual_env_path)
 
 
-CONDA_PACKER = Packer(
-    get_env_name(CONDA_DEFAULT_ENV),
-    'tar.gz',
-    pack_current_venv_in_conda
-)
-PEX_PACKER = Packer(
-    get_env_name('VIRTUAL_ENV'),
-    'pex',
-    pack_current_venv_in_pex
-)
+class CondaPacker(Packer):
+    def env_name(self) -> str:
+        return get_env_name(CONDA_DEFAULT_ENV)
+
+    def extension(self):
+        return 'tar.gz'
+
+    def pack(self,
+             output: str,
+             reqs: List[str],
+             additional_packages: Dict[str, str],
+             ignored_packages: Collection[str],
+             editable_requirements:  Dict[str, str]) -> str:
+        return conda.pack_venv_in_conda(
+                  reqs,
+                  len(additional_packages) > 0 or len(ignored_packages) > 0,
+                  output)
+
+    def pack_from_spec(self,
+                       spec_file: str,
+                       output: str):
+        return conda.create_and_pack_conda_env(
+                            spec_file=spec_file,
+                            reqs=None,
+                            output=output)
+
+
+class PexPacker(Packer):
+    def env_name(self) -> str:
+        return get_env_name('VIRTUAL_ENV')
+
+    def extension(self):
+        return 'pex'
+
+    def pack(self,
+             output: str,
+             reqs: List[str],
+             additional_packages: Dict[str, str],
+             ignored_packages: Collection[str],
+             editable_requirements:  Dict[str, str]) -> str:
+        return pack_in_pex(reqs,
+                           output,
+                           ignored_packages,
+                           editable_requirements=editable_requirements)
+
+    def pack_from_spec(self,
+                       spec_file: str,
+                       output: str):
+        return pack_spec_in_pex(spec_file=spec_file, output=output)
+
+
+CONDA_PACKER = CondaPacker()
+PEX_PACKER = PexPacker()
 
 
 def _get_editable_requirements(executable: str = sys.executable):
@@ -258,17 +290,27 @@ def detect_archive_names(
         env_name = os.path.basename(pex_file).split('.')[0]
     else:
         pex_file = ""
-        env_name = packer.env_name
+        env_name = packer.env_name()
 
     if not package_path:
         package_path = (f"{get_default_fs()}/user/{getpass.getuser()}"
-                        f"/envs/{env_name}.{packer.extension}")
+                        f"/envs/{env_name}.{packer.extension()}")
     else:
-        if pathlib.Path(package_path).suffix != f".{packer.extension}":
+        if pathlib.Path(package_path).suffix != f".{packer.extension()}":
             raise ValueError(f"{package_path} has the wrong extension"
-                             f", .{packer.extension} is expected")
+                             f", .{packer.extension()} is expected")
 
     return package_path, env_name, pex_file
+
+
+def detect_packer_from_spec(spec_file: str) -> Packer:
+    if os.path.basename(spec_file) == "requirements.txt":
+        return PEX_PACKER
+    elif spec_file.endswith(".yaml") or spec_file.endswith(".yml"):
+        return CONDA_PACKER
+    else:
+        raise ValueError(f"Archive format {spec_file} unsupported. "
+                         "Must be requirements.txt or conda .yaml")
 
 
 def detect_packer_from_env() -> Packer:
@@ -284,7 +326,8 @@ def detect_packer_from_file(zip_file: str) -> Packer:
     elif zip_file.endswith(".zip") or zip_file.endswith(".tar.gz"):
         return CONDA_PACKER
     else:
-        raise ValueError("Archive format unsupported. Must be .pex or conda .zip/.tar.gz")
+        raise ValueError(f"Archive format {zip_file} unsupported. "
+                         "Must be .pex or conda .zip/.tar.gz")
 
 
 def get_current_pex_filepath() -> str:

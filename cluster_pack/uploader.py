@@ -1,4 +1,5 @@
 import getpass
+import hashlib
 import imp
 import json
 import logging
@@ -26,7 +27,6 @@ from pex.pex_info import PexInfo
 
 from cluster_pack import filesystem, packaging
 
-EDITABLE_PACKAGES_INDEX = 'editable_packages_index'
 
 _logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def _get_archive_metadata_path(package_path: str) -> str:
 
 
 def _is_archive_up_to_date(package_path: str,
-                           current_packages_list: Dict[str, str],
+                           current_packages_list: List[str],
                            resolved_fs=None
                            ) -> bool:
     if not resolved_fs.exists(package_path):
@@ -48,11 +48,11 @@ def _is_archive_up_to_date(package_path: str,
         return False
     with resolved_fs.open(archive_meta_data, "rb") as fd:
         packages_installed = json.loads(fd.read())
-        return sorted(packages_installed.items()) == sorted(current_packages_list.items())
+        return sorted(packages_installed) == sorted(current_packages_list)
 
 
 def _dump_archive_metadata(package_path: str,
-                           current_packages_list: Dict[str, str],
+                           current_packages_list: List[str],
                            resolved_fs=None
                            ):
     archive_meta_data = _get_archive_metadata_path(package_path)
@@ -116,6 +116,50 @@ def upload_env(
 
     return (package_path,
             env_name)
+
+
+def upload_spec(
+    spec_file: str,
+    package_path: str = None,
+    force_upload: bool = False,
+    fs_args: Dict[str, Any] = {}
+) -> str:
+    packer = packaging.detect_packer_from_spec(spec_file)
+    hash = _get_hash(spec_file)
+    if not package_path:
+        package_path = (f"{packaging.get_default_fs()}/user/{getpass.getuser()}"
+                        f"/envs/cluster-pack-{hash}.{packer.extension()}")
+
+    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
+
+    _logger.info(f"Packaging from {spec_file} with hash={hash}")
+    reqs = [hash]
+
+    if force_upload or not _is_archive_up_to_date(package_path, reqs, resolved_fs):
+        _logger.info(
+            f"Zipping and uploading your env to {package_path}"
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            archive_local = packer.pack_from_spec(
+                spec_file=spec_file,
+                output=f"{tempdir}/{packer.env_name()}.{packer.extension()}")
+
+            dir = os.path.dirname(package_path)
+            if not resolved_fs.exists(dir):
+                resolved_fs.mkdir(dir)
+            resolved_fs.put(archive_local, package_path)
+
+            _dump_archive_metadata(package_path, reqs, resolved_fs)
+    else:
+        _logger.info(f"{package_path} already exists")
+
+    return package_path
+
+
+def _get_hash(spec_file):
+    with open(spec_file) as f:
+        return hashlib.sha1(f.read().encode()).hexdigest()
 
 
 def _upload_zip(zip_file: str, package_path: str, resolved_fs=None, force_upload: bool = False):
@@ -183,9 +227,11 @@ def _upload_env_from_venv(
         ignored_packages
     )
 
-    _logger.debug(f"Packaging current_packages={current_packages}")
+    reqs = packaging.format_requirements(current_packages)
 
-    if force_upload or not _is_archive_up_to_date(package_path, current_packages, resolved_fs):
+    _logger.debug(f"Packaging current_packages={reqs}")
+
+    if force_upload or not _is_archive_up_to_date(package_path, reqs, resolved_fs):
         _logger.info(
             f"Zipping and uploading your env to {package_path}"
         )
@@ -197,8 +243,8 @@ def _upload_env_from_venv(
 
         with tempfile.TemporaryDirectory() as tempdir:
             archive_local = packer.pack(
-                output=f"{tempdir}/{packer.env_name}.{packer.extension}",
-                reqs=current_packages,
+                output=f"{tempdir}/{packer.env_name()}.{packer.extension()}",
+                reqs=reqs,
                 additional_packages=additional_packages,
                 ignored_packages=ignored_packages,
                 editable_requirements=editable_requirements
@@ -208,6 +254,6 @@ def _upload_env_from_venv(
                 resolved_fs.mkdir(dir)
             resolved_fs.put(archive_local, package_path)
 
-            _dump_archive_metadata(package_path, current_packages, resolved_fs)
+            _dump_archive_metadata(package_path, reqs, resolved_fs)
     else:
         _logger.info(f"{package_path} already exists")

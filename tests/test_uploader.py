@@ -39,13 +39,13 @@ def test_update_no_metadata():
 
 
 @pytest.mark.parametrize("current_packages, metadata_packages, expected", [
-    pytest.param({"a": "2.0", "b": "1.0"}, {"a": "2.0", "b": "1.0"}, True),
-    pytest.param({"a": "2.0", "b": "1.0"}, {"a": "1.0", "b": "1.0"}, False),
-    pytest.param({"a": "2.0", "b": "1.0"}, {"a": "2.0"}, False),
-    pytest.param({"a": "2.0"}, {"a": "2.0", "b": "1.0"}, False),
-    pytest.param({}, {"a": "2.0", "b": "1.0"}, False),
-    pytest.param({"a": "2.0"}, {"c": "1.0"}, False),
-    pytest.param({}, {}, True),
+    pytest.param(["a==2.0", "b==1.0"], ["a==2.0", "b==1.0"], True),
+    pytest.param(["a==2.0", "b==1.0"], ["a==1.0", "b==1.0"], False),
+    pytest.param(["a==2.0", "b==1.0"], ["a==2.0"], False),
+    pytest.param(["a==2.0"], ["a==2.0", "b==1.0"], False),
+    pytest.param([], ["a==2.0", "b==1.0"], False),
+    pytest.param(["a==2.0"], ["c==1.0"], False),
+    pytest.param([], [], True),
 ])
 def test_update_version_comparaison(current_packages, metadata_packages,
                                     expected):
@@ -124,7 +124,7 @@ def test_upload_env():
 
         cluster_pack.upload_env(MYARCHIVE_FILENAME, cluster_pack.PEX_PACKER)
         mock_packer.assert_called_once_with(
-            {"a": "1.0", "b": "2.0"}, Any(str), [], editable_requirements={}
+            ["a==1.0", "b==2.0"], Any(str), [], editable_requirements={}
         )
         mock_fs.put.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
 
@@ -135,7 +135,7 @@ def test_upload_env():
             ignored_packages=["a"]
         )
         mock_packer.assert_called_once_with(
-            {"c": "3.0", "b": "2.0"}, Any(str), ["a"], editable_requirements={}
+            ["b==2.0", "c==3.0"], Any(str), ["a"], editable_requirements={}
         )
 
 
@@ -215,6 +215,29 @@ def test_upload_env_in_a_pex():
         mock_fs.rm.assert_called_once_with(f'{home_fs_path}/blah.json')
         # check envname
         assert 'myapp' == result[1]
+
+
+@mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date")
+@mock.patch(f"{MODULE_TO_TEST}._dump_archive_metadata")
+@mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path")
+@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
+@mock.patch(f"{MODULE_TO_TEST}.packaging.get_default_fs")
+@mock.patch(f"{MODULE_TO_TEST}.getpass.getuser")
+def test_upload_spec(mock_get_user, mock_get_default_fs,
+                     mock_pack_spec_in_pex, mock_resolve_fs,
+                     mock_dump_archive_metadata, mock_is_archive_up_to_date):
+    mock_is_archive_up_to_date.return_value = False
+    mock_fs = mock.MagicMock()
+    mock_resolve_fs.return_value = mock_fs, ""
+    mock_fs.exists.return_value = True
+    mock_get_default_fs.return_value = "hdfs://"
+    mock_get_user.return_value = "testuser"
+
+    spec_file = os.path.join(os.path.dirname(__file__), "resources", "requirements.txt")
+    result_path = cluster_pack.upload_spec(spec_file)
+    mock_pack_spec_in_pex.assert_called_once()
+    assert result_path == ("hdfs:///user/testuser/envs/cluster-pack-"
+                           "5a5f33b106aad8584345f5a0044a4188ce78b3f4.pex")
 
 
 def test__handle_packages_use_local_wheel():
