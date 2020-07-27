@@ -1,5 +1,6 @@
 pypandoc
 pyspark==2.4.4
+skein
 pytest
 pylama
 mypy
