@@ -16,7 +16,8 @@ from typing import (
     NamedTuple,
     Callable,
     Collection,
-    List
+    List,
+    Union
 )
 from urllib import parse, request
 import uuid
@@ -107,7 +108,17 @@ def _walk_and_do(fn, src_dir):
             fn(src_file_path, dst_path)
 
 
-def pack_in_pex(requirements: Dict[str, str],
+def pack_spec_in_pex(spec_file: str,
+                     output: str,
+                     pex_inherit_path: str = "prefer") -> str:
+    with open(spec_file, "r") as f:
+        lines = [line for line in f.read().splitlines()
+                 if line and not line.startswith("#")]
+        _logger.debug(f"used requirements: {lines}")
+        return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path)
+
+
+def pack_in_pex(requirements: Union[List[str], Dict[str, str]],
                 output: str,
                 ignored_packages: Collection[str] = [],
                 pex_inherit_path: str = "prefer",
@@ -136,7 +147,10 @@ def pack_in_pex(requirements: Dict[str, str],
         _logger.debug("Add current path as source", current_package)
         _walk_and_do(pex_builder.add_source, current_package)
 
-    requirements_to_install = format_requirements(requirements)
+    if isinstance(requirements, List):
+        requirements_to_install = requirements
+    else:
+        requirements_to_install = format_requirements(requirements)
 
     try:
         resolveds = resolve_multi(
