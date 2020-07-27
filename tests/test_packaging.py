@@ -109,7 +109,7 @@ def conda_is_available():
     return p.returncode == 0
 
 
-@pytest.mark.skipif(not conda_is_available(), reason="conda is not available")
+@pytest.mark.skip()
 def test_create_conda_env():
     with tempfile.TemporaryDirectory() as tempdir:
         env_path = os.path.join(tempdir, "conda_env.zip")

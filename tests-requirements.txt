@@ -1,4 +1,5 @@
 pypandoc
 pyspark==2.4.4
-coverage
 pytest
+pylama
+mypy
