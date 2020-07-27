@@ -24,17 +24,12 @@ import uuid
 import zipfile
 import pyarrow
 
-try:
-    import conda_pack
-except NotImplementedError:
-    # conda is not supported on windows
-    pass
 from pex.pex_builder import PEXBuilder
 from pex.resolver import resolve_multi, Unsatisfiable, Untranslateable
 from pex.pex_info import PexInfo
 from pex.interpreter import PythonInterpreter
 
-from cluster_pack import filesystem
+from cluster_pack import filesystem, conda
 
 CRITEO_PYPI_URL = "http://build-nexus.prod.crto.in/repository/pypi/simple"
 
@@ -192,6 +187,12 @@ def _get_packages(editable: bool, executable: str = sys.executable):
             ["distribute", "wheel", "pip", "setuptools"]]
 
 
+class Packer(NamedTuple):
+    env_name: str
+    extension: str
+    pack: Callable[[str, Dict[str, str], Dict[str, str], Collection[str], Dict[str, str]], str]
+
+
 def pack_current_venv_in_pex(
         output: str,
         reqs: Dict[str, str],
@@ -201,73 +202,16 @@ def pack_current_venv_in_pex(
     return pack_in_pex(reqs, output, ignored_packages, editable_requirements=editable_requirements)
 
 
-def pack_venv_in_conda(
+def pack_current_venv_in_conda(
         output: str,
         reqs: Dict[str, str],
         additional_packages: Dict[str, str],
         ignored_packages: Collection[str],
-        editable_requirements: Dict[str, str]) -> str:
-    if len(additional_packages) == 0 and len(ignored_packages) == 0:
-        conda_pack.pack(output=output)
-        return output
-    else:
-        return create_and_pack_conda_env(output, reqs)
-
-
-def create_and_pack_conda_env(env_path: str, reqs: Dict[str, str]) -> str:
-    try:
-        _call(["conda"])
-    except CalledProcessError:
-        raise RuntimeError("conda is not available in $PATH")
-
-    env_path_split = env_path.split('.', 1)
-    env_name = env_path_split[0]
-    compression_format = env_path_split[1] if len(env_path_split) > 1 else ".zip"
-    archive_path = f"{env_name}.{compression_format}"
-
-    if os.path.exists(env_name):
-        shutil.rmtree(env_name)
-
-    _logger.info("Creating new env " + env_name)
-    python_version = sys.version_info
-    _call([
-        "conda", "create", "-p", env_name, "-y", "-q", "--copy",
-        f"python={python_version.major}.{python_version.minor}.{python_version.micro}"
-    ], env=dict(os.environ))
-
-    env_python_bin = os.path.join(env_name, "bin", "python")
-    if not os.path.exists(env_python_bin):
-        raise RuntimeError(
-            "Failed to create Python binary at " + env_python_bin)
-
-    _logger.info("Installing packages into " + env_name)
-    _call([env_python_bin, "-m", "pip", "install"] +
-          format_requirements(reqs))
-
-    if os.path.exists(archive_path):
-        os.remove(archive_path)
-
-    conda_pack.pack(prefix=env_name, output=archive_path)
-    return archive_path
-
-
-def _call(cmd, **kwargs):
-    _logger.info(" ".join(cmd))
-    proc = Popen(cmd, stdout=PIPE, stderr=PIPE, **kwargs)
-    out, err = proc.communicate()
-    if proc.returncode:
-        _logger.error(out)
-        _logger.error(err)
-        raise CalledProcessError(proc.returncode, cmd)
-    else:
-        _logger.debug(out)
-        _logger.debug(err)
-
-
-class Packer(NamedTuple):
-    env_name: str
-    extension: str
-    pack: Callable[[str, Dict[str, str], Dict[str, str], Collection[str], Dict[str, str]], str]
+        editable_requirements:  Dict[str, str]) -> str:
+    return conda.pack_venv_in_conda(
+        format_requirements(reqs),
+        len(additional_packages) > 0 or len(ignored_packages) > 0,
+        output)
 
 
 def get_env_name(env_var_name) -> str:
@@ -283,8 +227,8 @@ def get_env_name(env_var_name) -> str:
 
 CONDA_PACKER = Packer(
     get_env_name(CONDA_DEFAULT_ENV),
-    'zip',
-    pack_venv_in_conda
+    'tar.gz',
+    pack_current_venv_in_conda
 )
 PEX_PACKER = Packer(
     get_env_name('VIRTUAL_ENV'),
@@ -337,10 +281,10 @@ def detect_packer_from_env() -> Packer:
 def detect_packer_from_file(zip_file: str) -> Packer:
     if zip_file.endswith('.pex'):
         return PEX_PACKER
-    elif zip_file.endswith(".zip"):
+    elif zip_file.endswith(".zip") or zip_file.endswith(".tar.gz"):
         return CONDA_PACKER
     else:
-        raise ValueError("Archive format unsupported. Must be .pex or conda .zip")
+        raise ValueError("Archive format unsupported. Must be .pex or conda .zip/.tar.gz")
 
 
 def get_current_pex_filepath() -> str:
