@@ -30,7 +30,7 @@ def get_application_logs(
     return None
 
 
-def wait_for_finished(client: skein.Client, app_id: str, poll_every_secs: int = 5):
+def wait_for_finished(client: skein.Client, app_id: str, poll_every_secs: int = 5) -> bool:
     logger.info(f"waiting for application_id: {app_id}")
     state = None
     while True:
