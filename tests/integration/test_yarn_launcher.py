@@ -1,6 +1,9 @@
 import getpass
-import skein
+import logging
+import functools
+import os
 import pytest
+import skein
 import uuid
 import tempfile
 
@@ -8,6 +11,8 @@ from cluster_pack.skein import yarn_launcher
 from cluster_pack import filesystem
 
 pytestmark = pytest.mark.hadoop
+
+_logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -28,24 +33,38 @@ def path_to_hdfs():
     fs.close()
 
 
-def submit_and_await_app_master(func, file_content, user=None):
+def _submit_and_await_app_master(func, assert_result_status=True, assert_log_content=None):
     with skein.Client() as client:
+        log_output_path = f"hdfs:///tmp/{uuid.uuid4()}.log"
         app_id = yarn_launcher.submit_func(
             client,
             func=func,
             args=[],
-            user=user,
-            memory="2 GiB")
-        yarn_launcher.wait_for_finished(client, app_id)
-        logs = yarn_launcher.get_application_logs(client, app_id, 2)
-        merged_logs = ""
-        for key, value in logs.items():
-            merged_logs += value
-            print(f"appmaster logs:{key} {value}")
-        assert file_content in merged_logs
+            memory="2 GiB",
+            process_logs=functools.partial(yarn_launcher.upload_logs_to_hdfs, log_output_path))
+        result = yarn_launcher.wait_for_finished(client, app_id)
+
+        fs, _ = filesystem.resolve_filesystem_and_path(log_output_path)
+        with fs.open(log_output_path, "rb") as f:
+            logs = f.read().decode()
+            assert result == assert_result_status
+            _logger.info(f"appmaster logs:\n{logs}")
+            assert assert_log_content in logs
 
 
-def test_execute_skein(path_to_hdfs):
+def test_failing_app(path_to_hdfs):
+    filepath_on_hdfs, file_content = path_to_hdfs
+
+    def launch_app():
+        print('exit appli ..')
+        raise ValueError
+
+    _submit_and_await_app_master(launch_app,
+                                 assert_result_status=False,
+                                 assert_log_content="exit appli ..")
+
+
+def test_skein(path_to_hdfs):
     filepath_on_hdfs, file_content = path_to_hdfs
 
     def launch_skein():
@@ -64,10 +83,10 @@ def test_execute_skein(path_to_hdfs):
             for key, value in logs.items():
                 print(f"skein logs:{key} {value}")
 
-    submit_and_await_app_master(launch_skein, file_content)
+    _submit_and_await_app_master(launch_skein, assert_log_content=file_content)
 
 
-def test_execute_pyspark(path_to_hdfs):
+def test_pyspark(path_to_hdfs):
     filepath_on_hdfs, file_content = path_to_hdfs
 
     def env(x):
@@ -85,4 +104,4 @@ def test_execute_pyspark(path_to_hdfs):
         hdfs_cat_res = sc.parallelize([1], numSlices=1).map(env).collect()[0]
         print(f"pyspark result:{hdfs_cat_res}")
 
-    submit_and_await_app_master(launch_pyspark, file_content)
+    _submit_and_await_app_master(launch_pyspark, assert_log_content=file_content)
