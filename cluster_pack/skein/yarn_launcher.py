@@ -117,9 +117,11 @@ def _submit(
             ui_users=['*'],
             view_users=['*']
         ),
-        # acquire_map_reduce_delegation_token=acquire_map_reduce_delegation_token,
         max_attempts=max_attempts
     )
+    # workaround for https://github.com/jcrist/skein/pull/197
+    if hasattr(skein.ApplicationSpec, 'acquire_map_reduce_delegation_token'):
+        spec.acquire_map_reduce_delegation_token = acquire_map_reduce_delegation_token
 
     # activate impersonification only if user to run the job is not the current user (yarn issue)
     if user and user != getpass.getuser():
