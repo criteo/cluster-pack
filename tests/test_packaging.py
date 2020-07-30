@@ -163,7 +163,7 @@ def does_not_raise():
 )
 def test_pack_in_pex(pyarrow_version, expectation):
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = {"tensorflow": "1.15.0", "pyarrow": pyarrow_version}
+        requirements = ["tensorflow==1.15.0", f"pyarrow=={pyarrow_version}"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
