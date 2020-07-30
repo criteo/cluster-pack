@@ -108,32 +108,20 @@ def _submit(
         max_restarts=max_restarts
     )
 
+    spec = skein.ApplicationSpec(
+        name=name,
+        file_systems=hadoop_file_systems,
+        services={name: service},
+        acls=skein.model.ACLs(
+            enable=True,
+            ui_users=['*'],
+            view_users=['*']
+        ),
+        max_attempts=max_attempts
+    )
     # workaround for https://github.com/jcrist/skein/pull/197
     if hasattr(skein.ApplicationSpec, 'acquire_map_reduce_delegation_token'):
-        spec = skein.ApplicationSpec(
-            name=name,
-            file_systems=hadoop_file_systems,
-            services={name: service},
-            acls=skein.model.ACLs(
-                enable=True,
-                ui_users=['*'],
-                view_users=['*']
-            ),
-            acquire_map_reduce_delegation_token=acquire_map_reduce_delegation_token,
-            max_attempts=max_attempts
-        )
-    else:
-        spec = skein.ApplicationSpec(
-            name=name,
-            file_systems=hadoop_file_systems,
-            services={name: service},
-            acls=skein.model.ACLs(
-                enable=True,
-                ui_users=['*'],
-                view_users=['*']
-            ),
-            max_attempts=max_attempts
-        )
+        spec.acquire_map_reduce_delegation_token = acquire_map_reduce_delegation_token
 
     # activate impersonification only if user to run the job is not the current user (yarn issue)
     if user and user != getpass.getuser():
