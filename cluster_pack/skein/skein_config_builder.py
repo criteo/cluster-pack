@@ -35,7 +35,8 @@ def build_with_func(
     :param additional_files: additional files to ship to the cluster
     :param tmp_dir: a temp dir for local files
     :param log_level: default remote log level
-    :param log_output_path: the path on distributed storage where to upload the container logs
+    :param process_logs: hook with the local log path as a parameter,
+                         can be used to uplaod the logs somewhere
     :return: SkeinConfig
     """
     function_name = f"function_{uuid.uuid4()}.dat"
@@ -77,7 +78,8 @@ def build(
                          (pex, conda zip)
     :param additional_files: additional files to ship to the cluster
     :param tmp_dir: a temp dir for local files
-    :param log_output_path: the path on distributed storage where to upload the container logs
+    :param process_logs: hook with the local log path as a parameter,
+                         can be used to uplaod the logs somewhere
     :return: SkeinConfig
     """
     if not package_path:
