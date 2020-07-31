@@ -3,7 +3,7 @@ import skein
 import tempfile
 
 import cluster_pack
-from cluster_pack.skein import skein_config_builder, skein_helper
+from cluster_pack.skein import skein_config_builder, skein_launcher
 
 
 if __name__ == "__main__":
@@ -28,8 +28,8 @@ if __name__ == "__main__":
             spec = skein.ApplicationSpec(services={"service": service})
             app_id = client.submit(spec)
 
-            skein_helper.wait_for_finished(client, app_id)
-            logs = skein_helper.get_application_logs(client, app_id, 2)
+            skein_launcher.wait_for_finished(client, app_id)
+            logs = skein_launcher.get_application_logs(client, app_id, 2)
             if logs:
                 for key, value in logs.items():
                     print(f"skein logs:{key} {value}")
