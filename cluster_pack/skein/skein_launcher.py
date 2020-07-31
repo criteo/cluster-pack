@@ -1,19 +1,21 @@
-import tempfile
-
-import getpass
-import skein
 import fire
+import getpass
+import logging
 import os
+import skein
+import tempfile
 import time
 
 from typing import Dict, Optional, List, Callable, Any
 
-from cluster_pack.skein import skein_config_builder, skein_helper
+from cluster_pack.skein import skein_config_builder
 from cluster_pack import filesystem
+
+logger = logging.getLogger(__name__)
 
 
 def submit(skein_client: skein.Client,
-           module_name: str, args: Optional[List[str]] = None, name: str = "yarn_launcher",
+           module_name: str, args: Optional[List[str]] = None, name: str = "skein_launcher",
            num_cores: int = 1, memory: str = "1 GiB",
            package_path: Optional[str] = None,
            hadoop_file_systems: Optional[List[str]] = None,
@@ -69,7 +71,7 @@ def submit(skein_client: skein.Client,
 
 
 def submit_func(skein_client: skein.Client,
-                func: Callable, args: List[Any] = [], name: str = "yarn_launcher",
+                func: Callable, args: List[Any] = [], name: str = "skein_launcher",
                 num_cores: int = 1, memory: str = "1 GiB",
                 package_path: Optional[str] = None,
                 hadoop_file_systems: Optional[List[str]] = None,
@@ -193,11 +195,52 @@ def get_application_logs(
     wait_for_nb_logs: Optional[int] = None,
     log_tries: int = 15
 ) -> Optional[skein.model.ApplicationLogs]:
-    return skein_helper.get_application_logs(client, app_id, wait_for_nb_logs, log_tries)
+    for ind in range(log_tries):
+        try:
+            logs = client.application_logs(app_id)
+            nb_keys = len(logs.keys())
+            logger.info(f"Got {nb_keys}/{wait_for_nb_logs} log files")
+            if not wait_for_nb_logs or nb_keys == wait_for_nb_logs:
+                return logs
+        except Exception:
+            logger.warning(
+                f"Cannot collect logs (attempt {ind+1}/{log_tries})")
+        time.sleep(3)
+    return None
 
 
 def wait_for_finished(client: skein.Client, app_id: str, poll_every_secs: int = 5) -> bool:
-    return skein_helper.wait_for_finished(client, app_id, poll_every_secs)
+    logger.info(f"waiting for application_id: {app_id}")
+    state = None
+    while True:
+        report = client.application_report(app_id)
+
+        logger.info(
+            f"Application report for {app_id} (state: {report.state})")
+        if state != report.state:
+            logger.info(_format_app_report(report))
+
+        if report.final_status != "undefined":
+            logger.info(report.final_status)
+            return report.final_status == skein.model.FinalStatus.SUCCEEDED
+
+        time.sleep(poll_every_secs)
+        state = report.state
+
+    return False
+
+
+def _format_app_report(report: skein.model.ApplicationReport) -> str:
+    attrs = [
+        "queue",
+        "start_time",
+        "finish_time",
+        "final_status",
+        "tracking_url",
+        "user"
+    ]
+    return os.linesep + os.linesep.join(
+        f"{attr:>16}: {getattr(report, attr) or ''}" for attr in attrs)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import skein
 import uuid
 import tempfile
 
-from cluster_pack.skein import yarn_launcher
+from cluster_pack.skein import skein_launcher
 from cluster_pack import filesystem
 
 pytestmark = pytest.mark.hadoop
@@ -36,13 +36,13 @@ def path_to_hdfs():
 def _submit_and_await_app_master(func, assert_result_status=True, assert_log_content=None):
     with skein.Client() as client:
         log_output_path = f"hdfs:///tmp/{uuid.uuid4()}.log"
-        app_id = yarn_launcher.submit_func(
+        app_id = skein_launcher.submit_func(
             client,
             func=func,
             args=[],
             memory="2 GiB",
-            process_logs=functools.partial(yarn_launcher.upload_logs_to_hdfs, log_output_path))
-        result = yarn_launcher.wait_for_finished(client, app_id)
+            process_logs=functools.partial(skein_launcher.upload_logs_to_hdfs, log_output_path))
+        result = skein_launcher.wait_for_finished(client, app_id)
 
         fs, _ = filesystem.resolve_filesystem_and_path(log_output_path)
         with fs.open(log_output_path, "rb") as f:
@@ -78,8 +78,8 @@ def test_skein(path_to_hdfs):
             )
             spec = skein.ApplicationSpec(services={"service": service})
             app_id = client.submit(spec)
-            yarn_launcher.wait_for_finished(client, app_id)
-            logs = yarn_launcher.get_application_logs(client, app_id, 2)
+            skein_launcher.wait_for_finished(client, app_id)
+            logs = skein_launcher.get_application_logs(client, app_id, 2)
             for key, value in logs.items():
                 print(f"skein logs:{key} {value}")
 
