@@ -149,11 +149,8 @@ def _submit(
         instances=num_containers,
         files=skein_config.files,
         env=env,
-        script=f'''
-                    set -x
-                    {pre_script_hook}
-                    {skein_config.script}
-                ''',
+        script=f'''{pre_script_hook}
+                   {skein_config.script}''',
         max_restarts=max_restarts
     )
 
