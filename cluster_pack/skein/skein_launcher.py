@@ -38,7 +38,7 @@ def submit(skein_client: skein.Client,
                          the application package (pex, conda zip)
     :param hadoop_file_systems: hadoop delegation token to aqcuire
     :param queue: yarn queue
-    :param env_vars: env varibales for the container
+    :param env_vars: env variables for the container
     :param additional_files: additional files to ship to the container
     :param node_label: label of the hadoop node to be scheduled
     :param num_containers: if you want to run the exact same script on more than one container
@@ -94,7 +94,7 @@ def submit_func(skein_client: skein.Client,
                          the application package (pex, conda zip)
     :param hadoop_file_systems: hadoop delegation token to aqcuire
     :param queue: yarn queue
-    :param env_vars: env varibales for the container
+    :param env_vars: env variables for the container
     :param additional_files: additional files to ship to the container
     :param node_label: label of the hadoop node to be scheduled
     :param num_containers: if you want to run the exact same script on more than one container
@@ -142,12 +142,13 @@ def _submit(
 ) -> str:
     env = dict(env_vars) if env_vars else dict()
     pre_script_hook = pre_script_hook if pre_script_hook else ""
+    env.update(skein_config.env)
 
     service = skein.Service(
         resources=skein.model.Resources(memory, num_cores),
         instances=num_containers,
         files=skein_config.files,
-        env=env.update(skein_config.env),
+        env=env,
         script=f'''
                     set -x
                     {pre_script_hook}
