@@ -223,7 +223,7 @@ def test_upload_env_in_a_pex():
 @mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
 @mock.patch(f"{MODULE_TO_TEST}.packaging.get_default_fs")
 @mock.patch(f"{MODULE_TO_TEST}.getpass.getuser")
-def test_upload_spec(mock_get_user, mock_get_default_fs,
+def test_upload_spec_hdfs(mock_get_user, mock_get_default_fs,
                      mock_pack_spec_in_pex, mock_resolve_fs,
                      mock_dump_archive_metadata, mock_is_archive_up_to_date):
     mock_is_archive_up_to_date.return_value = False
@@ -234,12 +234,85 @@ def test_upload_spec(mock_get_user, mock_get_default_fs,
     mock_get_user.return_value = "testuser"
 
     spec_file = os.path.join(os.path.dirname(__file__), "resources", "requirements.txt")
-    result_path = cluster_pack.upload_spec(spec_file)
+    result_path = cluster_pack.upload_spec(spec_file, "hdfs:///user/testuser/envs/myenv.pex")
     mock_pack_spec_in_pex.assert_called_once()
-    assert result_path == ("hdfs:///user/testuser/envs/cluster-pack-"
-                           "5a5f33b106aad8584345f5a0044a4188ce78b3f4.pex")
+    assert result_path == "hdfs:///user/testuser/envs/myenv.pex"
 
 
+def test_upload_spec_local_fs():
+    spec_file = os.path.join(os.path.dirname(__file__), "resources", "requirements.txt")
+    with tempfile.TemporaryDirectory() as tempdir:
+        result_path = cluster_pack.upload_spec(spec_file, f"{tempdir}/package.pex")
+        assert os.path.exists(result_path)    
+        _check_metadata(
+            f"{tempdir}/package.json",
+            ["5a5f33b106aad8584345f5a0044a4188ce78b3f4"])
+
+
+def test_upload_spec_unique_name():
+    with tempfile.TemporaryDirectory() as tempdir:
+        spec_file = f"{tempdir}/myproject/requirements.txt"
+        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+
+        result_path = cluster_pack.upload_spec(spec_file, f"{tempdir}")
+
+        assert os.path.exists(result_path)    
+        assert result_path == f"{tempdir}/cluster_pack_myproject.pex"
+        _check_metadata(
+            f"{tempdir}/cluster_pack_myproject.json",
+            ["b8721a3c125d3f7edfa27d7b13236e696f652a16"])
+
+
+@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
+def test_upload_spec_local_fs_use_cache(mock_pack_spec_in_pex):
+    with tempfile.TemporaryDirectory() as tempdir:
+        spec_file = f"{tempdir}/myproject/requirements.txt"
+        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+
+        pex_file = os.path.join(tempdir, "package.pex")
+        mock_pack_spec_in_pex.return_value = pex_file
+        with open(pex_file, "w") as f:
+            pass
+
+        result_path = cluster_pack.upload_spec(spec_file, pex_file)
+        result_path1 = cluster_pack.upload_spec(spec_file, pex_file)
+
+        mock_pack_spec_in_pex.assert_called_once()
+        assert os.path.exists(result_path)   
+        assert result_path == result_path1 == pex_file
+
+
+@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
+def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex):
+    mock_pack_spec_in_pex.return_value = "/tmp/tmp.pex"
+    with tempfile.TemporaryDirectory() as tempdir:
+        spec_file = f"{tempdir}/myproject/requirements.txt"
+        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+
+        pex_file = os.path.join(tempdir, "package.pex")
+        mock_pack_spec_in_pex.return_value = pex_file
+        with open(pex_file, "w") as f:
+            pass
+
+        result_path = cluster_pack.upload_spec(
+            spec_file, 
+            pex_file)
+
+        with open(spec_file, "a") as f:
+            f.write("skein\n")
+
+        result_path1 = cluster_pack.upload_spec(
+            spec_file, 
+            pex_file)
+        mock_pack_spec_in_pex.call_count == 2
+        assert os.path.exists(result_path)    
+        assert os.path.exists(result_path1)    
+        _check_metadata(
+            f"{tempdir}/package.json",
+            ["0fd17ced922a2387fa660fb0cb78e1c77fbe3349"])   
+
+
+@pytest.mark.skip()
 def test__handle_packages_use_local_wheel():
     current_packages = {"horovod": "0.18.2"}
     uploader._handle_packages(
@@ -252,6 +325,7 @@ def test__handle_packages_use_local_wheel():
     assert next(iter(current_packages.values())) == ""
 
 
+@pytest.mark.skip()
 def test__handle_packages_use_other_package():
     current_packages = {"tensorflow": "0.15.2"}
     uploader._handle_packages(
@@ -264,3 +338,25 @@ def test__handle_packages_use_other_package():
     assert len(current_packages) == 1
     assert next(iter(current_packages.keys())) == "tensorflow_gpu"
     assert next(iter(current_packages.values())) == "0.15.3"
+
+
+@pytest.mark.parametrize("spec_file, expected", [
+    pytest.param("/a/b/myproject/requirements.txt", "cluster_pack_myproject.pex"),  
+    pytest.param("myproject/requirements.txt", "cluster_pack_myproject.pex"),  
+    pytest.param("requirements.txt", "cluster_pack.pex"),  
+])
+def test__unique_filename(spec_file, expected):
+    assert expected == uploader._unique_filename(spec_file, packaging.PEX_PACKER)   
+
+
+def _check_metadata(metadata_file, expected_json):
+      with open(metadata_file, "r") as metadata_file:
+            json_md = json.load(metadata_file)
+            assert json_md == expected_json
+
+        
+def _write_spec_file(spec_file, reqs = []):
+    os.makedirs(os.path.dirname(spec_file))
+    with open(spec_file, "w") as f:
+        for req in reqs:
+            f.write(req + "\n")
