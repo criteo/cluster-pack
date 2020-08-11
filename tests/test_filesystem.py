@@ -1,4 +1,6 @@
+import os
 import pytest
+import subprocess
 import tempfile
 from cluster_pack import filesystem
 
@@ -11,8 +13,8 @@ lines = ("abcdef\n"
          "\n")
 
 
-def _create_temp_file(temp_dir: str):
-    file = f"{temp_dir}/myfile.txt"
+def _create_temp_file(temp_dir: str, filename: str = "myfile.txt"):
+    file = os.path.join(temp_dir, filename)
     with open(file, "wb") as f:
         f.write(lines.encode())
     return file
@@ -81,3 +83,60 @@ def test_file_iterator():
             assert line == b"abcdef\n"
             line = next(it)
             assert line == b"\n"
+
+
+def test_chmod():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file = f"{temp_dir}/script.sh"
+        with open(file, "wb") as f:
+            lines = ("#! /bin/bash\n"
+                     "echo 'Hello world'\n")
+            f.write(lines.encode())
+
+        fs, _ = filesystem.resolve_filesystem_and_path(file)
+
+        with pytest.raises(PermissionError):
+            subprocess.check_output([file])
+        fs.chmod(file, 0o755)
+
+        output = subprocess.check_output([file])
+        assert "Hello world" in output.decode()
+
+
+def test_rm():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        d = os.path.join(temp_dir, "a", "b", "c")
+        os.makedirs(d)
+        file1 = _create_temp_file(d, "file1.txt")
+        file2 = _create_temp_file(d, "file2.txt")
+
+        fs, _ = filesystem.resolve_filesystem_and_path(file1)
+
+        assert fs.exists(file1)
+        assert fs.exists(file2)
+        assert fs.exists(d)
+
+        fs.rm(file1)
+        fs.rm(d, recursive=True)
+
+        assert not fs.exists(file1)
+        assert not fs.exists(file2)
+        assert not fs.exists(d)
+
+
+def test_put():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file = f"{temp_dir}/script.sh"
+        with open(file, "wb") as f:
+            lines = ("#! /bin/bash\n"
+                     "echo 'Hello world'\n")
+            f.write(lines.encode())
+        os.chmod(file, 0o755)
+
+        fs, _ = filesystem.resolve_filesystem_and_path(file)
+
+        remote_file = f"{temp_dir}/copied_script.sh"
+        fs.put(file, remote_file)
+
+        assert os.path.exists(remote_file)
+        assert os.stat(remote_file).st_mode & 0o777 == 0o755

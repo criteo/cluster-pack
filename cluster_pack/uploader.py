@@ -124,14 +124,24 @@ def upload_spec(
     force_upload: bool = False,
     fs_args: Dict[str, Any] = {}
 ) -> str:
+    """Upload an environment from a spec file
+
+    :param spec_file: the spec file, must be requirements.txt or conda.yaml
+    :param package_path: the path where to upload the package
+    :param force_upload: whether the cache should be cleared
+    :param fs_args: specific arguments for special file systems (like S3)
+    :return: package_path
+    """
     packer = packaging.detect_packer_from_spec(spec_file)
-    hash = _get_hash(spec_file)
     if not package_path:
         package_path = (f"{packaging.get_default_fs()}/user/{getpass.getuser()}"
-                        f"/envs/cluster-pack-{hash}.{packer.extension()}")
+                        f"/envs/{_unique_filename(spec_file, packer)}")
+    elif not package_path.endswith(packer.extension()):
+        package_path = os.path.join(package_path, _unique_filename(spec_file, packer))
 
     resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
+    hash = _get_hash(spec_file)
     _logger.info(f"Packaging from {spec_file} with hash={hash}")
     reqs = [hash]
 
@@ -155,6 +165,13 @@ def upload_spec(
         _logger.info(f"{package_path} already exists")
 
     return package_path
+
+
+def _unique_filename(spec_file: str, packer: packaging.Packer) -> str:
+    repo = os.path.basename(os.path.dirname(spec_file))
+    if repo:
+        repo = "_" + repo
+    return f"cluster_pack{repo}.{packer.extension()}"
 
 
 def _get_hash(spec_file: str) -> str:
