@@ -56,7 +56,6 @@ def _chmod(self, path, mode):
 
 
 def _rm(self, path, recursive=False):
-    print(locals())
     if self.isfile(path):
         os.remove(path)
     else:

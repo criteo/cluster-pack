@@ -126,9 +126,9 @@ def upload_spec(
 ) -> str:
     """Upload an environment from a spec file
 
-    :param spec_file: the spec file, must be requirements.txt or conda .yaml
+    :param spec_file: the spec file, must be requirements.txt or conda.yaml
     :param package_path: the path where to upload the package
-    :param force_upload: wether the cache shoud lbe cleared
+    :param force_upload: whether the cache should be cleared
     :param fs_args: specific arguments for special file systems (like S3)
     :return: package_path
     """
