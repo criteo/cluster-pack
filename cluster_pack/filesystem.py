@@ -51,11 +51,11 @@ def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []) 
         setattr(child_class, method_name, _make_function(base_class, method_name))
 
 
-def _chmod(self, path, mode):
+def _chmod(self, path: str, mode: int):
     os.chmod(path, mode)
 
 
-def _rm(self, path, recursive=False):
+def _rm(self, path: str, recursive: bool = False):
     if self.isfile(path):
         os.remove(path)
     else:
@@ -65,7 +65,7 @@ def _rm(self, path, recursive=False):
             os.rmdir(path)
 
 
-def _preserve_acls(base_fs, local_file, remote_file):
+def _preserve_acls(base_fs: Any, local_file: str, remote_file: str):
     # this is useful for keeing pex excutable rights
     if (isinstance(base_fs, pyarrow.filesystem.LocalFileSystem) or
         isinstance(base_fs, pyarrow.hdfs.HadoopFileSystem)
@@ -74,38 +74,6 @@ def _preserve_acls(base_fs, local_file, remote_file):
         base_fs.chmod(remote_file, st.st_mode & 0o777)
 
     # not supported for S3 yet
-
-
-class EnhancedFileSystem(filesystem.FileSystem):
-
-    def __init__(self, base_fs):
-        self.base_fs = base_fs
-        if isinstance(base_fs, pyarrow.filesystem.LocalFileSystem):
-            base_fs.chmod = types.MethodType(_chmod, base_fs)
-            base_fs.rm = types.MethodType(_rm, base_fs)
-        _expose_methods(self, base_fs, ignored=["open"])
-
-    def put(self, filename, path, chunk=2**16):
-        with self.base_fs.open(path, 'wb') as target:
-            with open(filename, 'rb') as source:
-                while True:
-                    out = source.read(chunk)
-                    if len(out) == 0:
-                        break
-                    target.write(out)
-        _preserve_acls(self.base_fs, filename, path)
-
-    def get(self, filename, path, chunk=2**16):
-        with open(path, 'wb') as target:
-            with self.base_fs.open(filename, 'rb') as source:
-                while True:
-                    out = source.read(chunk)
-                    if len(out) == 0:
-                        break
-                    target.write(out)
-
-    def open(self, path, mode='rb'):
-        return EnhancedHdfsFile(self.base_fs.open(path, mode))
 
 
 class EnhancedHdfsFile(pyarrow.HdfsFile):
@@ -220,6 +188,9 @@ class EnhancedFileSystem(filesystem.FileSystem):
 
     def __init__(self, base_fs: Any):
         self.base_fs = base_fs
+        if isinstance(base_fs, pyarrow.filesystem.LocalFileSystem):
+            base_fs.chmod = types.MethodType(_chmod, base_fs)
+            base_fs.rm = types.MethodType(_rm, base_fs)
         _expose_methods(self, base_fs, ignored=["open"])
 
     def put(self, filename: str, path: str, chunk: int = 2**16) -> None:
@@ -230,6 +201,7 @@ class EnhancedFileSystem(filesystem.FileSystem):
                     if len(out) == 0:
                         break
                     target.write(out)
+        _preserve_acls(self.base_fs, filename, path)        
 
     def get(self, filename: str, path: str, chunk: int = 2**16) -> None:
         with open(path, 'wb') as target:
