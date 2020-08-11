@@ -10,14 +10,8 @@ from subprocess import Popen, CalledProcessError, PIPE
 import sys
 import tempfile
 from typing import (
-    Optional,
-    Tuple,
-    Dict,
-    NamedTuple,
-    Callable,
-    Collection,
-    List,
-    Union
+    Optional, Tuple, Dict, NamedTuple, Callable,
+    Collection, List, Union, Any
 )
 from urllib import parse, request
 import uuid
@@ -39,15 +33,17 @@ EDITABLE_PACKAGES_INDEX = 'editable_packages_index'
 
 _logger = logging.getLogger(__name__)
 
+JsonDictType = Dict[str, Any]
 
-def _get_tmp_dir():
+
+def _get_tmp_dir() -> str:
     tmp_dir = f"/tmp/{uuid.uuid1()}"
     _logger.debug(f"local tmp_dir {tmp_dir}")
     os.makedirs(tmp_dir, exist_ok=True)
     return tmp_dir
 
 
-def zip_path(py_dir: str, include_base_name=True, tmp_dir: str = _get_tmp_dir()):
+def zip_path(py_dir: str, include_base_name: bool = True, tmp_dir: str = _get_tmp_dir()) -> str:
     """
     Zip current directory
 
@@ -94,7 +90,7 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
 
 # from https://github.com/pantsbuild/pex/blob/451977efdf987dd299a1b4798ac2ee298cd6d61b/
 # pex/bin/pex.py#L644
-def _walk_and_do(fn, src_dir):
+def _walk_and_do(fn: Callable, src_dir: str) -> None:
     src_dir = os.path.normpath(src_dir)
     for root, dirs, files in os.walk(src_dir):
         for f in files:
@@ -164,7 +160,7 @@ def pack_in_pex(requirements: List[str],
     return output
 
 
-def _get_packages(editable: bool, executable: str = sys.executable):
+def _get_packages(editable: bool, executable: str = sys.executable) -> List[JsonDictType]:
     editable_mode = "-e" if editable else "--exclude-editable"
     results = subprocess.check_output(
         [f"{executable}", "-m", "pip", "list", "-l",
@@ -186,7 +182,7 @@ class Packer(object):
     def env_name(self) -> str:
         raise NotImplementedError
 
-    def extension(self):
+    def extension(self) -> str:
         raise NotImplementedError
 
     def pack(self,
@@ -199,11 +195,11 @@ class Packer(object):
 
     def pack_from_spec(self,
                        spec_file: str,
-                       output: str):
+                       output: str) -> str:
         raise NotImplementedError
 
 
-def get_env_name(env_var_name) -> str:
+def get_env_name(env_var_name: str) -> str:
     """
     Return default virtual env
     """
@@ -218,7 +214,7 @@ class CondaPacker(Packer):
     def env_name(self) -> str:
         return get_env_name(CONDA_DEFAULT_ENV)
 
-    def extension(self):
+    def extension(self) -> str:
         return 'tar.gz'
 
     def pack(self,
@@ -234,7 +230,7 @@ class CondaPacker(Packer):
 
     def pack_from_spec(self,
                        spec_file: str,
-                       output: str):
+                       output: str) -> str:
         return conda.create_and_pack_conda_env(
                             spec_file=spec_file,
                             reqs=None,
@@ -245,7 +241,7 @@ class PexPacker(Packer):
     def env_name(self) -> str:
         return get_env_name('VIRTUAL_ENV')
 
-    def extension(self):
+    def extension(self) -> str:
         return 'pex'
 
     def pack(self,
@@ -261,7 +257,7 @@ class PexPacker(Packer):
 
     def pack_from_spec(self,
                        spec_file: str,
-                       output: str):
+                       output: str) -> str:
         return pack_spec_in_pex(spec_file=spec_file, output=output)
 
 
@@ -269,14 +265,14 @@ CONDA_PACKER = CondaPacker()
 PEX_PACKER = PexPacker()
 
 
-def _get_editable_requirements(executable: str = sys.executable):
-    def _get(name):
+def _get_editable_requirements(executable: str = sys.executable) -> List[str]:
+    def _get(name: str) -> str:
         pkg = __import__(name.replace("-", "_"))
         return os.path.dirname(pkg.__file__)
     return [_get(package["name"]) for package in _get_packages(True, executable)]
 
 
-def get_non_editable_requirements(executable: str = sys.executable):
+def get_non_editable_requirements(executable: str = sys.executable) -> Dict[str, str]:
     return {package["name"]: package["version"]
             for package in _get_packages(False, executable)}
 
@@ -366,11 +362,11 @@ def get_editable_requirements(
     return editable_requirements
 
 
-def get_default_fs():
+def get_default_fs() -> str:
     return subprocess.check_output("hdfs getconf -confKey fs.defaultFS".split()).strip().decode()
 
 
-def _is_conda_env():
+def _is_conda_env() -> bool:
     return os.environ.get(CONDA_DEFAULT_ENV) is not None
 
 
@@ -382,5 +378,5 @@ def _running_from_pex() -> bool:
         return False
 
 
-def _is_criteo():
+def _is_criteo() -> bool:
     return "CRITEO_ENV" in os.environ

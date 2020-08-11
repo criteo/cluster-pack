@@ -17,7 +17,7 @@ from cluster_pack import process
 _logger = logging.getLogger(__name__)
 
 
-def get_conda_env_name(spec_file=None, reqs: List[str] = None, env_id=None):
+def get_conda_env_name(spec_file: str = None, reqs: List[str] = None, env_id: str = None) -> str:
     conda_env_contents = open(spec_file).read() if spec_file else ""
     if reqs:
         for req in reqs:
@@ -27,7 +27,7 @@ def get_conda_env_name(spec_file=None, reqs: List[str] = None, env_id=None):
     return "cluster-pack-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
 
 
-def get_conda_bin_executable(executable_name):
+def get_conda_bin_executable(executable_name: str) -> str:
     """
     Return path to the specified executable, assumed to be discoverable within the 'bin'
     subdirectory of a conda installation.
@@ -39,7 +39,7 @@ def get_conda_bin_executable(executable_name):
     return executable_name
 
 
-def get_or_create_conda_env(project_env_name=None, spec_file=None):
+def get_or_create_conda_env(project_env_name: str = None, spec_file: str = None) -> str:
     conda_path = get_conda_bin_executable("conda")
     try:
         process.call([conda_path, "--help"], throw_on_error=False)
@@ -66,7 +66,7 @@ def get_or_create_conda_env(project_env_name=None, spec_file=None):
     return project_env_path
 
 
-def _list_envs(conda_path):
+def _list_envs(conda_path: str) -> List[str]:
     _, stdout, _ = process.call([conda_path, "env", "list", "--json"])
     return [env for env in json.loads(stdout)['envs']]
 

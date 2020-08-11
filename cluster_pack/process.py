@@ -2,13 +2,13 @@
 import logging
 import subprocess
 
-from typing import List, Tuple
+from typing import List, Tuple, Any
 
 
 _logger = logging.getLogger(__name__)
 
 
-def call(cmd: List[str], throw_on_error=True, **kwargs) -> Tuple[int, str, str]:
+def call(cmd: List[str], throw_on_error: bool = True, **kwargs: Any) -> Tuple[int, str, str]:
     _logger.info(" ".join(cmd))
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
     out, err = proc.communicate()

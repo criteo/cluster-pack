@@ -26,7 +26,7 @@ jobs:
         pylama
     - name: Typer checker
       run: |
-        mypy --ignore-missing-imports --config-file setup.cfg
+        mypy --config-file setup.cfg
     - name: Tests
       run: |
         pytest -m "not hadoop and not conda" -s tests
