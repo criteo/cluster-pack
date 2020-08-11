@@ -51,11 +51,11 @@ def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []) 
         setattr(child_class, method_name, _make_function(base_class, method_name))
 
 
-def _chmod(self, path: str, mode: int):
+def _chmod(self: Any, path: str, mode: int) -> None:
     os.chmod(path, mode)
 
 
-def _rm(self, path: str, recursive: bool = False):
+def _rm(self: Any, path: str, recursive: bool = False) -> None:
     if self.isfile(path):
         os.remove(path)
     else:
@@ -65,7 +65,7 @@ def _rm(self, path: str, recursive: bool = False):
             os.rmdir(path)
 
 
-def _preserve_acls(base_fs: Any, local_file: str, remote_file: str):
+def _preserve_acls(base_fs: Any, local_file: str, remote_file: str) -> None:
     # this is useful for keeing pex excutable rights
     if (isinstance(base_fs, pyarrow.filesystem.LocalFileSystem) or
         isinstance(base_fs, pyarrow.hdfs.HadoopFileSystem)
