@@ -201,7 +201,7 @@ class EnhancedFileSystem(filesystem.FileSystem):
                     if len(out) == 0:
                         break
                     target.write(out)
-        _preserve_acls(self.base_fs, filename, path)        
+        _preserve_acls(self.base_fs, filename, path)
 
     def get(self, filename: str, path: str, chunk: int = 2**16) -> None:
         with open(path, 'wb') as target:
