@@ -11,7 +11,7 @@ from typing import Dict, Optional, Any
 _logger = logging.getLogger(__name__)
 
 
-def add_packaged_environment(ssb: SparkSession.Builder, archive: str):
+def add_packaged_environment(ssb: SparkSession.Builder, archive: str) -> None:
     archive = _make_path_hadoop_compatible(archive)
     if archive.endswith('pex'):
         _add_or_merge(ssb, "spark.yarn.dist.files", f"{archive}")
@@ -28,13 +28,13 @@ def add_packaged_environment(ssb: SparkSession.Builder, archive: str):
         _add_or_merge(ssb, "spark.files", f"{archive}")
 
 
-def add_editable_requirements(ssb: SparkSession.Builder):
+def add_editable_requirements(ssb: SparkSession.Builder) -> None:
     for requirement_dir in packaging.get_editable_requirements().values():
         py_archive = packaging.zip_path(requirement_dir)
         _add_archive(ssb, py_archive)
 
 
-def add_s3_params(ssb: SparkSession.Builder,  fs_args: Dict[str, Any] = {}):
+def add_s3_params(ssb: SparkSession.Builder,  fs_args: Dict[str, Any] = {}) -> None:
     ssb.config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
     ssb.config("spark.hadoop.fs.s3a.path.style.access", "true")
     if "key" in fs_args:
@@ -45,7 +45,7 @@ def add_s3_params(ssb: SparkSession.Builder,  fs_args: Dict[str, Any] = {}):
         ssb.config("spark.hadoop.fs.s3a.endpoint", fs_args["client_kwargs"]["endpoint_url"])
 
 
-def _add_archive(ssb: SparkSession.Builder, path):
+def _add_archive(ssb: SparkSession.Builder, path: str) -> None:
     _add_or_merge(ssb, "spark.yarn.dist.archives", path)
 
 
@@ -55,7 +55,7 @@ def _get_value(ssb: SparkSession.Builder, key: str) -> Optional[str]:
     return None
 
 
-def _add_or_merge(ssb: SparkSession.Builder, key: str, value: str):
+def _add_or_merge(ssb: SparkSession.Builder, key: str, value: str) -> None:
     if key in ssb._options:
         old_value = ssb._options[key]
         ssb.config(key, f"{old_value},{value}")
@@ -66,7 +66,7 @@ def _add_or_merge(ssb: SparkSession.Builder, key: str, value: str):
 # https://hadoop.apache.org/docs/current/hadoop-aws/tools/hadoop-aws/index.html#How_S3A_writes_data_to_S3
 # Hadoop uses s3a where aws seems to use S3 now
 # See https://github.com/dask/s3fs/pull/269 for s3fs
-def _make_path_hadoop_compatible(path):
+def _make_path_hadoop_compatible(path: str) -> str:
     if path.startswith('s3://'):
         path = path[5:]
         path = path.rstrip('/').lstrip('/')

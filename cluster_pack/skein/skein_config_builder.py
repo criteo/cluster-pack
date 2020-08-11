@@ -21,7 +21,7 @@ def build_with_func(
         package_path: Optional[str] = None,
         additional_files: Optional[List[str]] = None,
         tmp_dir: str = packaging._get_tmp_dir(),
-        log_level="INFO",
+        log_level: str = "INFO",
         process_logs: Callable[[str], Any] = None
 ) -> SkeinConfig:
     """Build the skein config from provided a function

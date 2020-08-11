@@ -38,7 +38,7 @@ def _get_archive_metadata_path(package_path: str) -> str:
 
 def _is_archive_up_to_date(package_path: str,
                            current_packages_list: List[str],
-                           resolved_fs=None
+                           resolved_fs: Any = None
                            ) -> bool:
     if not resolved_fs.exists(package_path):
         return False
@@ -53,8 +53,8 @@ def _is_archive_up_to_date(package_path: str,
 
 def _dump_archive_metadata(package_path: str,
                            current_packages_list: List[str],
-                           resolved_fs=None
-                           ):
+                           resolved_fs: Any = None
+                           ) -> None:
     archive_meta_data = _get_archive_metadata_path(package_path)
     with tempfile.TemporaryDirectory() as tempdir:
         tempfile_path = os.path.join(tempdir, "metadata.json")
@@ -70,7 +70,7 @@ def upload_zip(
     package_path: str = None,
     force_upload: bool = False,
     fs_args: Dict[str, Any] = {}
-):
+) -> str:
     packer = packaging.detect_packer_from_file(zip_file)
     package_path, _, _ = packaging.detect_archive_names(packer, package_path)
 
@@ -90,7 +90,7 @@ def upload_zip(
 
 def upload_env(
         package_path: str = None,
-        packer=None,
+        packer: packaging.Packer = None,
         additional_packages: Dict[str, str] = {},
         ignored_packages: Collection[str] = [],
         force_upload: bool = False,
@@ -157,12 +157,15 @@ def upload_spec(
     return package_path
 
 
-def _get_hash(spec_file):
+def _get_hash(spec_file: str) -> str:
     with open(spec_file) as f:
         return hashlib.sha1(f.read().encode()).hexdigest()
 
 
-def _upload_zip(zip_file: str, package_path: str, resolved_fs=None, force_upload: bool = False):
+def _upload_zip(
+    zip_file: str, package_path: str,
+    resolved_fs: Any = None, force_upload: bool = False
+) -> None:
     packer = packaging.detect_packer_from_file(zip_file)
     if packer == packaging.PEX_PACKER and resolved_fs.exists(package_path):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -191,7 +194,7 @@ def _handle_packages(
     current_packages: Dict[str, str],
     additional_packages: Dict[str, str] = {},
     ignored_packages: Collection[str] = []
-):
+) -> None:
     if len(additional_packages) > 0:
         additional_package_names = list(additional_packages.keys())
         current_packages_names = list(current_packages.keys())
@@ -212,13 +215,13 @@ def _handle_packages(
 
 def _upload_env_from_venv(
         package_path: str,
-        packer=packaging.PEX_PACKER,
+        packer: packaging.Packer = packaging.PEX_PACKER,
         additional_packages: Dict[str, str] = {},
         ignored_packages: Collection[str] = [],
-        resolved_fs=None,
+        resolved_fs: Any = None,
         force_upload: bool = False,
         include_editable: bool = False
-):
+) -> None:
     current_packages = packaging.get_non_editable_requirements()
 
     _handle_packages(

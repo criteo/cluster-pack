@@ -2,7 +2,7 @@ import logging
 import pyarrow
 
 
-from typing import Dict, Tuple, Any, List
+from typing import Dict, Tuple, Any, List, Iterator
 from pyarrow import filesystem, util
 from urllib.parse import urlparse
 
@@ -11,7 +11,7 @@ try:
 
     # pyarrow calls mkdirs which is an alias to makedirs which is implemented as no-op
     # remove this once https://github.com/dask/s3fs/pull/331 is released
-    def _makedirs(self, path, exist_ok=False):
+    def _makedirs(self: Any, path: str, exist_ok: bool = False) -> None:
         bucket, _, _ = self.split_path(path)
         if not self.exists(bucket):
             self.mkdir(bucket)
@@ -23,14 +23,14 @@ except (ModuleNotFoundError, ImportError):
 _logger = logging.getLogger(__name__)
 
 
-def _make_function(base_fs, method_name):
-    def f(*args, **kwargs):
+def _make_function(base_fs: Any, method_name: str) -> Any:
+    def f(*args: Any, **kwargs: Any) -> Any:
         func = getattr(base_fs, method_name)
         return func(*args, **kwargs)
     return f
 
 
-def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []):
+def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []) -> None:
     """
     expose all methods from base_class to child_class
 
@@ -48,44 +48,16 @@ def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []):
         setattr(child_class, method_name, _make_function(base_class, method_name))
 
 
-class EnhancedFileSystem(filesystem.FileSystem):
-
-    def __init__(self, base_fs):
-        self.base_fs = base_fs
-        _expose_methods(self, base_fs, ignored=["open"])
-
-    def put(self, filename, path, chunk=2**16):
-        with self.base_fs.open(path, 'wb') as target:
-            with open(filename, 'rb') as source:
-                while True:
-                    out = source.read(chunk)
-                    if len(out) == 0:
-                        break
-                    target.write(out)
-
-    def get(self, filename, path, chunk=2**16):
-        with open(path, 'wb') as target:
-            with self.base_fs.open(filename, 'rb') as source:
-                while True:
-                    out = source.read(chunk)
-                    if len(out) == 0:
-                        break
-                    target.write(out)
-
-    def open(self, path, mode='rb'):
-        return EnhancedHdfsFile(self.base_fs.open(path, mode))
-
-
 class EnhancedHdfsFile(pyarrow.HdfsFile):
 
-    def __init__(self, base_hdfs_file):
+    def __init__(self, base_hdfs_file: pyarrow.HdfsFile):
         self.base_hdfs_file = base_hdfs_file
         _expose_methods(
             self,
             base_hdfs_file,
             ignored=["write", "readline", "readlines"])
 
-    def ensure_bytes(self, s):
+    def ensure_bytes(self, s: Any) -> bytes:
         if isinstance(s, bytes):
             return s
         if hasattr(s, 'encode'):
@@ -96,16 +68,15 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
             return bytes(s)
         return s
 
-    def write(self, data):
+    def write(self, data: Any) -> None:
         self.base_hdfs_file.write(self.ensure_bytes(data))
 
-    def _seek_delimiter(file, delimiter, blocksize=2 ** 16):
+    def _seek_delimiter(self, delimiter: bytes, blocksize: int = 2 ** 16) -> None:
         """ Seek current file to next byte after a delimiter
         from https://github.com/dask/hdfs3/blob/master/hdfs3/utils.py#L11
 
         Parameters
         ----------
-        file: a file
         delimiter: bytes
             a delimiter like b'\n'
         blocksize: int
@@ -113,20 +84,20 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
         """
         last = b''
         while True:
-            current = file.read(blocksize)
+            current = self.read(blocksize)
             if not current:
                 return
             full = last + current
             try:
                 i = full.index(delimiter)
-                file.seek(file.tell() - (len(full) - i) + len(delimiter))
+                self.seek(self.tell() - (len(full) - i) + len(delimiter))
                 return
             except ValueError:
                 pass
             last = full[-len(delimiter):]
 
-    def readline(self, size=None):
-        """ Read and return a line of bytes from the file.
+    def readline(self, size: int = None) -> bytes:
+        """Read and return a line of bytes from the file.
 
         Line terminator is always b"\\n".
 
@@ -143,7 +114,7 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
         bytes_to_read = min(end - start, size) if size else end - start
         return self.read(bytes_to_read)
 
-    def _genline(self):
+    def _genline(self) -> Iterator[bytes]:
         while True:
             out = self.readline()
             if out:
@@ -151,11 +122,11 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
             else:
                 raise StopIteration
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[bytes]:
         return self._genline()
 
-    def readlines(self, hint=None):
-        """  Read and return a list of lines from the stream.
+    def readlines(self, hint: int = None) -> List[bytes]:
+        """Read and return a list of lines from the stream.
 
         Line terminator is always b"\\n".
 
@@ -185,7 +156,35 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
             return lines
 
 
-def resolve_filesystem_and_path(uri: str, **kwargs) -> Tuple[EnhancedFileSystem, str]:
+class EnhancedFileSystem(filesystem.FileSystem):
+
+    def __init__(self, base_fs: Any):
+        self.base_fs = base_fs
+        _expose_methods(self, base_fs, ignored=["open"])
+
+    def put(self, filename: str, path: str, chunk: int = 2**16) -> None:
+        with self.base_fs.open(path, 'wb') as target:
+            with open(filename, 'rb') as source:
+                while True:
+                    out = source.read(chunk)
+                    if len(out) == 0:
+                        break
+                    target.write(out)
+
+    def get(self, filename: str, path: str, chunk: int = 2**16) -> None:
+        with open(path, 'wb') as target:
+            with self.base_fs.open(filename, 'rb') as source:
+                while True:
+                    out = source.read(chunk)
+                    if len(out) == 0:
+                        break
+                    target.write(out)
+
+    def open(self, path: str, mode: str = 'rb') -> EnhancedHdfsFile:
+        return EnhancedHdfsFile(self.base_fs.open(path, mode))
+
+
+def resolve_filesystem_and_path(uri: str, **kwargs: Any) -> Tuple[EnhancedFileSystem, str]:
     parsed_uri = urlparse(uri)
     fs_path = parsed_uri.path
     # from https://github.com/apache/arrow/blob/master/python/pyarrow/filesystem.py#L419
