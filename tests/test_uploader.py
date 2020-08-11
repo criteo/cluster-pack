@@ -243,7 +243,7 @@ def test_upload_spec_local_fs():
     spec_file = os.path.join(os.path.dirname(__file__), "resources", "requirements.txt")
     with tempfile.TemporaryDirectory() as tempdir:
         result_path = cluster_pack.upload_spec(spec_file, f"{tempdir}/package.pex")
-        assert os.path.exists(result_path)    
+        assert os.path.exists(result_path)
         _check_metadata(
             f"{tempdir}/package.json",
             ["5a5f33b106aad8584345f5a0044a4188ce78b3f4"])
@@ -256,7 +256,7 @@ def test_upload_spec_unique_name():
 
         result_path = cluster_pack.upload_spec(spec_file, f"{tempdir}")
 
-        assert os.path.exists(result_path)    
+        assert os.path.exists(result_path)
         assert result_path == f"{tempdir}/cluster_pack_myproject.pex"
         _check_metadata(
             f"{tempdir}/cluster_pack_myproject.json",
@@ -271,14 +271,14 @@ def test_upload_spec_local_fs_use_cache(mock_pack_spec_in_pex):
 
         pex_file = os.path.join(tempdir, "package.pex")
         mock_pack_spec_in_pex.return_value = pex_file
-        with open(pex_file, "w") as f:
+        with open(pex_file, "w"):
             pass
 
         result_path = cluster_pack.upload_spec(spec_file, pex_file)
         result_path1 = cluster_pack.upload_spec(spec_file, pex_file)
 
         mock_pack_spec_in_pex.assert_called_once()
-        assert os.path.exists(result_path)   
+        assert os.path.exists(result_path)
         assert result_path == result_path1 == pex_file
 
 
@@ -295,21 +295,21 @@ def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex):
             pass
 
         result_path = cluster_pack.upload_spec(
-            spec_file, 
+            spec_file,
             pex_file)
 
         with open(spec_file, "a") as f:
             f.write("skein\n")
 
         result_path1 = cluster_pack.upload_spec(
-            spec_file, 
+            spec_file,
             pex_file)
         mock_pack_spec_in_pex.call_count == 2
-        assert os.path.exists(result_path)    
-        assert os.path.exists(result_path1)    
+        assert os.path.exists(result_path)
+        assert os.path.exists(result_path1)
         _check_metadata(
             f"{tempdir}/package.json",
-            ["0fd17ced922a2387fa660fb0cb78e1c77fbe3349"])   
+            ["0fd17ced922a2387fa660fb0cb78e1c77fbe3349"])
 
 
 @pytest.mark.skip()
@@ -341,21 +341,21 @@ def test__handle_packages_use_other_package():
 
 
 @pytest.mark.parametrize("spec_file, expected", [
-    pytest.param("/a/b/myproject/requirements.txt", "cluster_pack_myproject.pex"),  
-    pytest.param("myproject/requirements.txt", "cluster_pack_myproject.pex"),  
-    pytest.param("requirements.txt", "cluster_pack.pex"),  
+    pytest.param("/a/b/myproject/requirements.txt", "cluster_pack_myproject.pex"),
+    pytest.param("myproject/requirements.txt", "cluster_pack_myproject.pex"),
+    pytest.param("requirements.txt", "cluster_pack.pex"),
 ])
 def test__unique_filename(spec_file, expected):
-    assert expected == uploader._unique_filename(spec_file, packaging.PEX_PACKER)   
+    assert expected == uploader._unique_filename(spec_file, packaging.PEX_PACKER)
 
 
 def _check_metadata(metadata_file, expected_json):
-      with open(metadata_file, "r") as metadata_file:
-            json_md = json.load(metadata_file)
-            assert json_md == expected_json
+    with open(metadata_file, "r") as metadata_file:
+        json_md = json.load(metadata_file)
+        assert json_md == expected_json
 
-        
-def _write_spec_file(spec_file, reqs = []):
+
+def _write_spec_file(spec_file, reqs=[]):
     os.makedirs(os.path.dirname(spec_file))
     with open(spec_file, "w") as f:
         for req in reqs:

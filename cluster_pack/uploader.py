@@ -132,7 +132,7 @@ def upload_spec(
     :param fs_args: specific arguments for special file systems (like S3)
     :return: package_path
     """
-    packer = packaging.detect_packer_from_spec(spec_file) 
+    packer = packaging.detect_packer_from_spec(spec_file)
     if not package_path:
         package_path = (f"{packaging.get_default_fs()}/user/{getpass.getuser()}"
                         f"/envs/{_unique_filename(spec_file, packer)}")

@@ -50,6 +50,7 @@ def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []) 
                       f" to {type(child_class)}")
         setattr(child_class, method_name, _make_function(base_class, method_name))
 
+
 def _chmod(self, path, mode):
     os.chmod(path, mode)
 
@@ -72,7 +73,7 @@ def _preserve_acls(base_fs, local_file, remote_file):
     ):
         st = os.stat(local_file)
         base_fs.chmod(remote_file, st.st_mode & 0o777)
-    
+
     # not supported for S3 yet
 
 
@@ -92,7 +93,7 @@ class EnhancedFileSystem(filesystem.FileSystem):
                     out = source.read(chunk)
                     if len(out) == 0:
                         break
-                    target.write(out)        
+                    target.write(out)
         _preserve_acls(self.base_fs, filename, path)
 
     def get(self, filename, path, chunk=2**16):
