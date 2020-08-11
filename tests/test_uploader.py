@@ -312,7 +312,6 @@ def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex):
             ["0fd17ced922a2387fa660fb0cb78e1c77fbe3349"])
 
 
-@pytest.mark.skip()
 def test__handle_packages_use_local_wheel():
     current_packages = {"horovod": "0.18.2"}
     uploader._handle_packages(
@@ -325,7 +324,6 @@ def test__handle_packages_use_local_wheel():
     assert next(iter(current_packages.values())) == ""
 
 
-@pytest.mark.skip()
 def test__handle_packages_use_other_package():
     current_packages = {"tensorflow": "0.15.2"}
     uploader._handle_packages(
