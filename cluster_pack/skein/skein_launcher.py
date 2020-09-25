@@ -191,6 +191,8 @@ def _get_kerberos_ticket_path() -> Optional[str]:
     try:
         if "KRB5CCNAME" not in os.environ:
             filepath = f"/tmp/krb5cc_{os.getuid()}"
+            if not os.path.exists(filepath):
+                return None
         else:
             filepath = os.environ["KRB5CCNAME"]
             if filepath.startswith('FILE:'):
