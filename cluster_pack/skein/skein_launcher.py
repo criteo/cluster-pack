@@ -144,6 +144,11 @@ def _submit(
     pre_script_hook = pre_script_hook if pre_script_hook else ""
     env.update(skein_config.env)
 
+    krb5_ticket_path = _get_kerberos_ticket_path()
+    if krb5_ticket_path:
+        env['KRB5CCNAME'] = f'FILE:{os.path.basename(krb5_ticket_path)}'
+        skein_config.files[os.path.basename(krb5_ticket_path)] = krb5_ticket_path
+
     service = skein.Service(
         resources=skein.model.Resources(memory, num_cores),
         instances=num_containers,
@@ -180,6 +185,19 @@ def _submit(
         service.node_label = node_label
 
     return skein_client.submit(spec)
+
+
+def _get_kerberos_ticket_path() -> Optional[str]:
+    try:
+        if "KRB5CCNAME" not in os.environ:
+            filepath = f"/tmp/krb5cc_{os.getuid()}"
+        else:
+            filepath = os.environ["KRB5CCNAME"]
+            if filepath.startswith('FILE:'):
+                return filepath[5:]
+        return filepath
+    except KeyError:
+        return None
 
 
 def upload_logs_to_hdfs(path_on_hdfs: str, local_log_path: str) -> None:
