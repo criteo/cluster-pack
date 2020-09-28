@@ -56,7 +56,7 @@ def get_or_create_conda_env(project_env_name: str = None, spec_file: str = None)
                           spec_file])
         else:
             process.call(
-                [conda_path, "create", "-n", project_env_name, "python"])
+                [conda_path, "create", "-n", project_env_name, "python=3.6"])
 
     project_env_path = [env for env in _list_envs(conda_path)
                         if os.path.basename(env) == project_env_name][0]
