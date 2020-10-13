@@ -4,4 +4,3 @@ conda-pack
 pip>=18.1
 pyarrow
 fire
-pandas<1.0.0
