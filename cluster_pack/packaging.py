@@ -19,7 +19,7 @@ import zipfile
 import pyarrow
 
 from pex.pex_builder import PEXBuilder
-from pex.resolver import resolve_multi, Unsatisfiable, Untranslateable
+from pex.resolver import resolve_multi, Unsatisfiable, Untranslatable
 from pex.pex_info import PexInfo
 from pex.interpreter import PythonInterpreter
 
@@ -151,7 +151,7 @@ def pack_in_pex(requirements: List[str],
                 _logger.debug(f"Add requirement {resolved.distribution}")
             pex_builder.add_distribution(resolved.distribution)
             pex_builder.add_requirement(resolved.requirement)
-    except (Unsatisfiable, Untranslateable):
+    except (Unsatisfiable, Untranslatable):
         _logger.exception('Cannot create pex')
         raise
 
