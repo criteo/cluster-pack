@@ -19,7 +19,13 @@ import zipfile
 import pyarrow
 
 from pex.pex_builder import PEXBuilder
-from pex.resolver import resolve_multi, Unsatisfiable, Untranslatable
+from pex.resolver import resolve_multi, Unsatisfiable
+try:
+    from pex.resolver import Untranslatable
+except ImportError:
+    # keep compatibility with pex 2.1.1
+    from pex.resolver import Untranslateable as Untranslatable
+
 from pex.pex_info import PexInfo
 from pex.interpreter import PythonInterpreter
 
