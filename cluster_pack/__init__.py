@@ -1,9 +1,3 @@
-
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
-
-
 from cluster_pack.uploader import (
     upload_env,
     upload_zip,
