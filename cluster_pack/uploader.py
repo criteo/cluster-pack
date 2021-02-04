@@ -251,29 +251,53 @@ def _upload_env_from_venv(
 
     _logger.debug(f"Packaging current_packages={reqs}")
 
-    if force_upload or not _is_archive_up_to_date(package_path, reqs, resolved_fs):
-        _logger.info(
-            f"Zipping and uploading your env to {package_path}"
-        )
+    if not force_upload and _is_archive_up_to_date(package_path, reqs, resolved_fs):
+        _logger.info(f"{package_path} already exists")
+        return
 
-        if include_editable:
-            editable_requirements = packaging.get_editable_requirements()
-        else:
-            editable_requirements = {}
+    with tempfile.TemporaryDirectory() as tempdir:
+        env_copied_from_fallback_location = False
+        local_package_path = f'{tempdir}/{packer.env_name()}.{packer.extension()}'
+        local_fs, local_package_path = filesystem.resolve_filesystem_and_path(local_package_path)
 
-        with tempfile.TemporaryDirectory() as tempdir:
-            archive_local = packer.pack(
-                output=f"{tempdir}/{packer.env_name()}.{packer.extension()}",
+        fallback_path = os.environ.get('C_PACK_ENV_FALLBACK_PATH')
+        if not force_upload and fallback_path:
+            _logger.info(f"Copying env from {fallback_path} to {local_package_path}")
+            if fallback_path.startswith("http://") or fallback_path.startswith("https://"):
+                request.urlretrieve(fallback_path, local_package_path)
+            else:
+                fallback_fs, fallback_path = filesystem.resolve_filesystem_and_path(fallback_path)
+                fallback_fs.get(fallback_path, local_package_path)
+
+            _logger.info(f'Checking if requirements are met in {local_package_path}')
+            _dump_archive_metadata(local_package_path, reqs, local_fs)
+            if _is_archive_up_to_date(local_package_path, reqs, local_fs):
+                _logger.info('OK')
+                env_copied_from_fallback_location = True
+            else:
+                _logger.warning(f'Requirements not met in {local_package_path}')
+                local_fs.delete(local_package_path)
+                local_fs.delete(_get_archive_metadata_path(local_package_path))
+
+        if not env_copied_from_fallback_location:
+            if include_editable:
+                editable_requirements = packaging.get_editable_requirements()
+            else:
+                editable_requirements = {}
+
+            _logger.info(f"Generating and zipping your env to {local_package_path}")
+            local_package_path = packer.pack(
+                output=local_package_path,
                 reqs=reqs,
                 additional_packages=additional_packages,
                 ignored_packages=ignored_packages,
                 editable_requirements=editable_requirements
             )
-            dir = os.path.dirname(package_path)
-            if not resolved_fs.exists(dir):
-                resolved_fs.mkdir(dir)
-            resolved_fs.put(archive_local, package_path)
 
-            _dump_archive_metadata(package_path, reqs, resolved_fs)
-    else:
-        _logger.info(f"{package_path} already exists")
+        dir = os.path.dirname(package_path)
+        if not resolved_fs.exists(dir):
+            resolved_fs.mkdir(dir)
+        _logger.info(f'Uploading env at {local_package_path} to {package_path}')
+        resolved_fs.put(local_package_path, package_path)
+
+        _dump_archive_metadata(package_path, reqs, resolved_fs)
