@@ -31,7 +31,7 @@ from pex.interpreter import PythonInterpreter
 
 from cluster_pack import filesystem, conda
 
-CRITEO_PYPI_URL = "http://build-nexus.prod.crto.in/repository/pypi/simple"
+CRITEO_PYPI_URL = "http://build-nexus.prod.crto.in/repository/moab.pypi/simple"
 
 CONDA_DEFAULT_ENV = 'CONDA_DEFAULT_ENV'
 
