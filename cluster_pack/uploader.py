@@ -261,8 +261,8 @@ def _upload_env_from_venv(
         local_fs, local_package_path = filesystem.resolve_filesystem_and_path(local_package_path)
 
         fallback_path = os.environ.get('C_PACK_ENV_FALLBACK_PATH')
-        if not force_upload and fallback_path:
-            _logger.info(f"Copying env from {fallback_path} to {local_package_path}")
+        if not force_upload and fallback_path and packer.extension() == 'pex':
+            _logger.info(f"Copying pre-built env from {fallback_path} to {local_package_path}")
             if fallback_path.startswith("http://") or fallback_path.startswith("https://"):
                 request.urlretrieve(fallback_path, local_package_path)
             else:
@@ -270,14 +270,15 @@ def _upload_env_from_venv(
                 fallback_fs.get(fallback_path, local_package_path)
 
             _logger.info(f'Checking if requirements are met in {local_package_path}')
-            _dump_archive_metadata(local_package_path, reqs, local_fs)
-            if _is_archive_up_to_date(local_package_path, reqs, local_fs):
-                _logger.info('OK')
-                env_copied_from_fallback_location = True
+
+            pex_info = PexInfo.from_pex(local_package_path)
+
+            if (sorted(_clean_pex_requirements(pex_info)) == sorted(reqs)):
+                env_copied_from_fallback_location = True 
+                _dump_archive_metadata(local_package_path, reqs, local_fs)
+                _logger.info('Env copied from fallback location')
             else:
-                _logger.warning(f'Requirements not met in {local_package_path}')
-                local_fs.delete(local_package_path)
-                local_fs.delete(_get_archive_metadata_path(local_package_path))
+                _logger.warning(f'Requirements not met for pre-built {local_package_path}')
 
         if not env_copied_from_fallback_location:
             if include_editable:
@@ -301,3 +302,8 @@ def _upload_env_from_venv(
         resolved_fs.put(local_package_path, package_path)
 
         _dump_archive_metadata(package_path, reqs, resolved_fs)
+
+
+def _clean_pex_requirements(pex_info: PexInfo):
+    return [req.split(';')[0] for req in pex_info.requirements 
+            if "pip" not in req and "setuptools" not in req]
