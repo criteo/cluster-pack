@@ -347,6 +347,19 @@ def test__unique_filename(spec_file, expected):
     assert expected == uploader._unique_filename(spec_file, packaging.PEX_PACKER)
 
 
+def test_clean_pex_requirements():
+    with tempfile.TemporaryDirectory() as tempdir:
+        requirements = ["pipdeptree==2.0.0", "six==1.15.0"]
+        packaging.pack_in_pex(
+            requirements,
+            f"{tempdir}/out.pex",
+            # make isolated pex from current pytest virtual env
+            pex_inherit_path="false")
+        pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
+        cleaned_requirements = uploader._clean_pex_requirements(pex_info)
+        assert ['pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
+
+
 def _check_metadata(metadata_file, expected_json):
     with open(metadata_file, "r") as metadata_file:
         json_md = json.load(metadata_file)

@@ -4,6 +4,7 @@ import imp
 import json
 import logging
 import os
+import pkg_resources
 import pathlib
 import shutil
 import sys
@@ -24,6 +25,7 @@ import zipfile
 import pyarrow
 
 from pex.pex_info import PexInfo
+from pkg_resources import Requirement
 
 from cluster_pack import filesystem, packaging
 
@@ -274,7 +276,7 @@ def _upload_env_from_venv(
             pex_info = PexInfo.from_pex(local_package_path)
 
             if (sorted(_clean_pex_requirements(pex_info)) == sorted(reqs)):
-                env_copied_from_fallback_location = True 
+                env_copied_from_fallback_location = True
                 _dump_archive_metadata(local_package_path, reqs, local_fs)
                 _logger.info('Env copied from fallback location')
             else:
@@ -304,6 +306,11 @@ def _upload_env_from_venv(
         _dump_archive_metadata(package_path, reqs, resolved_fs)
 
 
-def _clean_pex_requirements(pex_info: PexInfo):
-    return [req.split(';')[0] for req in pex_info.requirements 
-            if "pip" not in req and "setuptools" not in req]
+def _format_pex_requirement(req: Requirement) -> str:
+    return req.key + ",".join(["".join(spec) for spec in req.specs])
+
+
+def _clean_pex_requirements(pex_info: PexInfo) -> List[str]:
+    reqs = pkg_resources.parse_requirements(pex_info.requirements)
+    # pip and setup tools are natively embedded in pex, we ignore them here
+    return [_format_pex_requirement(req) for req in reqs if req.key not in ['pip', 'setuptools']]
