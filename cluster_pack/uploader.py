@@ -271,16 +271,21 @@ def _upload_env_from_venv(
                 fallback_fs, fallback_path = filesystem.resolve_filesystem_and_path(fallback_path)
                 fallback_fs.get(fallback_path, local_package_path)
 
-            _logger.info(f'Checking if requirements are met in {local_package_path}')
+            _logger.info(f'Checking requirements in {local_package_path}')
 
             pex_info = PexInfo.from_pex(local_package_path)
 
-            if (sorted(_clean_pex_requirements(pex_info)) == sorted(reqs)):
+            req_from_pex = _sorted_requirements(_clean_pex_requirements(pex_info))
+            req_from_venv = _sorted_requirements(reqs)
+
+            if (req_from_pex == req_from_venv):
                 env_copied_from_fallback_location = True
                 _dump_archive_metadata(local_package_path, reqs, local_fs)
                 _logger.info('Env copied from fallback location')
             else:
                 _logger.warning(f'Requirements not met for pre-built {local_package_path}')
+                _logger.info(f'Requirements from pex {req_from_pex}')
+                _logger.info(f'Requirements from venv {req_from_venv}')
 
         if not env_copied_from_fallback_location:
             if include_editable:
@@ -304,6 +309,10 @@ def _upload_env_from_venv(
         resolved_fs.put(local_package_path, package_path)
 
         _dump_archive_metadata(package_path, reqs, resolved_fs)
+
+
+def _sorted_requirements(a: List[str]) -> List[str]:
+    return sorted([item.lower() for item in a])
 
 
 def _format_pex_requirement(req: Requirement) -> str:
