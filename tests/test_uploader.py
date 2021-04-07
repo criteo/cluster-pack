@@ -360,6 +360,16 @@ def test_clean_pex_requirements():
         assert ['pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
 
 
+@pytest.mark.parametrize("req, expected", [
+    (["pipdeptree==2.0.0", 'GitPython==3.1.14', "six==1.15.0", 'Cython==0.29.22'],
+     ['cython==0.29.22', 'gitpython==3.1.14', "pipdeptree==2.0.0", 'six==1.15.0']),
+    (["pipdeptree==2.0.0", "six==1.15.0", 'gitpython==3.1.14', 'cython==0.29.22'],
+     ['cython==0.29.22', 'gitpython==3.1.14', "pipdeptree==2.0.0", 'six==1.15.0']),
+])
+def test_sorted_requirement(req, expected):
+    assert uploader._sorted_requirements(req) == expected
+
+
 def _check_metadata(metadata_file, expected_json):
     with open(metadata_file, "r") as metadata_file:
         json_md = json.load(metadata_file)
