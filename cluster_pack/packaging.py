@@ -218,7 +218,7 @@ def get_env_name(env_var_name: str) -> str:
 
 class CondaPacker(Packer):
     def env_name(self) -> str:
-        return get_env_name(CONDA_DEFAULT_ENV)
+        return pathlib.Path(sys.executable).parents[1].name
 
     def extension(self) -> str:
         return 'tar.gz'
@@ -230,6 +230,7 @@ class CondaPacker(Packer):
              ignored_packages: Collection[str],
              editable_requirements:  Dict[str, str]) -> str:
         return conda.pack_venv_in_conda(
+                  self.env_name(),
                   reqs,
                   len(additional_packages) > 0 or len(ignored_packages) > 0,
                   output)
