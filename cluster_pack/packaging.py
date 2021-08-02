@@ -28,6 +28,7 @@ except ImportError:
 
 from pex.pex_info import PexInfo
 from pex.interpreter import PythonInterpreter
+from pex.inherit_path import InheritPath
 
 from cluster_pack import filesystem, conda
 
@@ -134,7 +135,7 @@ def pack_in_pex(requirements: List[str],
 
     interpreter = PythonInterpreter.get()
     pex_info = PexInfo.default(interpreter)
-    pex_info.inherit_path = pex_inherit_path
+    pex_info.inherit_path = InheritPath.for_value(pex_inherit_path)
     pex_builder = PEXBuilder(
         copy=True,
         interpreter=interpreter,
