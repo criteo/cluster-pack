@@ -137,7 +137,6 @@ def pack_in_pex(requirements: List[str],
     pex_info = PexInfo.default(interpreter)
     pex_info.inherit_path = InheritPath.for_value(pex_inherit_path)
     pex_builder = PEXBuilder(
-        copy=True,
         interpreter=interpreter,
         pex_info=pex_info)
 
