@@ -28,6 +28,7 @@ except ImportError:
 
 from pex.pex_info import PexInfo
 from pex.interpreter import PythonInterpreter
+from pex.inherit_path import InheritPath
 
 from cluster_pack import filesystem, conda
 
@@ -134,9 +135,8 @@ def pack_in_pex(requirements: List[str],
 
     interpreter = PythonInterpreter.get()
     pex_info = PexInfo.default(interpreter)
-    pex_info.inherit_path = pex_inherit_path
+    pex_info.inherit_path = InheritPath.for_value(pex_inherit_path)
     pex_builder = PEXBuilder(
-        copy=True,
         interpreter=interpreter,
         pex_info=pex_info)
 
@@ -156,7 +156,8 @@ def pack_in_pex(requirements: List[str],
             else:
                 _logger.debug(f"Add requirement {resolved.distribution}")
             pex_builder.add_distribution(resolved.distribution)
-            pex_builder.add_requirement(resolved.requirement)
+            if (resolved.direct_requirement):
+                pex_builder.add_requirement(resolved.direct_requirement)
     except (Unsatisfiable, Untranslatable):
         _logger.exception('Cannot create pex')
         raise
