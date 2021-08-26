@@ -156,7 +156,8 @@ def pack_in_pex(requirements: List[str],
             else:
                 _logger.debug(f"Add requirement {resolved.distribution}")
             pex_builder.add_distribution(resolved.distribution)
-            pex_builder.add_requirement(resolved.requirement)
+            if (resolved.direct_requirement):
+                pex_builder.add_requirement(resolved.direct_requirement)
     except (Unsatisfiable, Untranslatable):
         _logger.exception('Cannot create pex')
         raise
