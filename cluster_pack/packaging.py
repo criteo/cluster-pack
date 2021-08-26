@@ -17,6 +17,7 @@ from urllib import parse, request
 import uuid
 import zipfile
 import pyarrow
+import setuptools
 
 from pex.pex_builder import PEXBuilder
 from pex.resolver import resolve_multi, Unsatisfiable
@@ -171,7 +172,7 @@ def _get_packages(editable: bool, executable: str = sys.executable) -> List[Json
     editable_mode = "-e" if editable else "--exclude-editable"
     results = subprocess.check_output(
         [f"{executable}", "-m", "pip", "list", "-l",
-         f"{editable_mode}", "--format", "json"]).decode()
+         f"{editable_mode}", "--format", "json", "-v"]).decode()
 
     _logger.debug(f"'pip list' with editable={editable} results:" + results)
 
@@ -273,10 +274,14 @@ PEX_PACKER = PexPacker()
 
 
 def _get_editable_requirements(executable: str = sys.executable) -> List[str]:
-    def _get(name: str) -> str:
-        pkg = __import__(name.replace("-", "_"))
-        return os.path.dirname(pkg.__file__)
-    return [_get(package["name"]) for package in _get_packages(True, executable)]
+    top_level_pkgs = []
+    for pkg in _get_packages(True, executable):
+        for _pkg in setuptools.find_packages(pkg["location"]):
+            if "." in _pkg:
+                continue
+            imported = __import__(_pkg)
+            top_level_pkgs.append(os.path.dirname(imported.__file__))
+    return top_level_pkgs
 
 
 def get_non_editable_requirements(executable: str = sys.executable) -> Dict[str, str]:
