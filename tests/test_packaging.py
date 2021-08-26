@@ -65,8 +65,9 @@ def test__get_editable_requirements():
         _pip_install(tempdir)
         editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
         assert len(editable_requirements) == 2
-        assert os.path.basename(editable_requirements[0]) == "user_lib"
-        assert os.path.basename(editable_requirements[1]) == "user_lib2"
+        pkg_names = [os.path.basename(req) for req in editable_requirements]
+        assert "user_lib" in pkg_names
+        assert "user_lib2" in pkg_names
 
 
 def test_get_non_editable_requirements():
