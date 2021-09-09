@@ -305,7 +305,7 @@ def detect_archive_names(
         package_path = (f"{get_default_fs()}/user/{getpass.getuser()}"
                         f"/envs/{env_name}.{packer.extension()}")
     else:
-        if "".join(pathlib.Path(package_path).suffixes) != f".{packer.extension()}":
+        if pathlib.Path(package_path).suffix != f".{packer.extension()}":
             raise ValueError(f"{package_path} has the wrong extension"
                              f", .{packer.extension()} is expected")
 
