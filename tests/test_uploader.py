@@ -141,7 +141,7 @@ def test_upload_env():
 
 def test_upload_env_should_throw_error_if_wrong_extension():
     with pytest.raises(ValueError):
-        cluster_pack.upload_env("myarchive.tar.gz", packer=cluster_pack.CONDA_PACKER)
+        cluster_pack.upload_env("myarchive.tar.gz", packer=cluster_pack.PEX_PACKER)
 
 
 def test_upload_zip():
