@@ -16,10 +16,11 @@ pytestmark = pytest.mark.conda
 @mock.patch('cluster_pack.conda.create_and_pack_conda_env')
 def test_pack_venv_in_conda(mock_conda_create, mock_conda_pack):
     conda.pack_venv_in_conda(
+        name="test-env",
         reqs=["a==1.0.0", "b==2.0.0"],
         changed_reqs=False,
         output="testpath")
-    mock_conda_pack.assert_called_once_with(output="testpath")
+    mock_conda_pack.assert_called_once_with(name="test-env", output="testpath")
     mock_conda_create.assert_not_called()
 
 
@@ -27,6 +28,7 @@ def test_pack_venv_in_conda(mock_conda_create, mock_conda_pack):
 @mock.patch('cluster_pack.conda.create_and_pack_conda_env')
 def test_pack_venv_in_conda_changed_reqs(mock_conda_create, mock_conda_pack):
     conda.pack_venv_in_conda(
+        name="test-env",
         reqs=["a==1.0.0", "b==2.0.0"],
         changed_reqs=True,
         output="testpath")

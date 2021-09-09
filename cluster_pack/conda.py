@@ -72,6 +72,7 @@ def _list_envs(conda_path: str) -> List[str]:
 
 
 def pack_venv_in_conda(
+        name: str,
         reqs: List[str],
         changed_reqs: bool = False,
         output: str = None
@@ -88,7 +89,7 @@ def pack_venv_in_conda(
     :return: destination of the archive
     """
     if not changed_reqs:
-        return conda_pack.pack(output=output)
+        return conda_pack.pack(name=name, output=output)
     else:
         return create_and_pack_conda_env(reqs=reqs, output=output)
 
