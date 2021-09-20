@@ -188,7 +188,8 @@ def test_upload_env_in_a_pex():
         mock__get_archive_metadata_path = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}._get_archive_metadata_path")
         )
-        mock__get_archive_metadata_path.return_value = f"{home_fs_path}/blah.json"
+        mock__get_archive_metadata_path.return_value = \
+            f"{home_fs_path}/blah-1.388585.133.497-review.json"
 
         # metadata & pex already exists on fs
         mock_fs.exists.return_value = True
@@ -205,14 +206,14 @@ def test_upload_env_in_a_pex():
 
         mock_pex_info.from_pex.side_effect = _from_pex
 
-        result = cluster_pack.upload_env(f'{home_fs_path}/blah.pex')
+        result = cluster_pack.upload_env(f'{home_fs_path}/blah-1.388585.133.497-review.pex')
 
         # Check copy pex to remote
         mock_fs.put.assert_any_call(
             f'{home_path}/myapp.pex',
-            f'{home_fs_path}/blah.pex')
+            f'{home_fs_path}/blah-1.388585.133.497-review.pex')
         # Check metadata has been cleaned
-        mock_fs.rm.assert_called_once_with(f'{home_fs_path}/blah.json')
+        mock_fs.rm.assert_called_once_with(f'{home_fs_path}/blah-1.388585.133.497-review.json')
         # check envname
         assert 'myapp' == result[1]
 

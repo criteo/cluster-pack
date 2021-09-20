@@ -296,7 +296,7 @@ def detect_archive_names(
 ) -> Tuple[str, str, str]:
     if _running_from_pex():
         pex_file = get_current_pex_filepath()
-        env_name = os.path.basename(pex_file).split('.')[0]
+        env_name = os.path.splitext(os.path.basename(pex_file))[0]
     else:
         pex_file = ""
         env_name = packer.env_name()
@@ -305,7 +305,7 @@ def detect_archive_names(
         package_path = (f"{get_default_fs()}/user/{getpass.getuser()}"
                         f"/envs/{env_name}.{packer.extension()}")
     else:
-        if "".join(pathlib.Path(package_path).suffixes) != f".{packer.extension()}":
+        if "".join(os.path.splitext(package_path)[1]) != f".{packer.extension()}":
             raise ValueError(f"{package_path} has the wrong extension"
                              f", .{packer.extension()} is expected")
 
