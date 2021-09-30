@@ -1,9 +1,6 @@
 import contextlib
-import json
 import os
-import pyarrow
 import subprocess
-from subprocess import check_output
 import sys
 import shutil
 import tempfile
@@ -12,9 +9,7 @@ import zipfile
 
 import pytest
 
-from pex.pex_info import PexInfo
-
-from cluster_pack import packaging, filesystem
+from cluster_pack import packaging
 
 
 MODULE_TO_TEST = "cluster_pack.packaging"
@@ -184,7 +179,7 @@ def test_pack_in_pex(pyarrow_version, expectation):
 
 def test_pack_in_pex_include_editable_requirements():
     requirements = {}
-    requirement_dir = _get_editable_package_name()
+    requirement_dir = os.path.join(os.path.dirname(__file__), "user-lib", "user_lib")
     with tempfile.TemporaryDirectory() as tempdir:
         packaging.pack_in_pex(
             requirements,
