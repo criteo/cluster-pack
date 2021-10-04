@@ -6,32 +6,18 @@ import os
 import pathlib
 import shutil
 import subprocess
-from subprocess import Popen, CalledProcessError, PIPE
+from subprocess import CalledProcessError
 import sys
 import tempfile
 from typing import (
-    Optional, Tuple, Dict, NamedTuple, Callable,
-    Collection, List, Union, Any
+    Tuple, Dict,
+    Collection, List, Any
 )
-from urllib import parse, request
 import uuid
 import zipfile
-import pyarrow
 import setuptools
 
-from pex.pex_builder import PEXBuilder
-from pex.resolver import resolve_multi, Unsatisfiable
-try:
-    from pex.resolver import Untranslatable
-except ImportError:
-    # keep compatibility with pex 2.1.1
-    from pex.resolver import Untranslateable as Untranslatable
-
-from pex.pex_info import PexInfo
-from pex.interpreter import PythonInterpreter
-from pex.inherit_path import InheritPath
-
-from cluster_pack import filesystem, conda
+from cluster_pack import conda
 
 CRITEO_PYPI_URL = "http://build-nexus.prod.crto.in/repository/moab.pypi/simple"
 
@@ -96,17 +82,6 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
                 for name, version in requirements.items()]
 
 
-# from https://github.com/pantsbuild/pex/blob/451977efdf987dd299a1b4798ac2ee298cd6d61b/
-# pex/bin/pex.py#L644
-def _walk_and_do(fn: Callable, src_dir: str) -> None:
-    src_dir = os.path.normpath(src_dir)
-    for root, dirs, files in os.walk(src_dir):
-        for f in files:
-            src_file_path = os.path.join(root, f)
-            dst_path = os.path.relpath(src_file_path, src_dir)
-            fn(src_file_path, dst_path)
-
-
 def pack_spec_in_pex(spec_file: str,
                      output: str,
                      pex_inherit_path: str = "prefer") -> str:
@@ -134,36 +109,33 @@ def pack_in_pex(requirements: List[str],
     :return: destination of the archive, name of the pex
     """
 
-    interpreter = PythonInterpreter.get()
-    pex_info = PexInfo.default(interpreter)
-    pex_info.inherit_path = InheritPath.for_value(pex_inherit_path)
-    pex_builder = PEXBuilder(
-        interpreter=interpreter,
-        pex_info=pex_info)
+    with tempfile.TemporaryDirectory() as tempdir:
+        cmd = ["pex", f"--inherit-path={pex_inherit_path}"]
+        if editable_requirements and len(editable_requirements) > 0:
+            for current_package in editable_requirements.values():
+                _logger.debug("Add current path as source", current_package)
+                shutil.copytree(
+                    current_package, os.path.join(tempdir, os.path.basename(current_package))
+                )
+            cmd.append(f"--sources-directory={tempdir}")
 
-    for current_package in editable_requirements.values():
-        _logger.debug("Add current path as source", current_package)
-        _walk_and_do(pex_builder.add_source, current_package)
-
-    try:
-        resolveds = resolve_multi(
-            requirements=requirements,
-            indexes=[CRITEO_PYPI_URL] if _is_criteo() else None)
-
-        for resolved in resolveds:
-            if resolved.distribution.key in ignored_packages:
-                _logger.debug(f"Ignore requirement {resolved.distribution}")
-                continue
+        for req in requirements:
+            pkg_name = req.split("=")[0]
+            if pkg_name in ignored_packages:
+                _logger.debug(f"Ignore requirement {req}")
             else:
-                _logger.debug(f"Add requirement {resolved.distribution}")
-            pex_builder.add_distribution(resolved.distribution)
-            if (resolved.direct_requirement):
-                pex_builder.add_requirement(resolved.direct_requirement)
-    except (Unsatisfiable, Untranslatable):
-        _logger.exception('Cannot create pex')
-        raise
+                _logger.debug(f"Add requirement {req}")
+                cmd.append(req)
+        if _is_criteo():
+            cmd.append(f"--index-url={CRITEO_PYPI_URL}")
+        cmd.extend(["-o", output])
 
-    pex_builder.build(output)
+        try:
+            print(f"Running command: {' '.join(cmd)}")
+            subprocess.run(cmd, check=True)
+        except CalledProcessError:
+            _logger.exception('Cannot create pex')
+            raise
 
     return output
 

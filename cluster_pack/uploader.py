@@ -1,28 +1,19 @@
 import getpass
 import hashlib
-import imp
 import json
 import logging
 import os
 import pkg_resources
 import pathlib
-import shutil
-import sys
 import tempfile
 from typing import (
-    Optional,
     Tuple,
     Dict,
-    NamedTuple,
-    Callable,
     Collection,
     List,
     Any
 )
 from urllib import parse, request
-import uuid
-import zipfile
-import pyarrow
 
 from pex.pex_info import PexInfo
 from pkg_resources import Requirement

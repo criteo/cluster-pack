@@ -1,14 +1,8 @@
 import contextlib
 import json
 import os
-import pyarrow
-import subprocess
-from subprocess import check_output
-import sys
-import shutil
 import tempfile
 from unittest import mock
-import zipfile
 
 import pytest
 
@@ -56,8 +50,8 @@ def test_update_version_comparaison(current_packages, metadata_packages,
     mock_fs = mock.MagicMock()
     mock_fs.exists = lambda arg: map_is_exist[arg]
 
-    with mock.patch.object(mock_fs, 'open',
-        mock.mock_open(read_data=json.dumps(metadata_packages))
+    with mock.patch.object(
+        mock_fs, 'open', mock.mock_open(read_data=json.dumps(metadata_packages))
     ):
         assert uploader._is_archive_up_to_date(
             MYARCHIVE_FILENAME,
@@ -110,7 +104,6 @@ def test_upload_env():
         mock_resolve_fs.return_value = mock_fs, ""
 
         stack.enter_context(mock.patch(f"{MODULE_TO_TEST}._dump_archive_metadata"))
-        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.shutil.rmtree"))
         mock_packer = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}.packaging.pack_in_pex")
         )
@@ -224,9 +217,11 @@ def test_upload_env_in_a_pex():
 @mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
 @mock.patch(f"{MODULE_TO_TEST}.packaging.get_default_fs")
 @mock.patch(f"{MODULE_TO_TEST}.getpass.getuser")
-def test_upload_spec_hdfs(mock_get_user, mock_get_default_fs,
-                     mock_pack_spec_in_pex, mock_resolve_fs,
-                     mock_dump_archive_metadata, mock_is_archive_up_to_date):
+def test_upload_spec_hdfs(
+    mock_get_user, mock_get_default_fs,
+    mock_pack_spec_in_pex, mock_resolve_fs, mock_dump_archive_metadata,
+    mock_is_archive_up_to_date
+):
     mock_is_archive_up_to_date.return_value = False
     mock_fs = mock.MagicMock()
     mock_resolve_fs.return_value = mock_fs, ""
