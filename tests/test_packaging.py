@@ -51,7 +51,8 @@ def test_get_empty_non_editable_requirements():
                     ])
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python")
-        assert len(non_editable_requirements) == 0
+        assert len(non_editable_requirements) == 2
+        assert list(non_editable_requirements.keys()) == ["pip", "setuptools"]
 
 
 def test__get_editable_requirements():
@@ -71,8 +72,8 @@ def test_get_non_editable_requirements():
         _pip_install(tempdir)
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python")
-        assert len(non_editable_requirements) == 1
-        assert list(non_editable_requirements.keys())[0] == "cloudpickle"
+        assert len(non_editable_requirements) == 3
+        assert list(non_editable_requirements.keys()) == ["cloudpickle", "pip", "setuptools"]
 
 
 def _create_venv(tempdir: str):
@@ -93,12 +94,20 @@ def _get_editable_package_name():
 
 
 def test_get_current_pex_filepath():
-    mock_pex = mock.Mock()
-    mock_pex.__file__ = './current_directory/filename.pex/.bootstrap/_pex/__init__.pyc'
-    sys.modules['_pex'] = mock_pex
-    assert packaging.get_current_pex_filepath() == \
-        os.path.join(os.getcwd(), 'current_directory/filename.pex')
-    del sys.modules['_pex']
+    with tempfile.TemporaryDirectory() as tempdir:
+        path_to_pex = f"{tempdir}/out.pex"
+        packaging.pack_in_pex(
+            ["numpy"],
+            path_to_pex,
+            # make isolated pex from current pytest virtual env
+            pex_inherit_path="false")
+        assert os.path.exists(path_to_pex)
+        subprocess.check_output([
+            path_to_pex,
+            "-c",
+            ("""import os;"""
+             """assert "PEX" in os.environ;""")]
+        )
 
 
 def test_get_editable_requirements():

@@ -5,8 +5,8 @@ import shutil
 import types
 
 
-from typing import Dict, Tuple, Any, List, Iterator
-from pyarrow import filesystem, util
+from typing import Tuple, Any, List, Iterator
+from pyarrow import filesystem
 from urllib.parse import urlparse
 
 try:

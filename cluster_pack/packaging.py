@@ -148,14 +148,7 @@ def _get_packages(editable: bool, executable: str = sys.executable) -> List[Json
 
     _logger.debug(f"'pip list' with editable={editable} results:" + results)
 
-    parsed_results = json.loads(results)
-
-    # https://pip.pypa.io/en/stable/reference/pip_freeze/?highlight=freeze#cmdoption--all
-    # freeze hardcodes to ignore those packages: wheel, distribute, pip, setuptools
-    # To be iso with freeze we also remove those packages
-    return [element for element in parsed_results
-            if element["name"] not in
-            ["distribute", "wheel", "pip", "setuptools"]]
+    return json.loads(results)
 
 
 class Packer(object):
@@ -315,8 +308,9 @@ def get_current_pex_filepath() -> str:
     """
     If we run from a pex, returns the path
     """
-    import _pex
-    return os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(_pex.__file__))))
+    if "PEX" not in os.environ:
+        raise RuntimeError("Trying to get current pex file path while not running from PEX")
+    return os.environ["PEX"]
 
 
 def get_editable_requirements(
@@ -356,11 +350,7 @@ def _is_conda_env() -> bool:
 
 
 def _running_from_pex() -> bool:
-    try:
-        import _pex
-        return True
-    except ModuleNotFoundError:
-        return False
+    return "PEX" in os.environ
 
 
 def _is_criteo() -> bool:

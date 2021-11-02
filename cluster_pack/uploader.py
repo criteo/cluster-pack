@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import sys
 import pkg_resources
 import pathlib
 import tempfile
@@ -67,7 +68,7 @@ def upload_zip(
     packer = packaging.detect_packer_from_file(zip_file)
     package_path, _, _ = packaging.detect_archive_names(packer, package_path)
 
-    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
+    resolved_fs, _ = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
     with tempfile.TemporaryDirectory() as tempdir:
         parsed_url = parse.urlparse(zip_file)
@@ -94,7 +95,7 @@ def upload_env(
         packer = packaging.detect_packer_from_env()
     package_path, env_name, pex_file = packaging.detect_archive_names(packer, package_path)
 
-    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
+    resolved_fs, _ = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
     if not packaging._running_from_pex():
         _upload_env_from_venv(
@@ -232,7 +233,9 @@ def _upload_env_from_venv(
         force_upload: bool = False,
         include_editable: bool = False
 ) -> None:
-    current_packages = packaging.get_non_editable_requirements()
+    executable = packaging.get_current_pex_filepath() \
+        if packaging._running_from_pex() else sys.executable
+    current_packages = packaging.get_non_editable_requirements(executable)
 
     _handle_packages(
         current_packages,
@@ -280,7 +283,7 @@ def _upload_env_from_venv(
 
         if not env_copied_from_fallback_location:
             if include_editable:
-                editable_requirements = packaging.get_editable_requirements()
+                editable_requirements = packaging.get_editable_requirements(executable)
             else:
                 editable_requirements = {}
 
