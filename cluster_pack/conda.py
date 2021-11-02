@@ -2,14 +2,13 @@ import hashlib
 import json
 import logging
 import os
-import subprocess
 try:
     import conda_pack
 except NotImplementedError:
     # conda is not supported on windows
     pass
 
-from typing import Dict, List, Collection
+from typing import List
 
 from cluster_pack import process
 

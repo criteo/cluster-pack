@@ -1,10 +1,9 @@
 
 import os
 import logging
-import pyspark
 from pyspark.sql import SparkSession
 
-from cluster_pack import packaging, uploader
+from cluster_pack import packaging
 
 from typing import Dict, Optional, Any
 
