@@ -312,7 +312,7 @@ def get_current_pex_filepath() -> str:
     # preferred way to detect whether we run from within a pex
     if "PEX" in os.environ:
         return os.environ["PEX"]
-    
+
     # We still temporarilly support the previous way
     try:
         import _pex
