@@ -308,9 +308,17 @@ def get_current_pex_filepath() -> str:
     """
     If we run from a pex, returns the path
     """
-    if "PEX" not in os.environ:
+    # Env variable PEX has been introduced in pex==2.1.54 and is now the
+    # preferred way to detect whether we run from within a pex
+    if "PEX" in os.environ:
+        return os.environ["PEX"]
+    
+    # We still temporarilly support the previous way
+    try:
+        import _pex
+        return os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(_pex.__file__))))
+    except ModuleNotFoundError:
         raise RuntimeError("Trying to get current pex file path while not running from PEX")
-    return os.environ["PEX"]
 
 
 def get_editable_requirements(
@@ -350,7 +358,17 @@ def _is_conda_env() -> bool:
 
 
 def _running_from_pex() -> bool:
-    return "PEX" in os.environ
+    # Env variable PEX has been introduced in pex==2.1.54 and is now the
+    # preferred way to detect whether we run from within a pex
+    if "PEX" in os.environ:
+        return True
+
+    # We still temporarilly support the previous way
+    try:
+        import _pex
+        return True
+    except ModuleNotFoundError:
+        return False
 
 
 def _is_criteo() -> bool:
