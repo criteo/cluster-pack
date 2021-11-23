@@ -151,7 +151,7 @@ def _get_packages(editable: bool, executable: str = sys.executable) -> List[Json
     try:
         return json.loads(results)
     except json.JSONDecodeError as e:
-        _logger.error(f"Caught below exception while parsing {results}")
+        _logger.error(f"Caught below exception while parsing output of pip list: {results}")
         raise e
 
 
