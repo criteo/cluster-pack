@@ -132,9 +132,11 @@ def pack_in_pex(requirements: List[str],
 
         try:
             print(f"Running command: {' '.join(cmd)}")
-            subprocess.run(cmd, check=True)
-        except CalledProcessError:
+            call = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+            call.check_returncode()
+        except CalledProcessError as err:
             _logger.exception('Cannot create pex')
+            _logger.exception(err.stderr.decode("ascii"))
             raise
 
     return output
