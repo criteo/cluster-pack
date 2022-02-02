@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import sys
-import pkg_resources
 import pathlib
 import tempfile
 from typing import (
@@ -17,7 +16,7 @@ from typing import (
 from urllib import parse, request
 
 from pex.pex_info import PexInfo
-from pkg_resources import Requirement
+from wheel_filename import parse_wheel_filename
 
 from cluster_pack import filesystem, packaging
 
@@ -269,8 +268,10 @@ def _upload_env_from_venv(
 
             pex_info = PexInfo.from_pex(local_package_path)
 
-            req_from_pex = _sorted_requirements(_clean_pex_requirements(pex_info))
-            req_from_venv = _sorted_requirements(reqs)
+            req_from_pex = _sorted_requirements(
+                _normalize_pex_requirements(_format_pex_requirements(pex_info))
+            )
+            req_from_venv = _sorted_requirements(_normalize_pex_requirements(reqs))
 
             if (req_from_pex == req_from_venv):
                 env_copied_from_fallback_location = True
@@ -309,11 +310,14 @@ def _sorted_requirements(a: List[str]) -> List[str]:
     return sorted([item.lower() for item in a])
 
 
-def _format_pex_requirement(req: Requirement) -> str:
-    return req.key + ",".join(["".join(spec) for spec in req.specs])
-
-
-def _clean_pex_requirements(pex_info: PexInfo) -> List[str]:
-    reqs = pkg_resources.parse_requirements(pex_info.requirements)
+def _format_pex_requirements(pex_info: PexInfo) -> List[str]:
+    reqs = [parse_wheel_filename(req) for req in pex_info.distributions.keys()]
     # pip and setup tools are natively embedded in pex, we ignore them here
-    return [_format_pex_requirement(req) for req in reqs if req.key not in ['pip', 'setuptools']]
+    return [
+        f"{req.project}=={req.version}"
+        for req in reqs if req.project not in ['pip', 'setuptools']
+    ]
+
+
+def _normalize_pex_requirements(reqs: List[str]) -> List[str]:
+    return [req.replace('_', '-') for req in reqs]

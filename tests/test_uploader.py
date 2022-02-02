@@ -343,7 +343,7 @@ def test__unique_filename(spec_file, expected):
     assert expected == uploader._unique_filename(spec_file, packaging.PEX_PACKER)
 
 
-def test_clean_pex_requirements():
+def test_format_pex_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = ["pipdeptree==2.0.0", "six==1.15.0"]
         packaging.pack_in_pex(
@@ -352,7 +352,7 @@ def test_clean_pex_requirements():
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false")
         pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
-        cleaned_requirements = uploader._clean_pex_requirements(pex_info)
+        cleaned_requirements = uploader._format_pex_requirements(pex_info)
         assert ['pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
 
 
@@ -364,6 +364,11 @@ def test_clean_pex_requirements():
 ])
 def test_sorted_requirement(req, expected):
     assert uploader._sorted_requirements(req) == expected
+
+
+def test_normalize_requirement():
+    assert ["tf-yarn", "typing-extension", "to-to"] == \
+        uploader._normalize_pex_requirements(["tf_yarn", "typing_extension", "to-to"])
 
 
 def _check_metadata(metadata_file, expected_json):

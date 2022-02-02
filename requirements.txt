@@ -5,3 +5,4 @@ pip>=18.1
 pyarrow
 fire
 types-setuptools
+wheel-filename
