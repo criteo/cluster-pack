@@ -312,11 +312,7 @@ def _sorted_requirements(a: List[str]) -> List[str]:
 
 def _format_pex_requirements(pex_info: PexInfo) -> List[str]:
     reqs = [parse_wheel_filename(req) for req in pex_info.distributions.keys()]
-    # pip and setup tools are natively embedded in pex, we ignore them here
-    return [
-        f"{req.project}=={req.version}"
-        for req in reqs if req.project not in ['pip', 'setuptools']
-    ]
+    return [f"{req.project}=={req.version}" for req in reqs]
 
 
 def _normalize_pex_requirements(reqs: List[str]) -> List[str]:

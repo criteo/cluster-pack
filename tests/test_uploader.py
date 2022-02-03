@@ -353,7 +353,7 @@ def test_format_pex_requirements():
             pex_inherit_path="false")
         pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
         cleaned_requirements = uploader._format_pex_requirements(pex_info)
-        assert ['pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
+        assert ['pip==21.3.1', 'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
 
 
 @pytest.mark.parametrize("req, expected", [
