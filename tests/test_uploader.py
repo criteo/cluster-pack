@@ -353,7 +353,7 @@ def test_format_pex_requirements():
             pex_inherit_path="false")
         pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
         cleaned_requirements = uploader._format_pex_requirements(pex_info)
-        assert ['pip==21.3.1', 'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
+        assert ['pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
 
 
 @pytest.mark.parametrize("req, expected", [
@@ -362,13 +362,13 @@ def test_format_pex_requirements():
     (["pipdeptree==2.0.0", "six==1.15.0", 'gitpython==3.1.14', 'cython==0.29.22'],
      ['cython==0.29.22', 'gitpython==3.1.14', "pipdeptree==2.0.0", 'six==1.15.0']),
 ])
-def test_sorted_requirement(req, expected):
-    assert uploader._sorted_requirements(req) == expected
+def test_sort_requirement(req, expected):
+    assert uploader._sort_requirements(req) == expected
 
 
 def test_normalize_requirement():
     assert ["tf-yarn", "typing-extension", "to-to"] == \
-        uploader._normalize_pex_requirements(["tf_yarn", "typing_extension", "to-to"])
+        uploader._normalize_requirements(["tf_yarn", "typing_extension", "to-to"])
 
 
 def _check_metadata(metadata_file, expected_json):
