@@ -329,6 +329,6 @@ def _normalize_requirements(reqs: List[str]) -> List[str]:
 
 def _filter_out_requirements(reqs: List[str]) -> List[str]:
     def _keep(req: str) -> bool:
-        return all([d not in req for d in["wheel", "pip", "setuptools"]])
+        return all([d not in req for d in ["wheel", "pip", "setuptools"]])
 
     return [req for req in reqs if _keep(req)]
