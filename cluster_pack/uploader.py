@@ -268,10 +268,18 @@ def _upload_env_from_venv(
 
             pex_info = PexInfo.from_pex(local_package_path)
 
-            req_from_pex = _sorted_requirements(
-                _normalize_pex_requirements(_format_pex_requirements(pex_info))
+            req_from_pex = _filter_out_requirements(
+                _sort_requirements(
+                    _normalize_requirements(
+                        _format_pex_requirements(pex_info)
+                    )
+                )
             )
-            req_from_venv = _sorted_requirements(_normalize_pex_requirements(reqs))
+            req_from_venv = _filter_out_requirements(
+                _sort_requirements(
+                    _normalize_requirements(reqs)
+                )
+            )
 
             if (req_from_pex == req_from_venv):
                 env_copied_from_fallback_location = True
@@ -306,7 +314,7 @@ def _upload_env_from_venv(
         _dump_archive_metadata(package_path, reqs, resolved_fs)
 
 
-def _sorted_requirements(a: List[str]) -> List[str]:
+def _sort_requirements(a: List[str]) -> List[str]:
     return sorted([item.lower() for item in a])
 
 
@@ -315,5 +323,12 @@ def _format_pex_requirements(pex_info: PexInfo) -> List[str]:
     return [f"{req.project}=={req.version}" for req in reqs]
 
 
-def _normalize_pex_requirements(reqs: List[str]) -> List[str]:
+def _normalize_requirements(reqs: List[str]) -> List[str]:
     return [req.replace('_', '-') for req in reqs]
+
+
+def _filter_out_requirements(reqs: List[str]) -> List[str]:
+    def _keep(req: str) -> bool:
+        return all([d not in req for d in ["wheel", "pip", "setuptools"]])
+
+    return [req for req in reqs if _keep(req)]
