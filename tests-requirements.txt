@@ -4,3 +4,4 @@ skein
 pytest
 pylama
 mypy
+mock
