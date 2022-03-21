@@ -144,13 +144,11 @@ def pack_in_pex(requirements: List[str],
 
 def _get_packages(editable: bool, executable: str = sys.executable) -> List[JsonDictType]:
     editable_mode = "-e" if editable else "--exclude-editable"
-    results = subprocess.check_output(
-        [f"{executable}", "-m", "pip", "list", "-l",
-         f"{editable_mode}", "--format", "json", "-v"]).decode().split("\n")
     # We only keep the first line because pip warnings on subsequent lines can cause
     # JSONDecodeError below
-    if len(results) > 0:
-        results = results[0]
+    results = subprocess.check_output(
+        [f"{executable}", "-m", "pip", "list", "-l",
+         f"{editable_mode}", "--format", "json", "-v"]).decode().split("\n")[0]
 
     _logger.debug(f"'pip list' with editable={editable} results:" + results)
 
