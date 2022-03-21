@@ -7,7 +7,6 @@ import tempfile
 from unittest import mock
 import zipfile
 
-import mock
 import pytest
 
 from cluster_pack import packaging
