@@ -222,3 +222,17 @@ def test_pack_in_pex_from_spec():
                 ("print('Start importing cloudpickle..');import cloudpickle;"
                  "assert cloudpickle.__version__ == '1.4.1'")]
             ))
+
+
+def test_get_packages():
+    subprocess.check_output = mock.Mock(return_value='{"key": "value"}'.encode())
+    packages = packaging._get_packages(False)
+    expected_packages = {"key": "value"}
+    assert packages == expected_packages
+
+
+def test_get_packages_with_warning():
+    subprocess.check_output = mock.Mock(return_value='{"key": "value"}\nwarning'.encode())
+    packages = packaging._get_packages(False)
+    expected_packages = {"key": "value"}
+    assert packages == expected_packages
