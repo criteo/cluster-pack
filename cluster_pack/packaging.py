@@ -84,7 +84,7 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
 
 def pack_spec_in_pex(spec_file: str,
                      output: str,
-                     pex_inherit_path: str = "prefer") -> str:
+                     pex_inherit_path: str = "fallback") -> str:
     with open(spec_file, "r") as f:
         lines = [line for line in f.read().splitlines()
                  if line and not line.startswith("#")]
@@ -95,7 +95,7 @@ def pack_spec_in_pex(spec_file: str,
 def pack_in_pex(requirements: List[str],
                 output: str,
                 ignored_packages: Collection[str] = [],
-                pex_inherit_path: str = "prefer",
+                pex_inherit_path: str = "fallback",
                 editable_requirements:  Dict[str, str] = {}
                 ) -> str:
     """
