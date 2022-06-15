@@ -140,3 +140,44 @@ def test_put():
 
         assert os.path.exists(remote_file)
         assert os.stat(remote_file).st_mode & 0o777 == 0o755
+
+def test_move():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file = f"{temp_dir}/script.sh"
+        with open(file, "wb") as f:
+            lines = ("#! /bin/bash\n"
+                     "echo 'Hello world'\n")
+            f.write(lines.encode())
+        os.chmod(file, 0o755)
+
+        fs, _ = filesystem.resolve_filesystem_and_path(file)
+
+        remote_temp_file = f"{temp_dir}/copied_script.sh"
+        fs.put(file, remote_temp_file)
+
+        remote_file = f"{temp_dir}/moved_script.sh"
+        fs.move(remote_temp_file, remote_file)
+
+        assert os.path.exists(remote_file)
+        assert os.stat(remote_file).st_mode & 0o777 == 0o755
+
+@pytest.mark.skip
+def test_put_hdfs():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file = f"{temp_dir}/script.sh"
+        with open(file, "wb") as f:
+            lines = ("#! /bin/bash\n"
+                     "echo 'Hello world'\n")
+            f.write(lines.encode())
+        os.chmod(file, 0o755)
+        
+        user = os.environ.get("USER")
+        hdfs_file = f"viewfs://root/user/{user}/{temp_dir}/script.sh"
+
+        fs, _ = filesystem.resolve_filesystem_and_path(hdfs_file)
+
+        remote_file = f"{temp_dir}/copied_script.sh"
+        fs.put(file, remote_file)
+
+        assert fs.exists(remote_file)
+        # assert fs.ls(remote_file, True)[0]["permissions"] & 0o777 == 0o755

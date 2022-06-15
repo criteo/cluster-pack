@@ -1,12 +1,16 @@
 import logging
 import os
+import tempfile
 import pyarrow
-import shutil
+
 import types
 
-
 from typing import Tuple, Any, List, Iterator
-from pyarrow import filesystem
+from fsspec.implementations.arrow import ArrowFSWrapper
+from fsspec.implementations.hdfs import PyArrowHDFS
+from fsspec.implementations.local import LocalFileSystem
+from fsspec.spec import AbstractFileSystem
+from pyarrow import fs as filesys
 from urllib.parse import urlparse
 
 try:
@@ -18,6 +22,7 @@ try:
         bucket, _, _ = self.split_path(path)
         if not self.exists(bucket):
             self.mkdir(bucket)
+
     S3FileSystem.makedirs = _makedirs
 except (ModuleNotFoundError, ImportError):
     pass
@@ -30,6 +35,7 @@ def _make_function(base_fs: Any, method_name: str) -> Any:
     def f(*args: Any, **kwargs: Any) -> Any:
         func = getattr(base_fs, method_name)
         return func(*args, **kwargs)
+
     return f
 
 
@@ -41,13 +47,15 @@ def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []) 
     :param child_class: instance of child class to add the methods to
     :param ignored: methods that will be redefined manually
     """
-    method_list = [func for func in dir(base_class)
-                   if callable(getattr(base_class, func))
-                   and not func.startswith("__")
-                   and not [f for f in ignored if func.startswith(f)]]
+    method_list = [
+        func
+        for func in dir(base_class)
+        if hasattr(base_class, func) and callable(getattr(base_class, func))
+        and not func.startswith("__")
+        and not [f for f in ignored if func.startswith(f)]
+    ]
     for method_name in method_list:
-        _logger.debug(f"add method impl from {type(base_class)}.{method_name}"
-                      f" to {type(child_class)}")
+        _logger.debug(f"add method impl from {type(base_class)}.{method_name}" f" to {type(child_class)}")
         setattr(child_class, method_name, _make_function(base_class, method_name))
 
 
@@ -55,42 +63,26 @@ def _chmod(self: Any, path: str, mode: int) -> None:
     os.chmod(path, mode)
 
 
-def _rm(self: Any, path: str, recursive: bool = False) -> None:
-    if self.isfile(path):
-        os.remove(path)
-    else:
-        if recursive:
-            shutil.rmtree(path)
-        else:
-            os.rmdir(path)
+def _st_mode(self: Any, path: str) -> int:
+    return os.stat(path).st_mode
 
 
-def _preserve_acls(base_fs: Any, local_file: str, remote_file: str) -> None:
-    # this is useful for keeing pex excutable rights
-    if (isinstance(base_fs, pyarrow.filesystem.LocalFileSystem) or
-        isinstance(base_fs, pyarrow.hdfs.HadoopFileSystem)
-    ):
-        st = os.stat(local_file)
-        base_fs.chmod(remote_file, st.st_mode & 0o777)
-
-    # not supported for S3 yet
+def _hdfs_st_mode(self: Any, path: str) -> int:        
+        st_mode = self.ls(path, True)[0]["permissions"]
+        return int(st_mode)
 
 
 class EnhancedHdfsFile(pyarrow.HdfsFile):
-
     def __init__(self, base_hdfs_file: pyarrow.HdfsFile):
         self.base_hdfs_file = base_hdfs_file
-        _expose_methods(
-            self,
-            base_hdfs_file,
-            ignored=["write", "readline", "readlines"])
+        _expose_methods(self, base_hdfs_file, ignored=["write", "closed"])
 
     def ensure_bytes(self, s: Any) -> bytes:
         if isinstance(s, bytes):
             return s
-        if hasattr(s, 'encode'):
+        if hasattr(s, "encode"):
             return s.encode()
-        if hasattr(s, 'tobytes'):
+        if hasattr(s, "tobytes"):
             return s.tobytes()
         if isinstance(s, bytearray):
             return bytes(s)
@@ -98,50 +90,7 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
 
     def write(self, data: Any) -> None:
         self.base_hdfs_file.write(self.ensure_bytes(data))
-
-    def _seek_delimiter(self, delimiter: bytes, blocksize: int = 2 ** 16) -> None:
-        """ Seek current file to next byte after a delimiter
-        from https://github.com/dask/hdfs3/blob/master/hdfs3/utils.py#L11
-
-        Parameters
-        ----------
-        delimiter: bytes
-            a delimiter like b'\n'
-        blocksize: int
-            number of bytes to read
-        """
-        last = b''
-        while True:
-            current = self.read(blocksize)
-            if not current:
-                return
-            full = last + current
-            try:
-                i = full.index(delimiter)
-                self.seek(self.tell() - (len(full) - i) + len(delimiter))
-                return
-            except ValueError:
-                pass
-            last = full[-len(delimiter):]
-
-    def readline(self, size: int = None) -> bytes:
-        """Read and return a line of bytes from the file.
-
-        Line terminator is always b"\\n".
-
-        Parameters
-        -----------
-
-        size: int maximum number of bytes read until we stop
-
-        """
-        start = self.tell()
-        self._seek_delimiter(self.ensure_bytes("\n"))
-        end = self.tell()
-        self.seek(start)
-        bytes_to_read = min(end - start, size) if size else end - start
-        return self.read(bytes_to_read)
-
+    
     def _genline(self) -> Iterator[bytes]:
         while True:
             out = self.readline()
@@ -153,66 +102,59 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
     def __iter__(self) -> Iterator[bytes]:
         return self._genline()
 
-    def readlines(self, hint: int = None) -> List[bytes]:
-        """Read and return a list of lines from the stream.
 
-        Line terminator is always b"\\n".
-
-        Parameters
-        -----------
-
-        hint:  Can be specified to control the number of lines read.
-               No more lines will be read if the total size (in bytes/characters)
-               of all lines so far exceeds hint.
-               Note that it’s already possible to iterate on file objects
-               using for line in file: ... without calling file.readlines().
-        """
-
-        if not hint:
-            return list(self)
-        else:
-            lines = []
-            size = hint
-            line = self.readline()
-            lines.append(line)
-            size -= len(line)
-            while line and size >= 0:
-                line = self.readline()
-                lines.append(line)
-                size -= len(line)
-
-            return lines
-
-
-class EnhancedFileSystem(filesystem.FileSystem):
-
-    def __init__(self, base_fs: Any):
+class EnhancedFileSystem(AbstractFileSystem):
+    def __init__(self, base_fs: AbstractFileSystem):
         self.base_fs = base_fs
-        if isinstance(base_fs, pyarrow.filesystem.LocalFileSystem):
-            base_fs.chmod = types.MethodType(_chmod, base_fs)
-            base_fs.rm = types.MethodType(_rm, base_fs)
-        _expose_methods(self, base_fs, ignored=["open"])
+        overidden_methods = ["open", "put", "move"]
+        if isinstance(base_fs, LocalFileSystem):
+            self.chmod = types.MethodType(_chmod, base_fs)
+            self.st_mode = types.MethodType(_st_mode, base_fs)
+            overidden_methods += ["chmod" , "st_mode"]
+        elif isinstance(base_fs, PyArrowHDFS):
+            self.st_mode = types.MethodType(_hdfs_st_mode, base_fs)
+            overidden_methods += ["st_mode"]
+        _expose_methods(self, base_fs, ignored=overidden_methods)
+
+    def _preserve_acls(self, local_file: str, remote_file: str) -> None:
+        # this is useful for keeing pex executable rights
+        if (
+            isinstance(self.base_fs, LocalFileSystem)
+            or isinstance(self.base_fs, PyArrowHDFS)
+        ):
+            st = os.stat(local_file)
+            self.chmod(remote_file, st.st_mode & 0o777)
+
+        # not supported for S3 yet
 
     def put(self, filename: str, path: str, chunk: int = 2**16) -> None:
-        with self.base_fs.open(path, 'wb') as target:
-            with open(filename, 'rb') as source:
+        with self.open(path, mode="wb") as target:
+            with open(filename, "rb") as source:
                 while True:
                     out = source.read(chunk)
                     if len(out) == 0:
                         break
                     target.write(out)
-        _preserve_acls(self.base_fs, filename, path)
+        
+        self._preserve_acls(filename, path)
+    
+    def move(self, path: str, new_path: str) -> None:
+        st_mode = self.st_mode(path)
+        self.base_fs.move(path, new_path)
+        self.chmod(new_path, st_mode)
 
     def get(self, filename: str, path: str, chunk: int = 2**16) -> None:
-        with open(path, 'wb') as target:
-            with self.base_fs.open(filename, 'rb') as source:
+        with open(path, "wb") as target:
+            with self.open(filename) as source:
                 while True:
                     out = source.read(chunk)
                     if len(out) == 0:
                         break
                     target.write(out)
 
-    def open(self, path: str, mode: str = 'rb') -> EnhancedHdfsFile:
+    def open(self, path: str, mode: str = "rb") -> EnhancedHdfsFile:
+        if isinstance(self.base_fs, LocalFileSystem):
+            return EnhancedHdfsFile(open(path, mode))
         return EnhancedHdfsFile(self.base_fs.open(path, mode))
 
 
@@ -221,23 +163,23 @@ def resolve_filesystem_and_path(uri: str, **kwargs: Any) -> Tuple[EnhancedFileSy
     fs_path = parsed_uri.path
     # from https://github.com/apache/arrow/blob/master/python/pyarrow/filesystem.py#L419
     # with viewfs support
-    if parsed_uri.scheme == 'hdfs' or parsed_uri.scheme == 'viewfs':
-        netloc_split = parsed_uri.netloc.split(':')
+    if parsed_uri.scheme == "hdfs" or parsed_uri.scheme == "viewfs":
+        netloc_split = parsed_uri.netloc.split(":")
         host = netloc_split[0]
-        if host == '':
-            host = 'default'
+        if host == "":
+            host = "default"
         else:
             host = parsed_uri.scheme + "://" + host
         port = 0
         if len(netloc_split) == 2 and netloc_split[1].isnumeric():
             port = int(netloc_split[1])
 
-        fs = EnhancedFileSystem(pyarrow.hdfs.connect(host=host, port=port))
-    elif parsed_uri.scheme == 's3' or parsed_uri.scheme == 's3a':
-        fs = EnhancedFileSystem(pyarrow.filesystem.S3FSWrapper(S3FileSystem(**kwargs)))
+        fs = PyArrowHDFS(host=host, port=port)
+    elif parsed_uri.scheme == "s3" or parsed_uri.scheme == "s3a":
+        fs = ArrowFSWrapper(filesys.S3FSWrapper(S3FileSystem(**kwargs)))
     else:
         # Input is local path such as /home/user/myfile.parquet
-        fs = EnhancedFileSystem(pyarrow.filesystem.LocalFileSystem.get_instance())
+        fs = LocalFileSystem()
 
-    _logger.info(f"Resolved base filesystem: {type(fs.base_fs)}")
-    return fs, fs_path
+    _logger.info(f"Resolved base filesystem: {type(fs)}")
+    return EnhancedFileSystem(fs), fs_path
