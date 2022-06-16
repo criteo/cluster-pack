@@ -242,7 +242,7 @@ def test_upload_spec_local_fs():
         assert os.path.exists(result_path)
         _check_metadata(
             f"{tempdir}/package.json",
-            ["5a5f33b106aad8584345f5a0044a4188ce78b3f4"])
+            ["e727910d1b35908cfb5880e862815d54b2fc27ab"])
 
 
 def test_upload_spec_unique_name():

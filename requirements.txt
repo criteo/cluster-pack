@@ -6,3 +6,6 @@ pyarrow
 fire
 types-setuptools
 wheel-filename
+
+# Exclude faulty Protobuf version: https://github.com/protocolbuffers/protobuf/issues/10053
+protobuf!=4.21.0
