@@ -84,9 +84,9 @@ def test_dump_metadata():
         uploader._dump_archive_metadata(
             MYARCHIVE_FILENAME,
             packages,
-            filesystem.EnhancedFileSystem(mock_fs))
+            mock_fs)
         # Check previous file has been deleted
-        mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
+        mock_fs.rm.assert_any_call(MYARCHIVE_METADATA)
         mock_open().write.assert_called_once_with(b'{\n    "a": "1.0",\n    "b": "2.0"\n}')
 
 
@@ -119,7 +119,8 @@ def test_upload_env():
         mock_packer.assert_called_once_with(
             ["a==1.0", "b==2.0"], Any(str), [], editable_requirements={}
         )
-        mock_fs.put.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
+        mock_fs.put.assert_called_once_with(MYARCHIVE_FILENAME, mock.ANY)
+        mock_fs.move.assert_called_once_with(mock.ANY, MYARCHIVE_FILENAME)
 
         mock_packer.reset_mock()
         cluster_pack.upload_env(
@@ -157,7 +158,8 @@ def test_upload_zip():
                 mock_request.urlretrieve.assert_called_once_with(
                     "http://myserver/mypex.pex",
                     "/tmp/mypex.pex")
-                mock_fs.put.assert_any_call("/tmp/mypex.pex", f"{home_fs_path}/blah.pex")
+                mock_fs.put.assert_called_once_with("/tmp/mypex.pex", mock.ANY)
+                mock_fs.move.assert_called_once_with(mock.ANY, f"{home_fs_path}/blah.pex")
 
                 assert "/user/j.doe/blah.pex" == result
 
@@ -202,11 +204,14 @@ def test_upload_env_in_a_pex():
         result = cluster_pack.upload_env(f'{home_fs_path}/blah-1.388585.133.497-review.pex')
 
         # Check copy pex to remote
-        mock_fs.put.assert_any_call(
+        mock_fs.put.assert_called_once_with(
             f'{home_path}/myapp.pex',
+            mock.ANY)
+        mock_fs.move.assert_called_once_with(
+            mock.ANY,
             f'{home_fs_path}/blah-1.388585.133.497-review.pex')
         # Check metadata has been cleaned
-        mock_fs.rm.assert_called_once_with(f'{home_fs_path}/blah-1.388585.133.497-review.json')
+        mock_fs.rm.assert_any_call(f'{home_fs_path}/blah-1.388585.133.497-review.json')
         # check envname
         assert 'myapp' == result[1]
 

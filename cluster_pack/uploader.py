@@ -55,7 +55,7 @@ def _dump_archive_metadata(package_path: str,
             fd.write(json.dumps(current_packages_list, sort_keys=True, indent=4))
         if resolved_fs.exists(archive_meta_data):
             resolved_fs.rm(archive_meta_data)
-        resolved_fs.put(tempfile_path, archive_meta_data)
+        _put(resolved_fs, tempfile_path, archive_meta_data)
 
 
 def upload_zip(
@@ -151,7 +151,7 @@ def upload_spec(
             dir = os.path.dirname(package_path)
             if not resolved_fs.exists(dir):
                 resolved_fs.mkdir(dir)
-            resolved_fs.put(archive_local, package_path)
+            _put(resolved_fs, archive_local, package_path)
 
             _dump_archive_metadata(package_path, reqs, resolved_fs)
     else:
@@ -193,7 +193,7 @@ def _upload_zip(
     dir = os.path.dirname(package_path)
     if not resolved_fs.exists(dir):
         resolved_fs.mkdir(dir)
-    resolved_fs.put(zip_file, package_path)
+    _put(resolved_fs, zip_file, package_path)
     # Remove previous metadata
     archive_meta_data = _get_archive_metadata_path(package_path)
     if resolved_fs.exists(archive_meta_data):
@@ -309,9 +309,21 @@ def _upload_env_from_venv(
         if not resolved_fs.exists(dir):
             resolved_fs.mkdir(dir)
         _logger.info(f'Uploading env at {local_package_path} to {package_path}')
-        resolved_fs.put(local_package_path, package_path)
+        _put(resolved_fs, local_package_path, package_path)
 
         _dump_archive_metadata(package_path, reqs, resolved_fs)
+
+
+def _put(resolved_fs: filesystem.EnhancedFileSystem, source_path: str, destination_path: str) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_subdir = os.path.basename(temp_dir)
+        upload_dir = os.path.join(os.path.dirname(destination_path), temp_subdir)
+        try:
+            resolved_fs.put(source_path, upload_dir)
+            resolved_fs.move(upload_dir, destination_path)
+        finally:
+            if resolved_fs.exists(upload_dir):
+                resolved_fs.rm(upload_dir, True)
 
 
 def _sort_requirements(a: List[str]) -> List[str]:
