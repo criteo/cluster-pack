@@ -80,6 +80,7 @@ def test_dump_metadata():
     mock_open = mock.mock_open()
     with mock.patch.object(mock_fs, 'open', mock_open):
         mock_fs.exists.return_value = True
+        
         packages = {"a": "1.0", "b": "2.0"}
         uploader._dump_archive_metadata(
             MYARCHIVE_FILENAME,
@@ -87,7 +88,8 @@ def test_dump_metadata():
             mock_fs)
         # Check previous file has been deleted
         mock_fs.rm.assert_any_call(MYARCHIVE_METADATA)
-        mock_open().write.assert_called_once_with(b'{\n    "a": "1.0",\n    "b": "2.0"\n}')
+        mock_fs.put.assert_called_once()
+        mock_fs.move.assert_called_once()
 
 
 def test_upload_env():
