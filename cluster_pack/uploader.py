@@ -314,7 +314,9 @@ def _upload_env_from_venv(
         _dump_archive_metadata(package_path, reqs, resolved_fs)
 
 
-def _put(resolved_fs: filesystem.EnhancedFileSystem, source_path: str, destination_path: str) -> None:
+def _put(resolved_fs: filesystem.EnhancedFileSystem,
+         source_path: str,
+         destination_path: str) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_subdir = os.path.basename(temp_dir)
         upload_dir = os.path.join(os.path.dirname(destination_path), temp_subdir)

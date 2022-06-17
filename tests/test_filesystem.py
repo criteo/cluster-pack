@@ -141,6 +141,7 @@ def test_put():
         assert os.path.exists(remote_file)
         assert os.stat(remote_file).st_mode & 0o777 == 0o755
 
+
 def test_move():
     with tempfile.TemporaryDirectory() as temp_dir:
         file = f"{temp_dir}/script.sh"
@@ -161,6 +162,7 @@ def test_move():
         assert os.path.exists(remote_file)
         assert os.stat(remote_file).st_mode & 0o777 == 0o755
 
+
 @pytest.mark.skip
 def test_put_hdfs():
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -170,7 +172,7 @@ def test_put_hdfs():
                      "echo 'Hello world'\n")
             f.write(lines.encode())
         os.chmod(file, 0o755)
-        
+
         user = os.environ.get("USER")
         hdfs_file = f"viewfs://root/user/{user}/{temp_dir}/script.sh"
 
@@ -183,7 +185,7 @@ def test_put_hdfs():
         assert fs.st_mode(remote_file) & 0o777 == 0o755
 
 
-@pytest.mark.skip     
+@pytest.mark.skip
 def test_move_hdfs():
     with tempfile.TemporaryDirectory() as temp_dir:
         file = f"{temp_dir}/script.sh"
@@ -198,7 +200,6 @@ def test_move_hdfs():
 
         fs, _ = filesystem.resolve_filesystem_and_path(hdfs_file)
 
-
         remote_temp_file = f"{temp_dir}/copied_script.sh"
         fs.put(file, remote_temp_file)
 
@@ -207,6 +208,7 @@ def test_move_hdfs():
 
         assert fs.exists(remote_file)
         assert fs.st_mode(remote_file) & 0o777 == 0o755
+
 
 @pytest.mark.skip
 def test_put_and_move_hdfs_twice_fails():
@@ -217,7 +219,7 @@ def test_put_and_move_hdfs_twice_fails():
                      "echo 'Hello world'\n")
             f.write(lines.encode())
         os.chmod(file, 0o755)
-        
+
         user = os.environ.get("USER")
         hdfs_file = f"viewfs://root/user/{user}/{temp_dir}/script.sh"
 
@@ -228,7 +230,7 @@ def test_put_and_move_hdfs_twice_fails():
 
         remote_file = f"{temp_dir}/moved_script.sh"
         fs.move(remote_temp_file, remote_file)
-        
+
         remote_temp_file = f"{temp_dir}/copied_script.sh"
         fs.put(file, remote_temp_file)
 

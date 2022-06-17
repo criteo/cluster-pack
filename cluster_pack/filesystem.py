@@ -55,7 +55,9 @@ def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []) 
         and not [f for f in ignored if func.startswith(f)]
     ]
     for method_name in method_list:
-        _logger.debug(f"add method impl from {type(base_class)}.{method_name}" f" to {type(child_class)}")
+        _logger.debug(
+            f"add method impl from {type(base_class)}.{method_name}" f" to {type(child_class)}"
+            )
         setattr(child_class, method_name, _make_function(base_class, method_name))
 
 
@@ -67,9 +69,9 @@ def _st_mode(self: Any, path: str) -> int:
     return os.stat(path).st_mode
 
 
-def _hdfs_st_mode(self: Any, path: str) -> int:        
-        st_mode = self.ls(path, True)[0]["permissions"]
-        return int(st_mode)
+def _hdfs_st_mode(self: Any, path: str) -> int:
+    st_mode = self.ls(path, True)[0]["permissions"]
+    return int(st_mode)
 
 
 class EnhancedHdfsFile(pyarrow.HdfsFile):
@@ -90,7 +92,7 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
 
     def write(self, data: Any) -> None:
         self.base_hdfs_file.write(self.ensure_bytes(data))
-    
+
     def _genline(self) -> Iterator[bytes]:
         while True:
             out = self.readline()
@@ -110,7 +112,7 @@ class EnhancedFileSystem(AbstractFileSystem):
         if isinstance(base_fs, LocalFileSystem):
             self.chmod = types.MethodType(_chmod, base_fs)
             self.st_mode = types.MethodType(_st_mode, base_fs)
-            overidden_methods += ["chmod" , "st_mode"]
+            overidden_methods += ["chmod", "st_mode"]
         elif isinstance(base_fs, PyArrowHDFS):
             self.st_mode = types.MethodType(_hdfs_st_mode, base_fs)
             overidden_methods += ["st_mode"]
@@ -135,9 +137,9 @@ class EnhancedFileSystem(AbstractFileSystem):
                     if len(out) == 0:
                         break
                     target.write(out)
-        
+
         self._preserve_acls(filename, path)
-    
+
     def move(self, path: str, new_path: str) -> None:
         st_mode = self.st_mode(path)
         self.base_fs.move(path, new_path)
