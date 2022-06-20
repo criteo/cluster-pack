@@ -178,7 +178,7 @@ def resolve_filesystem_and_path(uri: str, **kwargs: Any) -> Tuple[EnhancedFileSy
 
         fs = PyArrowHDFS(host=host, port=port)
     elif parsed_uri.scheme == "s3" or parsed_uri.scheme == "s3a":
-        fs = ArrowFSWrapper(filesys.S3FSWrapper(S3FileSystem(**kwargs)))
+        fs = ArrowFSWrapper(filesys.S3FileSystem(**kwargs))
     else:
         # Input is local path such as /home/user/myfile.parquet
         fs = LocalFileSystem()
