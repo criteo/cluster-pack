@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # allowed parameters are here:
     # https://s3fs.readthedocs.io/en/latest/api.html#s3fs.core.S3FileSystem
     s3_args = {"scheme": "http",
-               "endpoint_override": "127.0.0.1:9000",
+               "endpoint_override": "s3:9000",
                "access_key": "AAA",
                "secret_key": "BBBBBBBB"}
     archive, _ = cluster_pack.upload_env(package_path="s3://test/envs/myenv.pex", fs_args=s3_args)
