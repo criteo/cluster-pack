@@ -6,11 +6,9 @@ import pyarrow
 import types
 
 from typing import Tuple, Any, List, Iterator
-from fsspec.implementations.arrow import ArrowFSWrapper
 from fsspec.implementations.hdfs import PyArrowHDFS
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.spec import AbstractFileSystem
-from pyarrow import fs as filesys
 from urllib.parse import urlparse
 
 try:
@@ -178,7 +176,7 @@ def resolve_filesystem_and_path(uri: str, **kwargs: Any) -> Tuple[EnhancedFileSy
 
         fs = PyArrowHDFS(host=host, port=port)
     elif parsed_uri.scheme == "s3" or parsed_uri.scheme == "s3a":
-        fs = ArrowFSWrapper(filesys.S3FSWrapper(S3FileSystem(**kwargs)))
+        fs = S3FileSystem(**kwargs)
     else:
         # Input is local path such as /home/user/myfile.parquet
         fs = LocalFileSystem()
