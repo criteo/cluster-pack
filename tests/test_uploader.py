@@ -80,7 +80,7 @@ def test_dump_metadata():
     mock_open = mock.mock_open()
     with mock.patch.object(mock_fs, 'open', mock_open):
         mock_fs.exists.return_value = True
-        
+
         packages = {"a": "1.0", "b": "2.0"}
         uploader._dump_archive_metadata(
             MYARCHIVE_FILENAME,
