@@ -133,3 +133,41 @@ def test_put():
 
         assert os.path.exists(remote_file)
         assert os.stat(remote_file).st_mode & 0o777 == 0o755
+
+
+def test_put_atomic():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file = f"{temp_dir}/script.sh"
+        with open(file, "wb") as f:
+            lines = ("#! /bin/bash\n"
+                     "echo 'Hello world'\n")
+            f.write(lines.encode())
+        os.chmod(file, 0o755)
+
+        fs, _ = filesystem.resolve_filesystem_and_path(file)
+
+        remote_file = f"{temp_dir}/copied_script.sh"
+        fs.put_atomic(file, remote_file)
+
+        assert os.path.exists(remote_file)
+        assert os.stat(remote_file).st_mode & 0o777 == 0o755
+
+
+def test_put_atomic_twice_fails():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file = f"{temp_dir}/script.sh"
+        with open(file, "wb") as f:
+            lines = ("#! /bin/bash\n"
+                     "echo 'Hello world'\n")
+            f.write(lines.encode())
+        os.chmod(file, 0o755)
+
+        fs, _ = filesystem.resolve_filesystem_and_path(file)
+
+        remote_file = f"{temp_dir}/copied_script.sh"
+        fs.put_atomic(file, remote_file)
+        with pytest.raises(FileExistsError):
+            fs.put_atomic(file, remote_file)
+
+        assert os.path.exists(remote_file)
+        assert os.stat(remote_file).st_mode & 0o777 == 0o755
