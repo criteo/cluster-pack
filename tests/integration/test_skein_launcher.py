@@ -17,8 +17,9 @@ _logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="module")
 def path_to_hdfs():
+    user = os.environ.get("USER")
     file_content = "Hello!"
-    path_on_hdfs = f"hdfs:///tmp/{uuid.uuid4()}"
+    path_on_hdfs = f"viewfs:///tmp/{user}/{uuid.uuid4()}"
     filepath_on_hdfs = f"{path_on_hdfs}/hello.txt"
 
     fs, _ = filesystem.resolve_filesystem_and_path(path_on_hdfs)
@@ -35,7 +36,8 @@ def path_to_hdfs():
 
 def _submit_and_await_app_master(func, assert_result_status=True, assert_log_content=None):
     with skein.Client() as client:
-        log_output_path = f"hdfs:///tmp/{uuid.uuid4()}.log"
+        user = os.environ.get("USER")
+        log_output_path = f"viewfs:///tmp/{user}/{uuid.uuid4()}.log"
         app_id = skein_launcher.submit_func(
             client,
             func=func,
