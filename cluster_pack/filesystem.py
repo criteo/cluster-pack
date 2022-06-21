@@ -1,5 +1,8 @@
+from genericpath import isdir
 import logging
+from operator import ne
 import os
+import uuid
 import pyarrow
 import shutil
 import types
@@ -63,6 +66,17 @@ def _rm(self: Any, path: str, recursive: bool = False) -> None:
             shutil.rmtree(path)
         else:
             os.rmdir(path)
+
+
+def _rename(self: Any, path: str, new_path: str) -> None:
+    if os.path.exists(new_path):
+        raise FileExistsError(f"File exist at destination {new_path}")
+    os.rename(path, new_path)
+
+
+def _hdfs_st_mode(self: Any, path: str) -> int:
+    st_mode = self.ls(path, True)[0]["permissions"]
+    return int(st_mode)
 
 
 def _preserve_acls(base_fs: Any, local_file: str, remote_file: str) -> None:
@@ -191,6 +205,10 @@ class EnhancedFileSystem(filesystem.FileSystem):
         if isinstance(base_fs, pyarrow.filesystem.LocalFileSystem):
             base_fs.chmod = types.MethodType(_chmod, base_fs)
             base_fs.rm = types.MethodType(_rm, base_fs)
+            base_fs.rename = types.MethodType(_rename, base_fs)
+
+        if isinstance(base_fs, pyarrow.hdfs.HadoopFileSystem):
+            base_fs.st_mode = types.MethodType(_hdfs_st_mode, base_fs)
         _expose_methods(self, base_fs, ignored=["open"])
 
     def put(self, filename: str, path: str, chunk: int = 2**16) -> None:
@@ -202,6 +220,21 @@ class EnhancedFileSystem(filesystem.FileSystem):
                         break
                     target.write(out)
         _preserve_acls(self.base_fs, filename, path)
+
+    def put_atomic(self,
+         source_path: str,
+         destination_path: str) -> None:
+        upload_dir = f"{destination_path}.{uuid.uuid4()}.tmp"
+        try:
+            if isdir(source_path) and not self.exists(upload_dir):
+                self.mkdir(upload_dir)
+            self.put(source_path, upload_dir)
+            self.mv(upload_dir, destination_path)
+        except OSError as err:
+            raise FileExistsError(f"File exist at destination {destination_path}", err)
+        finally:
+            if self.exists(upload_dir):
+                self.rm(upload_dir, True)
 
     def get(self, filename: str, path: str, chunk: int = 2**16) -> None:
         with open(path, 'wb') as target:
