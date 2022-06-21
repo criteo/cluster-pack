@@ -25,44 +25,40 @@ def test_update_no_archive():
 
 
 def test_update_no_metadata():
-    map_is_exist = {MYARCHIVE_FILENAME: True,
-                    MYARCHIVE_METADATA: False}
+    map_is_exist = {MYARCHIVE_FILENAME: True, MYARCHIVE_METADATA: False}
     mock_fs = mock.MagicMock()
     mock_fs.exists = lambda arg: map_is_exist[arg]
     assert not uploader._is_archive_up_to_date(MYARCHIVE_FILENAME, [], mock_fs)
 
 
-@pytest.mark.parametrize("current_packages, metadata_packages, expected", [
-    pytest.param(["a==2.0", "b==1.0"], ["a==2.0", "b==1.0"], True),
-    pytest.param(["a==2.0", "b==1.0"], ["a==1.0", "b==1.0"], False),
-    pytest.param(["a==2.0", "b==1.0"], ["a==2.0"], False),
-    pytest.param(["a==2.0"], ["a==2.0", "b==1.0"], False),
-    pytest.param([], ["a==2.0", "b==1.0"], False),
-    pytest.param(["a==2.0"], ["c==1.0"], False),
-    pytest.param([], [], True),
-])
-def test_update_version_comparaison(current_packages, metadata_packages,
-                                    expected):
+@pytest.mark.parametrize(
+    "current_packages, metadata_packages, expected",
+    [
+        pytest.param(["a==2.0", "b==1.0"], ["a==2.0", "b==1.0"], True),
+        pytest.param(["a==2.0", "b==1.0"], ["a==1.0", "b==1.0"], False),
+        pytest.param(["a==2.0", "b==1.0"], ["a==2.0"], False),
+        pytest.param(["a==2.0"], ["a==2.0", "b==1.0"], False),
+        pytest.param([], ["a==2.0", "b==1.0"], False),
+        pytest.param(["a==2.0"], ["c==1.0"], False),
+        pytest.param([], [], True),
+    ],
+)
+def test_update_version_comparaison(current_packages, metadata_packages, expected):
 
-    map_is_exist = {MYARCHIVE_FILENAME: True,
-                    MYARCHIVE_METADATA: True}
+    map_is_exist = {MYARCHIVE_FILENAME: True, MYARCHIVE_METADATA: True}
 
     mock_fs = mock.MagicMock()
     mock_fs.exists = lambda arg: map_is_exist[arg]
 
-    with mock.patch.object(
-        mock_fs, 'open', mock.mock_open(read_data=json.dumps(metadata_packages))
-    ):
-        assert uploader._is_archive_up_to_date(
-            MYARCHIVE_FILENAME,
-            current_packages,
-            mock_fs) == expected
+    with mock.patch.object(mock_fs, "open", mock.mock_open(read_data=json.dumps(metadata_packages))):
+        assert uploader._is_archive_up_to_date(MYARCHIVE_FILENAME, current_packages, mock_fs) == expected
 
 
 def Any(cls):
     class Any(cls):
         def __eq__(self, other):
             return isinstance(other, cls)
+
     return Any()
 
 
@@ -76,15 +72,12 @@ expected_file = """\
 def test_dump_metadata():
     mock_fs = mock.Mock()
     mock_fs.rm.return_value = True
+    mock_fs.rename.return_value = True
     mock_fs.exists.return_value = True
     mock_open = mock.mock_open()
-    with mock.patch.object(mock_fs, 'open', mock_open):
-        mock_fs.exists.return_value = True
+    with mock.patch.object(mock_fs, "open", mock_open):
         packages = {"a": "1.0", "b": "2.0"}
-        uploader._dump_archive_metadata(
-            MYARCHIVE_FILENAME,
-            packages,
-            filesystem.EnhancedFileSystem(mock_fs))
+        uploader._dump_archive_metadata(MYARCHIVE_FILENAME, packages, filesystem.EnhancedFileSystem(mock_fs))
         # Check previous file has been deleted
         mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
         mock_open().write.assert_called_once_with(b'{\n    "a": "1.0",\n    "b": "2.0"\n}')
@@ -93,44 +86,46 @@ def test_dump_metadata():
 def test_upload_env():
     with contextlib.ExitStack() as stack:
         # Mock all objects
-        mock_is_archive = stack.enter_context(
-                mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date"))
-        mock_get_packages = stack.enter_context(
-                mock.patch(f"{MODULE_TO_TEST}.packaging.get_non_editable_requirements"))
+        mock_is_archive = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date"))
+        mock_get_packages = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.packaging.get_non_editable_requirements"))
 
-        mock_resolve_fs = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path"))
+        mock_resolve_fs = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path"))
         mock_fs = mock.MagicMock()
         mock_resolve_fs.return_value = mock_fs, ""
 
         stack.enter_context(mock.patch(f"{MODULE_TO_TEST}._dump_archive_metadata"))
-        mock_packer = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.packaging.pack_in_pex")
-        )
+        mock_packer = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.packaging.pack_in_pex"))
 
         # Regenerate archive
         mock_is_archive.return_value = False
-        mock_get_packages.return_value = {"a": "1.0",
-                                          "b": "2.0"}
+        mock_get_packages.return_value = {"a": "1.0", "b": "2.0"}
 
         mock_packer.return_value = MYARCHIVE_FILENAME
 
         cluster_pack.upload_env(MYARCHIVE_FILENAME, cluster_pack.PEX_PACKER)
         mock_packer.assert_called_once_with(
-            ["a==1.0", "b==2.0"], Any(str), [], additional_indexes=None, additional_repo=None,
-            allow_large_pex=False, editable_requirements={}
+            ["a==1.0", "b==2.0"],
+            Any(str),
+            [],
+            additional_indexes=None,
+            additional_repo=None,
+            allow_large_pex=False,
+            editable_requirements={},
         )
         mock_fs.put.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
 
         mock_packer.reset_mock()
         cluster_pack.upload_env(
-            MYARCHIVE_FILENAME, cluster_pack.PEX_PACKER,
-            additional_packages={"c": "3.0"},
-            ignored_packages=["a"]
+            MYARCHIVE_FILENAME, cluster_pack.PEX_PACKER, additional_packages={"c": "3.0"}, ignored_packages=["a"]
         )
         mock_packer.assert_called_once_with(
-            ["b==2.0", "c==3.0"], Any(str), ["a"], additional_indexes=None, additional_repo=None,
-            allow_large_pex=False, editable_requirements={}
+            ["b==2.0", "c==3.0"],
+            Any(str),
+            ["a"],
+            additional_indexes=None,
+            additional_repo=None,
+            allow_large_pex=False,
+            editable_requirements={},
         )
 
 
@@ -140,9 +135,8 @@ def test_upload_env_should_throw_error_if_wrong_extension():
 
 
 def test_upload_zip():
-    home_fs_path = '/user/j.doe'
-    with mock.patch(
-            f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path") as mock_resolve_fs:
+    home_fs_path = "/user/j.doe"
+    with mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path") as mock_resolve_fs:
         mock_fs = mock.MagicMock()
         mock_resolve_fs.return_value = mock_fs, ""
         with mock.patch(f"{MODULE_TO_TEST}.request") as mock_request:
@@ -151,66 +145,53 @@ def test_upload_zip():
                 mock_fs.exists.return_value = False
                 mock_tempfile.TemporaryDirectory.return_value.__enter__.return_value = "/tmp"
 
-                result = cluster_pack.upload_zip(
-                    "http://myserver/mypex.pex",
-                    f"{home_fs_path}/blah.pex"
-                )
+                result = cluster_pack.upload_zip("http://myserver/mypex.pex", f"{home_fs_path}/blah.pex")
 
-                mock_request.urlretrieve.assert_called_once_with(
-                    "http://myserver/mypex.pex",
-                    "/tmp/mypex.pex")
-                mock_fs.put.assert_any_call("/tmp/mypex.pex", f"{home_fs_path}/blah.pex")
+                mock_request.urlretrieve.assert_called_once_with("http://myserver/mypex.pex", "/tmp/mypex.pex")
+                mock_fs.put_atomic.assert_any_call("/tmp/mypex.pex", f"{home_fs_path}/blah.pex")
 
                 assert "/user/j.doe/blah.pex" == result
 
 
 def test_upload_env_in_a_pex():
-    home_path = '/home/j.doe'
-    home_fs_path = '/user/j.doe'
+    home_path = "/home/j.doe"
+    home_fs_path = "/user/j.doe"
     with contextlib.ExitStack() as stack:
-        mock_running_from_pex = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.packaging._running_from_pex"))
+        mock_running_from_pex = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.packaging._running_from_pex"))
         mock_running_from_pex.return_value = True
-        mock_pex_filepath = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.packaging.get_current_pex_filepath"))
+        mock_pex_filepath = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.packaging.get_current_pex_filepath"))
         mock_pex_filepath.return_value = f"{home_path}/myapp.pex"
 
-        mock_resolve_fs = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path"))
+        mock_resolve_fs = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path"))
         mock_fs = mock.MagicMock()
         mock_resolve_fs.return_value = mock_fs, ""
 
         mock__get_archive_metadata_path = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}._get_archive_metadata_path")
         )
-        mock__get_archive_metadata_path.return_value = \
-            f"{home_fs_path}/blah-1.388585.133.497-review.json"
+        mock__get_archive_metadata_path.return_value = f"{home_fs_path}/blah-1.388585.133.497-review.json"
 
         # metadata & pex already exists on fs
         mock_fs.exists.return_value = True
 
-        mock_pex_info = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.PexInfo")
-        )
+        mock_pex_info = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.PexInfo"))
 
         def _from_pex(arg):
-            if arg == f'{home_path}/myapp.pex':
+            if arg == f"{home_path}/myapp.pex":
                 return PexInfo({"code_hash": 1})
             else:
                 return PexInfo({"code_hash": 2})
 
         mock_pex_info.from_pex.side_effect = _from_pex
 
-        result = cluster_pack.upload_env(f'{home_fs_path}/blah-1.388585.133.497-review.pex')
+        result = cluster_pack.upload_env(f"{home_fs_path}/blah-1.388585.133.497-review.pex", force_upload=True)
 
         # Check copy pex to remote
-        mock_fs.put.assert_any_call(
-            f'{home_path}/myapp.pex',
-            f'{home_fs_path}/blah-1.388585.133.497-review.pex')
+        mock_fs.put_atomic.assert_any_call(f"{home_path}/myapp.pex", f"{home_fs_path}/blah-1.388585.133.497-review.pex")
         # Check metadata has been cleaned
-        mock_fs.rm.assert_called_once_with(f'{home_fs_path}/blah-1.388585.133.497-review.json')
+        mock_fs.rm.assert_any_call(f"{home_fs_path}/blah-1.388585.133.497-review.json")
         # check envname
-        assert 'myapp' == result[1]
+        assert "myapp" == result[1]
 
 
 @mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date")
@@ -220,9 +201,12 @@ def test_upload_env_in_a_pex():
 @mock.patch(f"{MODULE_TO_TEST}.packaging.get_default_fs")
 @mock.patch(f"{MODULE_TO_TEST}.getpass.getuser")
 def test_upload_spec_hdfs(
-    mock_get_user, mock_get_default_fs,
-    mock_pack_spec_in_pex, mock_resolve_fs, mock_dump_archive_metadata,
-    mock_is_archive_up_to_date
+    mock_get_user,
+    mock_get_default_fs,
+    mock_pack_spec_in_pex,
+    mock_resolve_fs,
+    mock_dump_archive_metadata,
+    mock_is_archive_up_to_date,
 ):
     mock_is_archive_up_to_date.return_value = False
     mock_fs = mock.MagicMock()
@@ -242,80 +226,81 @@ def test_upload_spec_local_fs():
     with tempfile.TemporaryDirectory() as tempdir:
         result_path = cluster_pack.upload_spec(spec_file, f"{tempdir}/package.pex")
         assert os.path.exists(result_path)
-        _check_metadata(
-            f"{tempdir}/package.json",
-            ["5a5f33b106aad8584345f5a0044a4188ce78b3f4"])
+        _check_metadata(f"{tempdir}/package.json", ["5a5f33b106aad8584345f5a0044a4188ce78b3f4"])
 
 
 def test_upload_spec_unique_name():
     with tempfile.TemporaryDirectory() as tempdir:
-        spec_file = f"{tempdir}/myproject/requirements.txt"
-        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+        with tempfile.TemporaryDirectory() as tempdestination:
 
-        result_path = cluster_pack.upload_spec(spec_file, f"{tempdir}")
+            spec_file = f"{tempdir}/myproject/requirements.txt"
+            _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
 
-        assert os.path.exists(result_path)
-        assert result_path == f"{tempdir}/cluster_pack_myproject.pex"
-        _check_metadata(
-            f"{tempdir}/cluster_pack_myproject.json",
-            ["b8721a3c125d3f7edfa27d7b13236e696f652a16"])
+            result_path = cluster_pack.upload_spec(spec_file, f"{tempdestination}")
+
+            assert os.path.exists(result_path)
+            assert result_path == f"{tempdestination}/cluster_pack_myproject.pex"
+            _check_metadata(
+                f"{tempdestination}/cluster_pack_myproject.json", ["b8721a3c125d3f7edfa27d7b13236e696f652a16"]
+            )
+
+            assert os.path.exists(result_path)
+            assert result_path == f"{tempdestination}/cluster_pack_myproject.pex"
+            _check_metadata(
+                f"{tempdestination}/cluster_pack_myproject.json", ["b8721a3c125d3f7edfa27d7b13236e696f652a16"]
+            )
 
 
-@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
-def test_upload_spec_local_fs_use_cache(mock_pack_spec_in_pex):
+def test_upload_spec_local_fs_use_cache():
     with tempfile.TemporaryDirectory() as tempdir:
-        spec_file = f"{tempdir}/myproject/requirements.txt"
-        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+        with tempfile.TemporaryDirectory() as tempdestination:
+            spec_file = f"{tempdir}/myproject/requirements.txt"
+            _write_spec_file(spec_file, ["cloudpickle==1.4.1", "protobuf!=4.21.0"])
 
-        pex_file = os.path.join(tempdir, "package.pex")
-        mock_pack_spec_in_pex.return_value = pex_file
-        with open(pex_file, "w"):
-            pass
+            pex_file = os.path.join(tempdir, "package.pex")
+            packer = packaging.detect_packer_from_spec(spec_file)
+            packer.pack_from_spec(spec_file, pex_file)
+            pex_destination = os.path.join(tempdestination, "package.pex")
 
-        result_path = cluster_pack.upload_spec(spec_file, pex_file)
-        result_path1 = cluster_pack.upload_spec(spec_file, pex_file)
+            result_path = cluster_pack.upload_spec(spec_file, pex_destination)
 
-        mock_pack_spec_in_pex.assert_called_once()
-        assert os.path.exists(result_path)
-        assert result_path == result_path1 == pex_file
+            _check_metadata(f"{tempdestination}/package.json", ["7125c2af3445cb80cb26b422a9682320442c9028"])
+
+            result_path1 = cluster_pack.upload_spec(spec_file, pex_destination)
+
+            assert os.path.exists(result_path)
+            assert result_path == result_path1
+            assert result_path.startswith(tempdestination)
+            _check_metadata(f"{tempdestination}/package.json", ["7125c2af3445cb80cb26b422a9682320442c9028"])
 
 
-@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
-def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex):
-    mock_pack_spec_in_pex.return_value = "/tmp/tmp.pex"
+def test_upload_spec_local_fs_changed_reqs():
     with tempfile.TemporaryDirectory() as tempdir:
-        spec_file = f"{tempdir}/myproject/requirements.txt"
-        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+        with tempfile.TemporaryDirectory() as tempdestination:
+            spec_file = f"{tempdir}/myproject/requirements.txt"
+            _write_spec_file(spec_file, ["cloudpickle==1.4.1", "protobuf!=4.21.0"])
 
-        pex_file = os.path.join(tempdir, "package.pex")
-        mock_pack_spec_in_pex.return_value = pex_file
-        with open(pex_file, "w") as f:
-            pass
+            pex_file = os.path.join(tempdir, "package.pex")
+            packer = packaging.detect_packer_from_spec(spec_file)
+            packer.pack_from_spec(spec_file, pex_file)
+            pex_destination = os.path.join(tempdestination, "package.pex")
 
-        result_path = cluster_pack.upload_spec(
-            spec_file,
-            pex_file)
+            result_path = cluster_pack.upload_spec(spec_file, pex_destination)
+            assert os.path.exists(result_path)
+            _check_metadata(f"{tempdestination}/package.json", ["7125c2af3445cb80cb26b422a9682320442c9028"])
 
-        with open(spec_file, "a") as f:
-            f.write("skein\n")
+            with open(spec_file, "a") as f:
+                f.write("skein\n")
 
-        result_path1 = cluster_pack.upload_spec(
-            spec_file,
-            pex_file)
-        mock_pack_spec_in_pex.call_count == 2
-        assert os.path.exists(result_path)
-        assert os.path.exists(result_path1)
-        _check_metadata(
-            f"{tempdir}/package.json",
-            ["0fd17ced922a2387fa660fb0cb78e1c77fbe3349"])
+            result_path1 = cluster_pack.upload_spec(spec_file, pex_destination)
+
+            assert os.path.exists(result_path1)
+            _check_metadata(f"{tempdestination}/package.json", ["0de429cdde24230ba3c0ad29d3d13618ad9f90b4"])
 
 
 def test__handle_packages_use_local_wheel():
     current_packages = {"horovod": "0.18.2"}
-    uploader._handle_packages(
-        current_packages,
-        additional_packages={"horovod-0.19.0-cp36-cp36m-linux_x86_64.whl": ""}
-    )
+    uploader._handle_packages(current_packages, additional_packages={"horovod-0.19.0-cp36-cp36m-linux_x86_64.whl": ""})
 
     assert len(current_packages) == 1
     assert next(iter(current_packages.keys())) == "horovod-0.19.0-cp36-cp36m-linux_x86_64.whl"
@@ -325,9 +310,7 @@ def test__handle_packages_use_local_wheel():
 def test__handle_packages_use_other_package():
     current_packages = {"tensorflow": "0.15.2"}
     uploader._handle_packages(
-        current_packages,
-        additional_packages={"tensorflow_gpu": "0.15.3"},
-        ignored_packages="tensorflow"
+        current_packages, additional_packages={"tensorflow_gpu": "0.15.3"}, ignored_packages="tensorflow"
     )
 
     print(current_packages)
@@ -336,11 +319,14 @@ def test__handle_packages_use_other_package():
     assert next(iter(current_packages.values())) == "0.15.3"
 
 
-@pytest.mark.parametrize("spec_file, expected", [
-    pytest.param("/a/b/myproject/requirements.txt", "cluster_pack_myproject.pex"),
-    pytest.param("myproject/requirements.txt", "cluster_pack_myproject.pex"),
-    pytest.param("requirements.txt", "cluster_pack.pex"),
-])
+@pytest.mark.parametrize(
+    "spec_file, expected",
+    [
+        pytest.param("/a/b/myproject/requirements.txt", "cluster_pack_myproject.pex"),
+        pytest.param("myproject/requirements.txt", "cluster_pack_myproject.pex"),
+        pytest.param("requirements.txt", "cluster_pack.pex"),
+    ],
+)
 def test__unique_filename(spec_file, expected):
     assert expected == uploader._unique_filename(spec_file, packaging.PEX_PACKER)
 
@@ -352,25 +338,34 @@ def test_format_pex_requirements():
             requirements,
             f"{tempdir}/out.pex",
             # make isolated pex from current pytest virtual env
-            pex_inherit_path="false")
+            pex_inherit_path="false",
+        )
         pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
         cleaned_requirements = uploader._format_pex_requirements(pex_info)
-        assert ['pip==21.3.1', 'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
+        assert ["pip==21.3.1", "pipdeptree==2.0.0", "six==1.15.0"] == cleaned_requirements
 
 
-@pytest.mark.parametrize("req, expected", [
-    (["pipdeptree==2.0.0", 'GitPython==3.1.14', "six==1.15.0", 'Cython==0.29.22'],
-     ['cython==0.29.22', 'gitpython==3.1.14', "pipdeptree==2.0.0", 'six==1.15.0']),
-    (["pipdeptree==2.0.0", "six==1.15.0", 'gitpython==3.1.14', 'cython==0.29.22'],
-     ['cython==0.29.22', 'gitpython==3.1.14', "pipdeptree==2.0.0", 'six==1.15.0']),
-])
+@pytest.mark.parametrize(
+    "req, expected",
+    [
+        (
+            ["pipdeptree==2.0.0", "GitPython==3.1.14", "six==1.15.0", "Cython==0.29.22"],
+            ["cython==0.29.22", "gitpython==3.1.14", "pipdeptree==2.0.0", "six==1.15.0"],
+        ),
+        (
+            ["pipdeptree==2.0.0", "six==1.15.0", "gitpython==3.1.14", "cython==0.29.22"],
+            ["cython==0.29.22", "gitpython==3.1.14", "pipdeptree==2.0.0", "six==1.15.0"],
+        ),
+    ],
+)
 def test_sort_requirement(req, expected):
     assert uploader._sort_requirements(req) == expected
 
 
 def test_normalize_requirement():
-    assert ["tf-yarn", "typing-extension", "to-to"] == \
-        uploader._normalize_requirements(["tf_yarn", "typing_extension", "to-to"])
+    assert ["tf-yarn", "typing-extension", "to-to"] == uploader._normalize_requirements(
+        ["tf_yarn", "typing_extension", "to-to"]
+    )
 
 
 def _check_metadata(metadata_file, expected_json):
