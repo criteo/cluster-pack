@@ -7,6 +7,7 @@ import sys
 import pathlib
 import tempfile
 from typing import (
+    Callable,
     Tuple,
     Dict,
     Collection,
@@ -31,7 +32,7 @@ def _get_archive_metadata_path(package_path: str) -> str:
 
 def _is_archive_up_to_date(package_path: str,
                            current_packages_list: List[str],
-                           resolved_fs: Any = None
+                           resolved_fs: filesystem.EnhancedFileSystem
                            ) -> bool:
     if not resolved_fs.exists(package_path):
         return False
@@ -46,7 +47,7 @@ def _is_archive_up_to_date(package_path: str,
 
 def _dump_archive_metadata(package_path: str,
                            current_packages_list: List[str],
-                           resolved_fs: Any = None
+                           resolved_fs: filesystem.EnhancedFileSystem
                            ) -> None:
     archive_meta_data = _get_archive_metadata_path(package_path)
     with tempfile.TemporaryDirectory() as tempdir:
@@ -55,7 +56,7 @@ def _dump_archive_metadata(package_path: str,
             fd.write(json.dumps(current_packages_list, sort_keys=True, indent=4))
         if resolved_fs.exists(archive_meta_data):
             resolved_fs.rm(archive_meta_data)
-        resolved_fs.put(tempfile_path, archive_meta_data)
+        resolved_fs.put_atomic(tempfile_path, archive_meta_data)
 
 
 def upload_zip(
@@ -151,7 +152,14 @@ def upload_spec(
             dir = os.path.dirname(package_path)
             if not resolved_fs.exists(dir):
                 resolved_fs.mkdir(dir)
-            resolved_fs.put(archive_local, package_path)
+
+            if not _try_put_atomic(resolved_fs,
+                                    archive_local,
+                                    package_path,
+                                    lambda path: _is_archive_up_to_date(path, reqs, resolved_fs)):
+                raise FileExistsError(
+                    f"Package with different version exists at {package_path}"
+                )
 
             _dump_archive_metadata(package_path, reqs, resolved_fs)
     else:
@@ -174,30 +182,48 @@ def _get_hash(spec_file: str) -> str:
 
 def _upload_zip(
     zip_file: str, package_path: str,
-    resolved_fs: Any = None, force_upload: bool = False
+    resolved_fs: filesystem.EnhancedFileSystem, force_upload: bool = False
 ) -> None:
     packer = packaging.detect_packer_from_file(zip_file)
     if packer == packaging.PEX_PACKER and resolved_fs.exists(package_path):
-        with tempfile.TemporaryDirectory() as tempdir:
-            local_copy_path = os.path.join(tempdir, os.path.basename(package_path))
-            resolved_fs.get(package_path, local_copy_path)
-            info_from_storage = PexInfo.from_pex(local_copy_path)
-            into_to_upload = PexInfo.from_pex(zip_file)
-            if not force_upload and info_from_storage.code_hash == into_to_upload.code_hash:
-                _logger.info(f"skip upload of current {zip_file}"
-                             f" as it is already uploaded on {package_path}")
-                return
+        if not force_upload and _check_pex_version(resolved_fs, zip_file, package_path):
+            _logger.info(f"skip upload of current {zip_file}"
+                         f" as it is already uploaded on {package_path}")
+            return
 
     _logger.info(f"upload current {zip_file} to {package_path}")
 
     dir = os.path.dirname(package_path)
     if not resolved_fs.exists(dir):
         resolved_fs.mkdir(dir)
-    resolved_fs.put(zip_file, package_path)
+
+    if not _try_put_atomic(resolved_fs, 
+                           zip_file, 
+                           package_path,
+                           lambda path: _check_pex_version(resolved_fs, zip_file, path)):
+        raise FileExistsError(
+                    f"Package with different version exists at {package_path}"
+        )
+
     # Remove previous metadata
     archive_meta_data = _get_archive_metadata_path(package_path)
     if resolved_fs.exists(archive_meta_data):
         resolved_fs.rm(archive_meta_data)
+
+
+def _try_put_atomic(resolved_fs: filesystem.EnhancedFileSystem,
+                    source_path: str,
+                    destination_path: str,
+                    verify_expected_output: Callable[[str], bool]) -> bool:
+    try:
+        resolved_fs.put_atomic(source_path, destination_path)
+        return True
+    except FileExistsError:
+        if not verify_expected_output(destination_path):
+            resolved_fs.rm(destination_path)
+            resolved_fs.put_atomic(source_path, destination_path)
+            return True
+        return False
 
 
 def _handle_packages(
@@ -225,10 +251,10 @@ def _handle_packages(
 
 def _upload_env_from_venv(
         package_path: str,
-        packer: packaging.Packer = packaging.PEX_PACKER,
-        additional_packages: Dict[str, str] = {},
-        ignored_packages: Collection[str] = [],
-        resolved_fs: Any = None,
+        packer: packaging.Packer,
+        additional_packages: Dict[str, str],
+        ignored_packages: Collection[str],
+        resolved_fs: filesystem.EnhancedFileSystem,
         force_upload: bool = False,
         include_editable: bool = False
 ) -> None:
@@ -309,9 +335,28 @@ def _upload_env_from_venv(
         if not resolved_fs.exists(dir):
             resolved_fs.mkdir(dir)
         _logger.info(f'Uploading env at {local_package_path} to {package_path}')
-        resolved_fs.put(local_package_path, package_path)
+
+        if not _try_put_atomic(
+            resolved_fs, 
+            local_package_path,
+            package_path,
+            lambda path: _is_archive_up_to_date(path, reqs, resolved_fs)):
+            raise FileExistsError(
+                f"Package with different version exists at {package_path}"
+            )
 
         _dump_archive_metadata(package_path, reqs, resolved_fs)
+
+
+def _check_pex_version(resolved_fs: filesystem.EnhancedFileSystem,
+                       local_package_path: str,
+                       remote_package_path: str) -> bool:
+    with tempfile.TemporaryDirectory() as tempdir:
+        local_copy_path = os.path.join(tempdir, os.path.basename(local_package_path))
+        resolved_fs.get(remote_package_path, local_copy_path)
+        into_at_destination = PexInfo.from_pex(local_copy_path)
+        info_to_upload = PexInfo.from_pex(local_package_path)
+    return info_to_upload.code_hash == into_at_destination.code_hash
 
 
 def _sort_requirements(a: List[str]) -> List[str]:

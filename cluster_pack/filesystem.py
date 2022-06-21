@@ -70,7 +70,7 @@ def _rm(self: Any, path: str, recursive: bool = False) -> None:
 
 def _rename(self: Any, path: str, new_path: str) -> None:
     if os.path.exists(new_path):
-        raise FileExistsError(f"File exist at destination {new_path}")
+        raise OSError(f"File exist at destination {new_path}")
     os.rename(path, new_path)
 
 
@@ -226,8 +226,6 @@ class EnhancedFileSystem(filesystem.FileSystem):
          destination_path: str) -> None:
         upload_dir = f"{destination_path}.{uuid.uuid4()}.tmp"
         try:
-            if isdir(source_path) and not self.exists(upload_dir):
-                self.mkdir(upload_dir)
             self.put(source_path, upload_dir)
             self.mv(upload_dir, destination_path)
         except OSError as err:
