@@ -76,6 +76,7 @@ expected_file = """\
 def test_dump_metadata():
     mock_fs = mock.Mock()
     mock_fs.rm.return_value = True
+    mock_fs.rename.return_value = True
     mock_fs.exists.return_value = True
     mock_open = mock.mock_open()
     with mock.patch.object(mock_fs, 'open', mock_open):
@@ -86,7 +87,7 @@ def test_dump_metadata():
             packages,
             filesystem.EnhancedFileSystem(mock_fs))
         # Check previous file has been deleted
-        mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
+        mock_fs.rm.assert_any_call(MYARCHIVE_METADATA)
         mock_open().write.assert_called_once_with(b'{\n    "a": "1.0",\n    "b": "2.0"\n}')
 
 
@@ -119,7 +120,7 @@ def test_upload_env():
         mock_packer.assert_called_once_with(
             ["a==1.0", "b==2.0"], Any(str), [], editable_requirements={}
         )
-        mock_fs.put.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
+        mock_fs.put_atomic.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
 
         mock_packer.reset_mock()
         cluster_pack.upload_env(
@@ -157,7 +158,7 @@ def test_upload_zip():
                 mock_request.urlretrieve.assert_called_once_with(
                     "http://myserver/mypex.pex",
                     "/tmp/mypex.pex")
-                mock_fs.put.assert_any_call("/tmp/mypex.pex", f"{home_fs_path}/blah.pex")
+                mock_fs.put_atomic.assert_any_call("/tmp/mypex.pex", f"{home_fs_path}/blah.pex")
 
                 assert "/user/j.doe/blah.pex" == result
 
@@ -202,11 +203,11 @@ def test_upload_env_in_a_pex():
         result = cluster_pack.upload_env(f'{home_fs_path}/blah-1.388585.133.497-review.pex')
 
         # Check copy pex to remote
-        mock_fs.put.assert_any_call(
+        mock_fs.put_atomic.assert_any_call(
             f'{home_path}/myapp.pex',
             f'{home_fs_path}/blah-1.388585.133.497-review.pex')
         # Check metadata has been cleaned
-        mock_fs.rm.assert_called_once_with(f'{home_fs_path}/blah-1.388585.133.497-review.json')
+        mock_fs.rm.assert_any_call(f'{home_fs_path}/blah-1.388585.133.497-review.json')
         # check envname
         assert 'myapp' == result[1]
 
@@ -247,65 +248,78 @@ def test_upload_spec_local_fs():
 
 def test_upload_spec_unique_name():
     with tempfile.TemporaryDirectory() as tempdir:
-        spec_file = f"{tempdir}/myproject/requirements.txt"
-        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+        with tempfile.TemporaryDirectory() as tempdestination:
 
-        result_path = cluster_pack.upload_spec(spec_file, f"{tempdir}")
+            spec_file = f"{tempdir}/myproject/requirements.txt"
+            _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
 
-        assert os.path.exists(result_path)
-        assert result_path == f"{tempdir}/cluster_pack_myproject.pex"
-        _check_metadata(
-            f"{tempdir}/cluster_pack_myproject.json",
-            ["b8721a3c125d3f7edfa27d7b13236e696f652a16"])
+            result_path = cluster_pack.upload_spec(spec_file, f"{tempdestination}")
+
+            assert os.path.exists(result_path)
+            assert result_path == f"{tempdestination}/cluster_pack_myproject.pex"
+            _check_metadata(
+                f"{tempdestination}/cluster_pack_myproject.json",
+                ["b8721a3c125d3f7edfa27d7b13236e696f652a16"])
 
 
-@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
-def test_upload_spec_local_fs_use_cache(mock_pack_spec_in_pex):
+def test_upload_spec_local_fs_use_cache():
     with tempfile.TemporaryDirectory() as tempdir:
-        spec_file = f"{tempdir}/myproject/requirements.txt"
-        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+        with tempfile.TemporaryDirectory() as tempdestination:
+            spec_file = f"{tempdir}/myproject/requirements.txt"
+            _write_spec_file(spec_file, ["cloudpickle==1.4.1", "protobuf!=4.21.0"])
 
-        pex_file = os.path.join(tempdir, "package.pex")
-        mock_pack_spec_in_pex.return_value = pex_file
-        with open(pex_file, "w"):
-            pass
+            pex_file = os.path.join(tempdir, "package.pex")
+            packer = packaging.detect_packer_from_spec(spec_file)
+            packer.pack_from_spec(spec_file, pex_file)
+            pex_destination = os.path.join(tempdestination, "package.pex")
 
-        result_path = cluster_pack.upload_spec(spec_file, pex_file)
-        result_path1 = cluster_pack.upload_spec(spec_file, pex_file)
+            result_path = cluster_pack.upload_spec(spec_file, pex_destination)
 
-        mock_pack_spec_in_pex.assert_called_once()
-        assert os.path.exists(result_path)
-        assert result_path == result_path1 == pex_file
+            _check_metadata(
+                f"{tempdestination}/package.json",
+                ["7125c2af3445cb80cb26b422a9682320442c9028"])
+
+            result_path1 = cluster_pack.upload_spec(spec_file, pex_destination)
+
+            assert os.path.exists(result_path)
+            assert result_path == result_path1
+            assert result_path.startswith(tempdestination)
+            _check_metadata(
+                f"{tempdestination}/package.json",
+                ["7125c2af3445cb80cb26b422a9682320442c9028"])
 
 
-@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
-def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex):
-    mock_pack_spec_in_pex.return_value = "/tmp/tmp.pex"
+def test_upload_spec_local_fs_changed_reqs():
     with tempfile.TemporaryDirectory() as tempdir:
-        spec_file = f"{tempdir}/myproject/requirements.txt"
-        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+        with tempfile.TemporaryDirectory() as tempdestination:
+            spec_file = f"{tempdir}/myproject/requirements.txt"
+            _write_spec_file(spec_file, ["cloudpickle==1.4.1", "protobuf!=4.21.0"])
 
-        pex_file = os.path.join(tempdir, "package.pex")
-        mock_pack_spec_in_pex.return_value = pex_file
-        with open(pex_file, "w") as f:
-            pass
+            pex_file = os.path.join(tempdir, "package.pex")
+            packer = packaging.detect_packer_from_spec(spec_file)
+            packer.pack_from_spec(spec_file, pex_file)
+            pex_destination = os.path.join(tempdestination, "package.pex")
 
-        result_path = cluster_pack.upload_spec(
-            spec_file,
-            pex_file)
+            result_path = cluster_pack.upload_spec(
+                spec_file,
+                pex_destination)
 
-        with open(spec_file, "a") as f:
-            f.write("skein\n")
+            assert os.path.exists(result_path)
+            _check_metadata(
+                f"{tempdestination}/package.json",
+                ["7125c2af3445cb80cb26b422a9682320442c9028"])
 
-        result_path1 = cluster_pack.upload_spec(
-            spec_file,
-            pex_file)
-        mock_pack_spec_in_pex.call_count == 2
-        assert os.path.exists(result_path)
-        assert os.path.exists(result_path1)
-        _check_metadata(
-            f"{tempdir}/package.json",
-            ["0fd17ced922a2387fa660fb0cb78e1c77fbe3349"])
+            with open(spec_file, "a") as f:
+                f.write("skein\n")
+
+            result_path1 = cluster_pack.upload_spec(
+                spec_file,
+                pex_destination)
+
+            assert os.path.exists(result_path1)
+            _check_metadata(
+                f"{tempdestination}/package.json",
+                ["0de429cdde24230ba3c0ad29d3d13618ad9f90b4"])
 
 
 def test__handle_packages_use_local_wheel():
