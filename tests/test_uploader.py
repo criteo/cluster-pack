@@ -305,6 +305,7 @@ def test_upload_spec_local_fs_changed_reqs():
                 pex_destination)
 
             assert os.path.exists(result_path)
+
             _check_metadata(
                 f"{tempdestination}/package.json",
                 ["7125c2af3445cb80cb26b422a9682320442c9028"])
