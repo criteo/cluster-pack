@@ -74,6 +74,12 @@ def _rename(self: Any, path: str, new_path: str) -> None:
     os.rename(path, new_path)
 
 
+def _s3_rename(self: Any, path: str, new_path: str) -> None:
+    if self.exists(new_path):
+        raise OSError(f"File exist at destination {new_path}")
+    self.fs.mv(path, new_path)
+
+
 def _hdfs_st_mode(self: Any, path: str) -> int:
     st_mode = self.ls(path, True)[0]["permissions"]
     return int(st_mode)
@@ -206,6 +212,9 @@ class EnhancedFileSystem(filesystem.FileSystem):
             base_fs.chmod = types.MethodType(_chmod, base_fs)
             base_fs.rm = types.MethodType(_rm, base_fs)
             base_fs.rename = types.MethodType(_rename, base_fs)
+
+        if isinstance(base_fs, pyarrow.filesystem.S3FSWrapper):
+            base_fs.rename = types.MethodType(_s3_rename, base_fs)
 
         if isinstance(base_fs, pyarrow.hdfs.HadoopFileSystem):
             base_fs.st_mode = types.MethodType(_hdfs_st_mode, base_fs)
