@@ -143,6 +143,9 @@ def upload_spec(
         _logger.info(
             f"Zipping and uploading your env to {package_path}"
         )
+        if resolved_fs.exists(package_path):
+            _logger.info(f"will replace existing pex file at {package_path}")
+            resolved_fs.rm(package_path)
 
         with tempfile.TemporaryDirectory() as tempdir:
             archive_local = packer.pack_from_spec(
@@ -190,6 +193,9 @@ def _upload_zip(
             _logger.info(f"skip upload of current {zip_file}"
                          f" as it is already uploaded on {package_path}")
             return
+        elif resolved_fs.exists(package_path):
+            _logger.info(f"will replace current {zip_file} at {package_path}")
+            resolved_fs.rm(package_path)
 
     _logger.info(f"upload current {zip_file} to {package_path}")
 
@@ -219,11 +225,7 @@ def _try_put_atomic(resolved_fs: filesystem.EnhancedFileSystem,
         resolved_fs.put_atomic(source_path, destination_path)
         return True
     except FileExistsError:
-        if not verify_expected_output(destination_path):
-            resolved_fs.rm(destination_path)
-            resolved_fs.put_atomic(source_path, destination_path)
-            return True
-        return False
+        return verify_expected_output(destination_path)
 
 
 def _handle_packages(
@@ -275,6 +277,9 @@ def _upload_env_from_venv(
     if not force_upload and _is_archive_up_to_date(package_path, reqs, resolved_fs):
         _logger.info(f"{package_path} already exists")
         return
+    if resolved_fs.exists(package_path):
+        _logger.info(f"will replace existing pex file at {package_path}")
+        resolved_fs.rm(package_path)
 
     with tempfile.TemporaryDirectory() as tempdir:
         env_copied_from_fallback_location = False
