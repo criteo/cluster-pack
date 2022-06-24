@@ -80,14 +80,13 @@ def test_dump_metadata():
     mock_fs.exists.return_value = True
     mock_open = mock.mock_open()
     with mock.patch.object(mock_fs, 'open', mock_open):
-        mock_fs.exists.return_value = True
         packages = {"a": "1.0", "b": "2.0"}
         uploader._dump_archive_metadata(
             MYARCHIVE_FILENAME,
             packages,
             filesystem.EnhancedFileSystem(mock_fs))
         # Check previous file has been deleted
-        mock_fs.rm.assert_any_call(MYARCHIVE_METADATA)
+        mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
         mock_open().write.assert_called_once_with(b'{\n    "a": "1.0",\n    "b": "2.0"\n}')
 
 
@@ -120,7 +119,7 @@ def test_upload_env():
         mock_packer.assert_called_once_with(
             ["a==1.0", "b==2.0"], Any(str), [], editable_requirements={}
         )
-        mock_fs.put_atomic.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
+        mock_fs.put.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
 
         mock_packer.reset_mock()
         cluster_pack.upload_env(
@@ -200,7 +199,8 @@ def test_upload_env_in_a_pex():
 
         mock_pex_info.from_pex.side_effect = _from_pex
 
-        result = cluster_pack.upload_env(f'{home_fs_path}/blah-1.388585.133.497-review.pex')
+        result = cluster_pack.upload_env(f'{home_fs_path}/blah-1.388585.133.497-review.pex',
+                                         force_upload=True)
 
         # Check copy pex to remote
         mock_fs.put_atomic.assert_any_call(

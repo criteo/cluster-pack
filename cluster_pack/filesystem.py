@@ -233,15 +233,15 @@ class EnhancedFileSystem(filesystem.FileSystem):
     def put_atomic(self,
          source_path: str,
          destination_path: str) -> None:
-        upload_dir = f"{destination_path}.{uuid.uuid4()}.tmp"
+        tmp_upload_dir = f"{destination_path}.{uuid.uuid4()}.tmp"
+        self.put(source_path, tmp_upload_dir)
         try:
-            self.put(source_path, upload_dir)
-            self.mv(upload_dir, destination_path)
+            self.mv(tmp_upload_dir, destination_path)
         except OSError as err:
             raise FileExistsError(f"File exist at destination {destination_path}", err)
         finally:
-            if self.exists(upload_dir):
-                self.rm(upload_dir, True)
+            if self.exists(tmp_upload_dir):
+                self.rm(tmp_upload_dir, True)
 
     def get(self, filename: str, path: str, chunk: int = 2**16) -> None:
         with open(path, 'wb') as target:

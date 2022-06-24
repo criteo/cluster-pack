@@ -56,7 +56,7 @@ def _dump_archive_metadata(package_path: str,
             fd.write(json.dumps(current_packages_list, sort_keys=True, indent=4))
         if resolved_fs.exists(archive_meta_data):
             resolved_fs.rm(archive_meta_data)
-        resolved_fs.put_atomic(tempfile_path, archive_meta_data)
+        resolved_fs.put(tempfile_path, archive_meta_data)
 
 
 def upload_zip(
@@ -156,13 +156,7 @@ def upload_spec(
             if not resolved_fs.exists(dir):
                 resolved_fs.mkdir(dir)
 
-            if not _try_put_atomic(resolved_fs,
-                                   archive_local,
-                                   package_path,
-                                   lambda path: _is_archive_up_to_date(path, reqs, resolved_fs)):
-                raise FileExistsError(
-                    f"Package with different version exists at {package_path}"
-                )
+            resolved_fs.put(archive_local, package_path)
 
             _dump_archive_metadata(package_path, reqs, resolved_fs)
     else:
@@ -189,13 +183,16 @@ def _upload_zip(
 ) -> None:
     packer = packaging.detect_packer_from_file(zip_file)
     if packer == packaging.PEX_PACKER and resolved_fs.exists(package_path):
-        if not force_upload and _check_pex_version(resolved_fs, zip_file, package_path):
+        if force_upload:
+            _logger.info(f"forcing upload: removing current {package_path}")
+            resolved_fs.rm(package_path)
+        elif not _check_pex_version(resolved_fs, zip_file, package_path):
+            raise FileExistsError(f"Package {zip_file} already exists"
+                                  f"at destionation {package_path}")
+        else:
             _logger.info(f"skip upload of current {zip_file}"
                          f" as it is already uploaded on {package_path}")
             return
-        elif resolved_fs.exists(package_path):
-            _logger.info(f"will replace current {zip_file} at {package_path}")
-            resolved_fs.rm(package_path)
 
     _logger.info(f"upload current {zip_file} to {package_path}")
 
@@ -203,29 +200,16 @@ def _upload_zip(
     if not resolved_fs.exists(dir):
         resolved_fs.mkdir(dir)
 
-    if not _try_put_atomic(resolved_fs,
-                           zip_file,
-                           package_path,
-                           lambda path: _check_pex_version(resolved_fs, zip_file, path)):
-        raise FileExistsError(
-                    f"Package with different version exists at {package_path}"
-        )
+    try:
+        resolved_fs.put_atomic(zip_file, package_path)
+    except FileExistsError:
+        if not _check_pex_version(resolved_fs, zip_file, package_path):
+            raise
 
     # Remove previous metadata
     archive_meta_data = _get_archive_metadata_path(package_path)
     if resolved_fs.exists(archive_meta_data):
         resolved_fs.rm(archive_meta_data)
-
-
-def _try_put_atomic(resolved_fs: filesystem.EnhancedFileSystem,
-                    source_path: str,
-                    destination_path: str,
-                    verify_expected_output: Callable[[str], bool]) -> bool:
-    try:
-        resolved_fs.put_atomic(source_path, destination_path)
-        return True
-    except FileExistsError:
-        return verify_expected_output(destination_path)
 
 
 def _handle_packages(
@@ -277,9 +261,6 @@ def _upload_env_from_venv(
     if not force_upload and _is_archive_up_to_date(package_path, reqs, resolved_fs):
         _logger.info(f"{package_path} already exists")
         return
-    if resolved_fs.exists(package_path):
-        _logger.info(f"will replace existing pex file at {package_path}")
-        resolved_fs.rm(package_path)
 
     with tempfile.TemporaryDirectory() as tempdir:
         env_copied_from_fallback_location = False
@@ -341,13 +322,7 @@ def _upload_env_from_venv(
             resolved_fs.mkdir(dir)
         _logger.info(f'Uploading env at {local_package_path} to {package_path}')
 
-        if not _try_put_atomic(resolved_fs,
-                               local_package_path,
-                               package_path,
-                               lambda path: _is_archive_up_to_date(path, reqs, resolved_fs)):
-            raise FileExistsError(
-                f"Package with different version exists at {package_path}"
-            )
+        resolved_fs.put(local_package_path, package_path)
 
         _dump_archive_metadata(package_path, reqs, resolved_fs)
 
