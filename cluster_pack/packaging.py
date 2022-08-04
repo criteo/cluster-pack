@@ -11,7 +11,7 @@ import sys
 import tempfile
 from typing import (
     Tuple, Dict,
-    Collection, List, Any
+    Collection, List, Any, Optional
 )
 import uuid
 import zipfile
@@ -84,19 +84,22 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
 
 def pack_spec_in_pex(spec_file: str,
                      output: str,
-                     pex_inherit_path: str = "fallback") -> str:
+                     pex_inherit_path: str = "fallback",
+                     additional_repo: Optional[str] = None) -> str:
     with open(spec_file, "r") as f:
         lines = [line for line in f.read().splitlines()
                  if line and not line.startswith("#")]
         _logger.debug(f"used requirements: {lines}")
-        return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path)
+        return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path,
+                           additional_repo=additional_repo)
 
 
 def pack_in_pex(requirements: List[str],
                 output: str,
                 ignored_packages: Collection[str] = [],
                 pex_inherit_path: str = "fallback",
-                editable_requirements:  Dict[str, str] = {}
+                editable_requirements:  Dict[str, str] = {},
+                additional_repo: Optional[str] = None
                 ) -> str:
     """
     Pack current environment using a pex.
@@ -128,6 +131,10 @@ def pack_in_pex(requirements: List[str],
                 cmd.append(req)
         if _is_criteo():
             cmd.append(f"--index-url={CRITEO_PYPI_URL}")
+
+        if additional_repo is not None:
+            cmd.append(f"--index-url={additional_repo}")
+
         cmd.extend(["-o", output])
 
         try:
@@ -171,7 +178,8 @@ class Packer(object):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements: Dict[str, str]) -> str:
+             editable_requirements: Dict[str, str],
+             additional_repo: Optional[str]) -> str:
         raise NotImplementedError
 
     def pack_from_spec(self,
@@ -231,11 +239,13 @@ class PexPacker(Packer):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements:  Dict[str, str]) -> str:
+             editable_requirements:  Dict[str, str],
+             additional_repo: Optional[str] = None) -> str:
         return pack_in_pex(reqs,
                            output,
                            ignored_packages,
-                           editable_requirements=editable_requirements)
+                           editable_requirements=editable_requirements,
+                           additional_repo=additional_repo)
 
     def pack_from_spec(self,
                        spec_file: str,
