@@ -2,5 +2,6 @@ pypandoc
 pyspark==2.4.4
 skein
 pytest
+pyflakes==2.4.0
 pylama
 mypy
