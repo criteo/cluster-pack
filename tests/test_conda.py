@@ -50,6 +50,20 @@ def test_conda_env_from_reqs():
         )
 
 
+def test_conda_env_from_reqs_with_external_repo():
+    with tempfile.TemporaryDirectory() as tempdir:
+        env_zip_path = conda.create_and_pack_conda_env(
+            reqs=["torch==1.10.1"],
+            additional_repo='https://download.pytorch.org/whl/cu113'
+        )
+        assert os.path.isfile(env_zip_path)
+
+        _check_package(
+            tempdir, env_zip_path,
+            "torch", "1.10.1+cu113"
+        )
+
+
 def test_conda_env_from_spec():
     spec_file = os.path.join(os.path.dirname(__file__), "resources", "conda.yaml")
     with tempfile.TemporaryDirectory() as tempdir:

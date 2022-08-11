@@ -211,12 +211,14 @@ class CondaPacker(Packer):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements:  Dict[str, str]) -> str:
+             editable_requirements:  Dict[str, str],
+             additional_repo: Optional[str]) -> str:
         return conda.pack_venv_in_conda(
                   self.env_name(),
                   reqs,
                   len(additional_packages) > 0 or len(ignored_packages) > 0,
-                  output)
+                  output,
+                  additional_repo)
 
     def pack_from_spec(self,
                        spec_file: str,
