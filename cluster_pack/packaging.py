@@ -104,6 +104,7 @@ def pack_in_pex(requirements: List[str],
     """
     Pack current environment using a pex.
 
+    :param additional_repo: an additional pypi repo if one was used env creation
     :param requirements: list of requirements (ex {'tensorflow': '1.15.0'})
     :param output: location of the pex
     :param ignored_packages: packages to be exluded from pex

@@ -34,7 +34,8 @@ def test_pack_venv_in_conda_changed_reqs(mock_conda_create, mock_conda_pack):
         output="testpath")
     mock_conda_pack.assert_not_called()
     mock_conda_create.assert_called_once_with(
-        reqs=["a==1.0.0", "b==2.0.0"], output="testpath")
+        reqs=["a==1.0.0", "b==2.0.0"], output="testpath",
+        additional_repo=None)
 
 
 def test_conda_env_from_reqs():
