@@ -188,7 +188,7 @@ def test_pack_in_pex(pyarrow_version, expectation):
 
 def test_pack_in_pex_with_additional_repo():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["torch==1.10.1.0"]
+        requirements = ["setuptools", "torch==1.10.1.0"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
