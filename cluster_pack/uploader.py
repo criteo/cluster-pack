@@ -182,8 +182,8 @@ def _upload_zip(
             local_copy_path = os.path.join(tempdir, os.path.basename(package_path))
             resolved_fs.get(package_path, local_copy_path)
             info_from_storage = PexInfo.from_pex(local_copy_path)
-            into_to_upload = PexInfo.from_pex(zip_file)
-            if not force_upload and info_from_storage.code_hash == into_to_upload.code_hash:
+            info_to_upload = PexInfo.from_pex(zip_file)
+            if not force_upload and info_from_storage.code_hash == info_to_upload.code_hash:
                 _logger.info(f"skip upload of current {zip_file}"
                              f" as it is already uploaded on {package_path}")
                 return
