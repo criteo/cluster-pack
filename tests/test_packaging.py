@@ -1,5 +1,6 @@
 import contextlib
 import os
+import stat
 import subprocess
 import sys
 import shutil
@@ -184,6 +185,32 @@ def test_pack_in_pex(pyarrow_version, expectation):
                  """import pyarrow; import tensorflow;"""
                  """print("Successfully imported pyarrow and tensorflow!")""")]
             ))
+
+
+def test_pack_in_pex_with_allow_large():
+    with tempfile.TemporaryDirectory() as tempdir:
+        requirements = ["pyarrow==0.14.1"]
+        packaging.pack_in_pex(
+            requirements,
+            f"{tempdir}/out.pex",
+            # make isolated pex from current pytest virtual env
+            pex_inherit_path="false",
+            allow_large_pex=True)
+        assert os.path.exists(f"{tempdir}/out.pex")
+
+        with tempfile.TemporaryDirectory() as temp_pex_dir:
+            shutil.unpack_archive(f"{tempdir}/out.pex", temp_pex_dir, 'zip')
+            st = os.stat(f"{temp_pex_dir}/__main__.py")
+            os.chmod(f"{temp_pex_dir}/__main__.py", st.st_mode | stat.S_IEXEC)
+
+            with does_not_raise():
+                print(subprocess.check_output([
+                    f"{temp_pex_dir}/__main__.py",
+                    "-c",
+                    ("""print("Start importing pyarrow..");"""
+                     """import pyarrow;"""
+                     """print("Successfully imported pyarrow!")""")]
+                ))
 
 
 def test_pack_in_pex_include_editable_requirements():

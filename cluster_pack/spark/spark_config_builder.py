@@ -10,13 +10,19 @@ from typing import Dict, Optional, Any
 _logger = logging.getLogger(__name__)
 
 
-def add_packaged_environment(ssb: SparkSession.Builder, archive: str) -> None:
+def add_packaged_environment(ssb: SparkSession.Builder, archive: str, large_pex: bool = False
+                             ) -> None:
     archive = _make_path_hadoop_compatible(archive)
     if archive.endswith('pex'):
-        _add_or_merge(ssb, "spark.yarn.dist.files", f"{archive}")
         ssb.config("spark.executorEnv.PEX_ROOT", "./.pex")
-        os.environ['PYSPARK_PYTHON'] = './' + archive.split('/')[-1]
-        os.environ['PYSPARK_DRIVER_PYTHON'] = archive.split('/')[-1]
+        if large_pex or os.path.getsize(archive) > 2 * 1024 * 1024 * 1024:
+            _add_archive(ssb, f"{archive}#pexenv")
+            os.environ['PYSPARK_PYTHON'] = "./pexenv/__main__.py"
+            os.environ['PYSPARK_DRIVER_PYTHON'] = 'python'
+        else:
+            _add_or_merge(ssb, "spark.yarn.dist.files", f"{archive}")
+            os.environ['PYSPARK_PYTHON'] = './' + archive.split('/')[-1]
+            os.environ['PYSPARK_DRIVER_PYTHON'] = archive.split('/')[-1]
     else:
         _add_archive(ssb, f"{archive}#condaenv")
         os.environ['PYSPARK_PYTHON'] = "./condaenv/bin/python"

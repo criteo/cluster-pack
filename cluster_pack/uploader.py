@@ -88,8 +88,8 @@ def upload_env(
         ignored_packages: Collection[str] = [],
         force_upload: bool = False,
         include_editable: bool = False,
-        fs_args: Dict[str, Any] = {}
-) -> Tuple[str, str]:
+        fs_args: Dict[str, Any] = {},
+        allow_large_pex: bool = False) -> Tuple[str, str]:
     if packer is None:
         packer = packaging.detect_packer_from_env()
     package_path, env_name, pex_file = packaging.detect_archive_names(packer, package_path)
@@ -102,7 +102,8 @@ def upload_env(
             additional_packages, ignored_packages,
             resolved_fs,
             force_upload,
-            include_editable
+            include_editable,
+            allow_large_pex=allow_large_pex
         )
     else:
         _upload_zip(pex_file, package_path, resolved_fs, force_upload)
@@ -115,14 +116,17 @@ def upload_spec(
     spec_file: str,
     package_path: str = None,
     force_upload: bool = False,
-    fs_args: Dict[str, Any] = {}
-) -> str:
+    fs_args: Dict[str, Any] = {},
+    allow_large_pex: bool = False) -> str:
     """Upload an environment from a spec file
 
     :param spec_file: the spec file, must be requirements.txt or conda.yaml
     :param package_path: the path where to upload the package
     :param force_upload: whether the cache should be cleared
     :param fs_args: specific arguments for special file systems (like S3)
+    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
+                            python's limitation with zips > 2Gb. The file will need to be unzipped
+                            and the entry point will be <output>/__main__.py
     :return: package_path
     """
     packer = packaging.detect_packer_from_spec(spec_file)
@@ -138,7 +142,8 @@ def upload_spec(
     _logger.info(f"Packaging from {spec_file} with hash={hash}")
     reqs = [hash]
 
-    if force_upload or not _is_archive_up_to_date(package_path, reqs, resolved_fs):
+    up_to_date = _is_archive_up_to_date(package_path, reqs, resolved_fs)
+    if force_upload or not up_to_date:
         _logger.info(
             f"Zipping and uploading your env to {package_path}"
         )
@@ -146,7 +151,8 @@ def upload_spec(
         with tempfile.TemporaryDirectory() as tempdir:
             archive_local = packer.pack_from_spec(
                 spec_file=spec_file,
-                output=f"{tempdir}/{packer.env_name()}.{packer.extension()}")
+                output=f"{tempdir}/{packer.env_name()}.{packer.extension()}",
+                allow_large_pex=allow_large_pex)
 
             dir = os.path.dirname(package_path)
             if not resolved_fs.exists(dir):
@@ -230,8 +236,8 @@ def _upload_env_from_venv(
         ignored_packages: Collection[str] = [],
         resolved_fs: Any = None,
         force_upload: bool = False,
-        include_editable: bool = False
-) -> None:
+        include_editable: bool = False,
+        allow_large_pex: bool = False) -> None:
     executable = packaging.get_current_pex_filepath() \
         if packaging._running_from_pex() else sys.executable
     current_packages = packaging.get_non_editable_requirements(executable)
@@ -302,7 +308,8 @@ def _upload_env_from_venv(
                 reqs=reqs,
                 additional_packages=additional_packages,
                 ignored_packages=ignored_packages,
-                editable_requirements=editable_requirements
+                editable_requirements=editable_requirements,
+                allow_large_pex=allow_large_pex
             )
 
         dir = os.path.dirname(package_path)

@@ -30,6 +30,10 @@ _logger = logging.getLogger(__name__)
 JsonDictType = Dict[str, Any]
 
 
+class PexTooLargeError(RuntimeError):
+    pass
+
+
 def _get_tmp_dir() -> str:
     tmp_dir = f"/tmp/{uuid.uuid1()}"
     _logger.debug(f"local tmp_dir {tmp_dir}")
@@ -84,33 +88,45 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
 
 def pack_spec_in_pex(spec_file: str,
                      output: str,
-                     pex_inherit_path: str = "fallback") -> str:
+                     pex_inherit_path: str = "fallback",
+                     allow_large_pex: bool = False) -> str:
     with open(spec_file, "r") as f:
         lines = [line for line in f.read().splitlines()
                  if line and not line.startswith("#")]
         _logger.debug(f"used requirements: {lines}")
-        return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path)
+        return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path,
+                           allow_large_pex=allow_large_pex)
 
 
 def pack_in_pex(requirements: List[str],
                 output: str,
                 ignored_packages: Collection[str] = [],
                 pex_inherit_path: str = "fallback",
-                editable_requirements:  Dict[str, str] = {}
+                editable_requirements:  Dict[str, str] = {},
+                allow_large_pex: bool = False
                 ) -> str:
-    """
-    Pack current environment using a pex.
+    """Pack current environment using a pex.
 
     :param requirements: list of requirements (ex {'tensorflow': '1.15.0'})
     :param output: location of the pex
     :param ignored_packages: packages to be exluded from pex
     :param pex_inherit_path: see https://github.com/pantsbuild/pex/blob/master/pex/bin/pex.py#L264,
                              possible values ['false', 'fallback', 'prefer']
+    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
+                            python's limitation with zips > 2Gb. The file will need to be unzipped
+                            and the entry point will be <output>/__main__.py
     :return: destination of the archive, name of the pex
     """
 
     with tempfile.TemporaryDirectory() as tempdir:
         cmd = ["pex", f"--inherit-path={pex_inherit_path}"]
+
+        if allow_large_pex:
+            cmd.extend(["--layout", "packed"])
+            tmp_ext = ".tmp"
+        else:
+            tmp_ext = ""
+
         if editable_requirements and len(editable_requirements) > 0:
             for current_package in editable_requirements.values():
                 _logger.debug("Add current path as source", current_package)
@@ -128,16 +144,26 @@ def pack_in_pex(requirements: List[str],
                 cmd.append(req)
         if _is_criteo():
             cmd.append(f"--index-url={CRITEO_PYPI_URL}")
-        cmd.extend(["-o", output])
+        cmd.extend(["-o", output + tmp_ext])
 
         try:
             print(f"Running command: {' '.join(cmd)}")
             call = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
             call.check_returncode()
+
+            if not allow_large_pex and os.path.getsize(output + tmp_ext) > 2 * 1024 * 1024 * 1024:
+                raise PexTooLargeError("The generate pex is larger than 2Gb and won't be executable"
+                                       " by python; Please set the 'allow_large_pex' "
+                                       "flag in upload_env")
+
         except CalledProcessError as err:
             _logger.exception('Cannot create pex')
             _logger.exception(err.stderr.decode("ascii"))
             raise
+
+        if allow_large_pex:
+            shutil.make_archive(output, 'zip', output + tmp_ext)
+            shutil.move(output + '.zip', output)
 
     return output
 
@@ -171,12 +197,14 @@ class Packer(object):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements: Dict[str, str]) -> str:
+             editable_requirements: Dict[str, str],
+             allow_large_pex: bool = False) -> str:
         raise NotImplementedError
 
     def pack_from_spec(self,
                        spec_file: str,
-                       output: str) -> str:
+                       output: str,
+                       allow_large_pex: bool = False) -> str:
         raise NotImplementedError
 
 
@@ -203,7 +231,8 @@ class CondaPacker(Packer):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements:  Dict[str, str]) -> str:
+             editable_requirements:  Dict[str, str],
+             allow_large_pex: bool = False) -> str:
         return conda.pack_venv_in_conda(
                   self.env_name(),
                   reqs,
@@ -212,7 +241,8 @@ class CondaPacker(Packer):
 
     def pack_from_spec(self,
                        spec_file: str,
-                       output: str) -> str:
+                       output: str,
+                       allow_large_pex: bool = False) -> str:
         return conda.create_and_pack_conda_env(
                             spec_file=spec_file,
                             reqs=None,
@@ -231,16 +261,19 @@ class PexPacker(Packer):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements:  Dict[str, str]) -> str:
+             editable_requirements:  Dict[str, str],
+             allow_large_pex: bool = False) -> str:
         return pack_in_pex(reqs,
                            output,
                            ignored_packages,
-                           editable_requirements=editable_requirements)
+                           editable_requirements=editable_requirements,
+                           allow_large_pex=allow_large_pex)
 
     def pack_from_spec(self,
                        spec_file: str,
-                       output: str) -> str:
-        return pack_spec_in_pex(spec_file=spec_file, output=output)
+                       output: str,
+                       allow_large_pex: bool = False) -> str:
+        return pack_spec_in_pex(spec_file=spec_file, output=output, allow_large_pex=allow_large_pex)
 
 
 CONDA_PACKER = CondaPacker()
