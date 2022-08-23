@@ -20,7 +20,6 @@ from wheel_filename import parse_wheel_filename
 
 from cluster_pack import filesystem, packaging
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -59,10 +58,10 @@ def _dump_archive_metadata(package_path: str,
 
 
 def upload_zip(
-    zip_file: str,
-    package_path: str = None,
-    force_upload: bool = False,
-    fs_args: Dict[str, Any] = {}
+        zip_file: str,
+        package_path: str = None,
+        force_upload: bool = False,
+        fs_args: Dict[str, Any] = {}
 ) -> str:
     packer = packaging.detect_packer_from_file(zip_file)
     package_path, _, _ = packaging.detect_archive_names(packer, package_path)
@@ -113,11 +112,11 @@ def upload_env(
 
 
 def upload_spec(
-    spec_file: str,
-    package_path: str = None,
-    force_upload: bool = False,
-    fs_args: Dict[str, Any] = {},
-    allow_large_pex: bool = False) -> str:
+        spec_file: str,
+        package_path: str = None,
+        force_upload: bool = False,
+        fs_args: Dict[str, Any] = {},
+        allow_large_pex: bool = False) -> str:
     """Upload an environment from a spec file
 
     :param spec_file: the spec file, must be requirements.txt or conda.yaml
@@ -179,8 +178,8 @@ def _get_hash(spec_file: str) -> str:
 
 
 def _upload_zip(
-    zip_file: str, package_path: str,
-    resolved_fs: Any = None, force_upload: bool = False
+        zip_file: str, package_path: str,
+        resolved_fs: Any = None, force_upload: bool = False
 ) -> None:
     packer = packaging.detect_packer_from_file(zip_file)
     if packer == packaging.PEX_PACKER and resolved_fs.exists(package_path):
@@ -207,9 +206,9 @@ def _upload_zip(
 
 
 def _handle_packages(
-    current_packages: Dict[str, str],
-    additional_packages: Dict[str, str] = {},
-    ignored_packages: Collection[str] = []
+        current_packages: Dict[str, str],
+        additional_packages: Dict[str, str] = {},
+        ignored_packages: Collection[str] = []
 ) -> None:
     if len(additional_packages) > 0:
         additional_package_names = list(additional_packages.keys())
