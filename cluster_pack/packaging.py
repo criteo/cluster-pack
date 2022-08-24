@@ -104,7 +104,7 @@ def pack_in_pex(requirements: List[str],
                 output: str,
                 ignored_packages: Collection[str] = [],
                 pex_inherit_path: str = "fallback",
-                editable_requirements:  Dict[str, str] = {},
+                editable_requirements: Dict[str, str] = {},
                 allow_large_pex: bool = False,
                 additional_repo: Optional[str] = None
                 ) -> str:
@@ -171,9 +171,8 @@ def pack_in_pex(requirements: List[str],
 
         if allow_large_pex:
             shutil.make_archive(output, 'zip', output + tmp_ext)
-            shutil.move(output + '.zip', output)
 
-    return output
+    return output + '.zip' if allow_large_pex else output
 
 
 def _get_packages(editable: bool, executable: str = sys.executable) -> List[JsonDictType]:
@@ -240,24 +239,24 @@ class CondaPacker(Packer):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements:  Dict[str, str],
+             editable_requirements: Dict[str, str],
              allow_large_pex: bool = False,
              additional_repo: Optional[str] = None) -> str:
         return conda.pack_venv_in_conda(
-                  self.env_name(),
-                  reqs,
-                  len(additional_packages) > 0 or len(ignored_packages) > 0,
-                  output,
-                  additional_repo)
+            self.env_name(),
+            reqs,
+            len(additional_packages) > 0 or len(ignored_packages) > 0,
+            output,
+            additional_repo)
 
     def pack_from_spec(self,
                        spec_file: str,
                        output: str,
                        allow_large_pex: bool = False) -> str:
         return conda.create_and_pack_conda_env(
-                            spec_file=spec_file,
-                            reqs=None,
-                            output=output)
+            spec_file=spec_file,
+            reqs=None,
+            output=output)
 
 
 class PexPacker(Packer):
@@ -272,7 +271,7 @@ class PexPacker(Packer):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements:  Dict[str, str],
+             editable_requirements: Dict[str, str],
              allow_large_pex: bool = False,
              additional_repo: Optional[str] = None) -> str:
         return pack_in_pex(reqs,
@@ -311,8 +310,8 @@ def get_non_editable_requirements(executable: str = sys.executable) -> Dict[str,
 
 def detect_archive_names(
         packer: Packer,
-        package_path: str = None
-) -> Tuple[str, str, str]:
+        package_path: str = None,
+        allow_large_pex: bool = None) -> Tuple[str, str, str]:
     if _running_from_pex():
         pex_file = get_current_pex_filepath()
         env_name = os.path.splitext(os.path.basename(pex_file))[0]
@@ -327,6 +326,12 @@ def detect_archive_names(
         if "".join(os.path.splitext(package_path)[1]) != f".{packer.extension()}":
             raise ValueError(f"{package_path} has the wrong extension"
                              f", .{packer.extension()} is expected")
+
+    if (packer.extension() == PEX_PACKER.extension()
+            and pex_file == ""
+            and allow_large_pex
+            and not package_path.endswith('.zip')):
+        package_path += '.zip'
 
     return package_path, env_name, pex_file
 
@@ -376,8 +381,8 @@ def get_current_pex_filepath() -> str:
 
 
 def get_editable_requirements(
-    executable: str = sys.executable,
-    editable_packages_dir: str = os.getcwd()
+        executable: str = sys.executable,
+        editable_packages_dir: str = os.getcwd()
 ) -> Dict[str, str]:
     editable_requirements: Dict[str, str] = {}
     if _running_from_pex():

@@ -94,11 +94,12 @@ def upload_env(
 ) -> Tuple[str, str]:
     if packer is None:
         packer = packaging.detect_packer_from_env()
-    package_path, env_name, pex_file = packaging.detect_archive_names(packer, package_path)
+    package_path, env_name, pex_file = \
+        packaging.detect_archive_names(packer, package_path, allow_large_pex)
 
     resolved_fs, _ = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
-    if not packaging._running_from_pex():
+    if pex_file == "":
         _upload_env_from_venv(
             package_path, packer,
             additional_packages, ignored_packages,
@@ -138,6 +139,11 @@ def upload_spec(
                         f"/envs/{_unique_filename(spec_file, packer)}")
     elif not package_path.endswith(packer.extension()):
         package_path = os.path.join(package_path, _unique_filename(spec_file, packer))
+
+    if (packer.extension() == packaging.PEX_PACKER.extension()
+            and allow_large_pex
+            and not package_path.endswith('.zip')):
+        package_path += '.zip'
 
     resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 

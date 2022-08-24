@@ -196,10 +196,10 @@ def test_pack_in_pex_with_allow_large():
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false",
             allow_large_pex=True)
-        assert os.path.exists(f"{tempdir}/out.pex")
+        assert os.path.exists(f"{tempdir}/out.pex.zip")
 
         with tempfile.TemporaryDirectory() as temp_pex_dir:
-            shutil.unpack_archive(f"{tempdir}/out.pex", temp_pex_dir, 'zip')
+            shutil.unpack_archive(f"{tempdir}/out.pex.zip", temp_pex_dir)
             st = os.stat(f"{temp_pex_dir}/__main__.py")
             os.chmod(f"{temp_pex_dir}/__main__.py", st.st_mode | stat.S_IEXEC)
 
