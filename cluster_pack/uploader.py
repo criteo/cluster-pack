@@ -89,7 +89,7 @@ def upload_env(
         force_upload: bool = False,
         include_editable: bool = False,
         fs_args: Dict[str, Any] = {},
-        allow_large_pex: bool = False) -> Tuple[str, str]:
+        allow_large_pex: bool = False,
         additional_repo: Optional[str] = None
 ) -> Tuple[str, str]:
     if packer is None:
@@ -105,8 +105,8 @@ def upload_env(
             resolved_fs,
             force_upload,
             include_editable,
-            allow_large_pex=allow_large_pex
-            additional_repo
+            allow_large_pex=allow_large_pex,
+            additional_repo=additional_repo
         )
     else:
         _upload_zip(pex_file, package_path, resolved_fs, force_upload)
@@ -240,7 +240,7 @@ def _upload_env_from_venv(
         resolved_fs: Any = None,
         force_upload: bool = False,
         include_editable: bool = False,
-        allow_large_pex: bool = False) -> None:
+        allow_large_pex: bool = False,
         additional_repo: Optional[str] = None
 ) -> None:
     executable = packaging.get_current_pex_filepath() \
@@ -314,7 +314,7 @@ def _upload_env_from_venv(
                 additional_packages=additional_packages,
                 ignored_packages=ignored_packages,
                 editable_requirements=editable_requirements,
-                allow_large_pex=allow_large_pex
+                allow_large_pex=allow_large_pex,
                 additional_repo=additional_repo
             )
 

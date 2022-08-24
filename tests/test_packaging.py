@@ -221,8 +221,8 @@ def test_pack_in_pex_with_additional_repo():
             f"{tempdir}/out.pex",
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false",
+            additional_repo="https://download.pytorch.org/whl/cu113")
 
-        additional_repo="https://download.pytorch.org/whl/cu113")
         assert os.path.exists(f"{tempdir}/out.pex")
         with does_not_raise():
             print(subprocess.check_output([

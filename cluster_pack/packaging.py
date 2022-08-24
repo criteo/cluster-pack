@@ -89,14 +89,14 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
 def pack_spec_in_pex(spec_file: str,
                      output: str,
                      pex_inherit_path: str = "fallback",
-                     allow_large_pex: bool = False) -> str:
+                     allow_large_pex: bool = False,
                      additional_repo: Optional[str] = None) -> str:
     with open(spec_file, "r") as f:
         lines = [line for line in f.read().splitlines()
                  if line and not line.startswith("#")]
         _logger.debug(f"used requirements: {lines}")
         return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path,
-                           allow_large_pex=allow_large_pex)
+                           allow_large_pex=allow_large_pex,
                            additional_repo=additional_repo)
 
 
@@ -105,7 +105,7 @@ def pack_in_pex(requirements: List[str],
                 ignored_packages: Collection[str] = [],
                 pex_inherit_path: str = "fallback",
                 editable_requirements:  Dict[str, str] = {},
-                allow_large_pex: bool = False
+                allow_large_pex: bool = False,
                 additional_repo: Optional[str] = None
                 ) -> str:
     """Pack current environment using a pex.
@@ -152,7 +152,7 @@ def pack_in_pex(requirements: List[str],
         if additional_repo is not None:
             cmd.append(f"--index-url={additional_repo}")
 
-        cmd.extend(["-o", output])
+        cmd.extend(["-o", output + tmp_ext])
 
         try:
             print(f"Running command: {' '.join(cmd)}")
@@ -206,8 +206,8 @@ class Packer(object):
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
              editable_requirements: Dict[str, str],
-             allow_large_pex: bool = False) -> str:
-             additional_repo: Optional[str]) -> str:
+             allow_large_pex: bool = False,
+             additional_repo: Optional[str] = None) -> str:
         raise NotImplementedError
 
     def pack_from_spec(self,
@@ -241,8 +241,8 @@ class CondaPacker(Packer):
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
              editable_requirements:  Dict[str, str],
-             allow_large_pex: bool = False) -> str:
-             additional_repo: Optional[str]) -> str:
+             allow_large_pex: bool = False,
+             additional_repo: Optional[str] = None) -> str:
         return conda.pack_venv_in_conda(
                   self.env_name(),
                   reqs,
@@ -273,13 +273,13 @@ class PexPacker(Packer):
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
              editable_requirements:  Dict[str, str],
-             allow_large_pex: bool = False) -> str:
+             allow_large_pex: bool = False,
              additional_repo: Optional[str] = None) -> str:
         return pack_in_pex(reqs,
                            output,
                            ignored_packages,
                            editable_requirements=editable_requirements,
-                           allow_large_pex=allow_large_pex)
+                           allow_large_pex=allow_large_pex,
                            additional_repo=additional_repo)
 
     def pack_from_spec(self,
