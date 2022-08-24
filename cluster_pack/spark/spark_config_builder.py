@@ -13,9 +13,11 @@ _logger = logging.getLogger(__name__)
 def add_packaged_environment(ssb: SparkSession.Builder, archive: str, large_pex: bool = False
                              ) -> None:
     archive = _make_path_hadoop_compatible(archive)
+
     if archive.endswith('pex'):
         ssb.config("spark.executorEnv.PEX_ROOT", "./.pex")
-        if large_pex or os.path.getsize(archive) > 2 * 1024 * 1024 * 1024:
+
+        if large_pex:
             _add_archive(ssb, f"{archive}#pexenv")
             os.environ['PYSPARK_PYTHON'] = "./pexenv/__main__.py"
             os.environ['PYSPARK_DRIVER_PYTHON'] = 'python'
