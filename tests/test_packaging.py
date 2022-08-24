@@ -186,6 +186,26 @@ def test_pack_in_pex(pyarrow_version, expectation):
             ))
 
 
+def test_pack_in_pex_with_additional_repo():
+    with tempfile.TemporaryDirectory() as tempdir:
+        requirements = ["setuptools", "torch==1.10.1.0"]
+        packaging.pack_in_pex(
+            requirements,
+            f"{tempdir}/out.pex",
+            # make isolated pex from current pytest virtual env
+            pex_inherit_path="false",
+            additional_repo="https://download.pytorch.org/whl/cu113")
+        assert os.path.exists(f"{tempdir}/out.pex")
+        with does_not_raise():
+            print(subprocess.check_output([
+                f"{tempdir}/out.pex",
+                "-c",
+                ("""print("Start importing torch..");"""
+                 """import torch;"""
+                 """print("Successfully imported torch!")""")]
+            ))
+
+
 def test_pack_in_pex_include_editable_requirements():
     requirements = {}
     requirement_dir = os.path.join(os.path.dirname(__file__), "user-lib", "user_lib")

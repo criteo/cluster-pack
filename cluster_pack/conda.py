@@ -8,7 +8,7 @@ except NotImplementedError:
     # conda is not supported on windows
     pass
 
-from typing import List
+from typing import List, Optional
 
 from cluster_pack import process
 
@@ -74,11 +74,12 @@ def pack_venv_in_conda(
         name: str,
         reqs: List[str],
         changed_reqs: bool = False,
-        output: str = None
+        output: str = None,
+        additional_repo: Optional[str] = None
 ) -> str:
     """
     Pack the current virtual environment
-
+    :param additional_repo: an additional pypi repo if one was used env creation
     :param reqs: directory to zip
     :param changed_reqs:
        we prefer zipping the current virtual env as much as possible,
@@ -90,17 +91,18 @@ def pack_venv_in_conda(
     if not changed_reqs:
         return conda_pack.pack(name=name, output=output)
     else:
-        return create_and_pack_conda_env(reqs=reqs, output=output)
+        return create_and_pack_conda_env(reqs=reqs, output=output, additional_repo=additional_repo)
 
 
 def create_and_pack_conda_env(
     spec_file: str = None,
     reqs: List[str] = None,
-    output: str = None
+    output: str = None,
+    additional_repo: Optional[str] = None
 ) -> str:
     """
     Create a new conda virtual environment and zip it
-
+    :param additional_repo: an additional pypi repo if one was used env creation
     :param spec_file: conda yaml spec file to use
     :param reqs: dependencies to install
     :param output: a dedicated output path
@@ -118,6 +120,12 @@ def create_and_pack_conda_env(
                 "Failed to create Python binary at " + env_python_bin)
 
         _logger.info("Installing packages into " + env_path)
-        process.call([env_python_bin, "-m", "pip", "install"] + reqs)
+
+        cmd = [env_python_bin, "-m", "pip", "install"]
+        if additional_repo is not None:
+            cmd.append('--extra-index-url')
+            cmd.append(additional_repo)
+
+        process.call(cmd + reqs)
 
     return conda_pack.pack(prefix=env_path, output=output, force=True)

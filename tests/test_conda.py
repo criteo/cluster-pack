@@ -34,7 +34,8 @@ def test_pack_venv_in_conda_changed_reqs(mock_conda_create, mock_conda_pack):
         output="testpath")
     mock_conda_pack.assert_not_called()
     mock_conda_create.assert_called_once_with(
-        reqs=["a==1.0.0", "b==2.0.0"], output="testpath")
+        reqs=["a==1.0.0", "b==2.0.0"], output="testpath",
+        additional_repo=None)
 
 
 def test_conda_env_from_reqs():
@@ -47,6 +48,20 @@ def test_conda_env_from_reqs():
         _check_package(
             tempdir, env_zip_path,
             "pycodestyle", "2.5.0"
+        )
+
+
+def test_conda_env_from_reqs_with_external_repo():
+    with tempfile.TemporaryDirectory() as tempdir:
+        env_zip_path = conda.create_and_pack_conda_env(
+            reqs=["torch==1.10.1"],
+            additional_repo='https://download.pytorch.org/whl/cu113'
+        )
+        assert os.path.isfile(env_zip_path)
+
+        _check_package(
+            tempdir, env_zip_path,
+            "torch", "1.10.1+cu113"
         )
 
 
