@@ -11,7 +11,8 @@ from typing import (
     Dict,
     Collection,
     List,
-    Any
+    Any,
+    Optional
 )
 from urllib import parse, request
 
@@ -89,6 +90,8 @@ def upload_env(
         include_editable: bool = False,
         fs_args: Dict[str, Any] = {},
         allow_large_pex: bool = False) -> Tuple[str, str]:
+        additional_repo: Optional[str] = None
+) -> Tuple[str, str]:
     if packer is None:
         packer = packaging.detect_packer_from_env()
     package_path, env_name, pex_file = packaging.detect_archive_names(packer, package_path)
@@ -103,6 +106,7 @@ def upload_env(
             force_upload,
             include_editable,
             allow_large_pex=allow_large_pex
+            additional_repo
         )
     else:
         _upload_zip(pex_file, package_path, resolved_fs, force_upload)
@@ -237,6 +241,8 @@ def _upload_env_from_venv(
         force_upload: bool = False,
         include_editable: bool = False,
         allow_large_pex: bool = False) -> None:
+        additional_repo: Optional[str] = None
+) -> None:
     executable = packaging.get_current_pex_filepath() \
         if packaging._running_from_pex() else sys.executable
     current_packages = packaging.get_non_editable_requirements(executable)
@@ -309,6 +315,7 @@ def _upload_env_from_venv(
                 ignored_packages=ignored_packages,
                 editable_requirements=editable_requirements,
                 allow_large_pex=allow_large_pex
+                additional_repo=additional_repo
             )
 
         dir = os.path.dirname(package_path)

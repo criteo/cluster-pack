@@ -11,7 +11,7 @@ import sys
 import tempfile
 from typing import (
     Tuple, Dict,
-    Collection, List, Any
+    Collection, List, Any, Optional
 )
 import uuid
 import zipfile
@@ -90,12 +90,14 @@ def pack_spec_in_pex(spec_file: str,
                      output: str,
                      pex_inherit_path: str = "fallback",
                      allow_large_pex: bool = False) -> str:
+                     additional_repo: Optional[str] = None) -> str:
     with open(spec_file, "r") as f:
         lines = [line for line in f.read().splitlines()
                  if line and not line.startswith("#")]
         _logger.debug(f"used requirements: {lines}")
         return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path,
                            allow_large_pex=allow_large_pex)
+                           additional_repo=additional_repo)
 
 
 def pack_in_pex(requirements: List[str],
@@ -104,9 +106,11 @@ def pack_in_pex(requirements: List[str],
                 pex_inherit_path: str = "fallback",
                 editable_requirements:  Dict[str, str] = {},
                 allow_large_pex: bool = False
+                additional_repo: Optional[str] = None
                 ) -> str:
     """Pack current environment using a pex.
 
+    :param additional_repo: an additional pypi repo if one was used env creation
     :param requirements: list of requirements (ex {'tensorflow': '1.15.0'})
     :param output: location of the pex
     :param ignored_packages: packages to be exluded from pex
@@ -144,7 +148,11 @@ def pack_in_pex(requirements: List[str],
                 cmd.append(req)
         if _is_criteo():
             cmd.append(f"--index-url={CRITEO_PYPI_URL}")
-        cmd.extend(["-o", output + tmp_ext])
+
+        if additional_repo is not None:
+            cmd.append(f"--index-url={additional_repo}")
+
+        cmd.extend(["-o", output])
 
         try:
             print(f"Running command: {' '.join(cmd)}")
@@ -199,6 +207,7 @@ class Packer(object):
              ignored_packages: Collection[str],
              editable_requirements: Dict[str, str],
              allow_large_pex: bool = False) -> str:
+             additional_repo: Optional[str]) -> str:
         raise NotImplementedError
 
     def pack_from_spec(self,
@@ -233,11 +242,13 @@ class CondaPacker(Packer):
              ignored_packages: Collection[str],
              editable_requirements:  Dict[str, str],
              allow_large_pex: bool = False) -> str:
+             additional_repo: Optional[str]) -> str:
         return conda.pack_venv_in_conda(
                   self.env_name(),
                   reqs,
                   len(additional_packages) > 0 or len(ignored_packages) > 0,
-                  output)
+                  output,
+                  additional_repo)
 
     def pack_from_spec(self,
                        spec_file: str,
@@ -263,11 +274,13 @@ class PexPacker(Packer):
              ignored_packages: Collection[str],
              editable_requirements:  Dict[str, str],
              allow_large_pex: bool = False) -> str:
+             additional_repo: Optional[str] = None) -> str:
         return pack_in_pex(reqs,
                            output,
                            ignored_packages,
                            editable_requirements=editable_requirements,
                            allow_large_pex=allow_large_pex)
+                           additional_repo=additional_repo)
 
     def pack_from_spec(self,
                        spec_file: str,
