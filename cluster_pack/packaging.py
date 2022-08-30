@@ -30,6 +30,10 @@ _logger = logging.getLogger(__name__)
 JsonDictType = Dict[str, Any]
 
 
+class PexTooLargeError(RuntimeError):
+    pass
+
+
 def _get_tmp_dir() -> str:
     tmp_dir = f"/tmp/{uuid.uuid1()}"
     _logger.debug(f"local tmp_dir {tmp_dir}")
@@ -85,12 +89,14 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
 def pack_spec_in_pex(spec_file: str,
                      output: str,
                      pex_inherit_path: str = "fallback",
+                     allow_large_pex: bool = False,
                      additional_repo: Optional[str] = None) -> str:
     with open(spec_file, "r") as f:
         lines = [line for line in f.read().splitlines()
                  if line and not line.startswith("#")]
         _logger.debug(f"used requirements: {lines}")
         return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path,
+                           allow_large_pex=allow_large_pex,
                            additional_repo=additional_repo)
 
 
@@ -98,11 +104,11 @@ def pack_in_pex(requirements: List[str],
                 output: str,
                 ignored_packages: Collection[str] = [],
                 pex_inherit_path: str = "fallback",
-                editable_requirements:  Dict[str, str] = {},
+                editable_requirements: Dict[str, str] = {},
+                allow_large_pex: bool = False,
                 additional_repo: Optional[str] = None
                 ) -> str:
-    """
-    Pack current environment using a pex.
+    """Pack current environment using a pex.
 
     :param additional_repo: an additional pypi repo if one was used env creation
     :param requirements: list of requirements (ex {'tensorflow': '1.15.0'})
@@ -110,11 +116,21 @@ def pack_in_pex(requirements: List[str],
     :param ignored_packages: packages to be exluded from pex
     :param pex_inherit_path: see https://github.com/pantsbuild/pex/blob/master/pex/bin/pex.py#L264,
                              possible values ['false', 'fallback', 'prefer']
+    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
+                            python's limitation with zips > 2Gb. The file will need to be unzipped
+                            and the entry point will be <output>/__main__.py
     :return: destination of the archive, name of the pex
     """
 
     with tempfile.TemporaryDirectory() as tempdir:
         cmd = ["pex", f"--inherit-path={pex_inherit_path}"]
+
+        if allow_large_pex:
+            cmd.extend(["--layout", "packed"])
+            tmp_ext = ".tmp"
+        else:
+            tmp_ext = ""
+
         if editable_requirements and len(editable_requirements) > 0:
             for current_package in editable_requirements.values():
                 _logger.debug("Add current path as source", current_package)
@@ -136,18 +152,27 @@ def pack_in_pex(requirements: List[str],
         if additional_repo is not None:
             cmd.append(f"--index-url={additional_repo}")
 
-        cmd.extend(["-o", output])
+        cmd.extend(["-o", output + tmp_ext])
 
         try:
             print(f"Running command: {' '.join(cmd)}")
             call = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
             call.check_returncode()
+
+            if not allow_large_pex and os.path.getsize(output + tmp_ext) > 2 * 1024 * 1024 * 1024:
+                raise PexTooLargeError("The generate pex is larger than 2Gb and won't be executable"
+                                       " by python; Please set the 'allow_large_pex' "
+                                       "flag in upload_env")
+
         except CalledProcessError as err:
             _logger.exception('Cannot create pex')
             _logger.exception(err.stderr.decode("ascii"))
             raise
 
-    return output
+        if allow_large_pex:
+            shutil.make_archive(output, 'zip', output + tmp_ext)
+
+    return output + '.zip' if allow_large_pex else output
 
 
 def _get_packages(editable: bool, executable: str = sys.executable) -> List[JsonDictType]:
@@ -180,12 +205,14 @@ class Packer(object):
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
              editable_requirements: Dict[str, str],
-             additional_repo: Optional[str]) -> str:
+             allow_large_pex: bool = False,
+             additional_repo: Optional[str] = None) -> str:
         raise NotImplementedError
 
     def pack_from_spec(self,
                        spec_file: str,
-                       output: str) -> str:
+                       output: str,
+                       allow_large_pex: bool = False) -> str:
         raise NotImplementedError
 
 
@@ -212,22 +239,24 @@ class CondaPacker(Packer):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements:  Dict[str, str],
-             additional_repo: Optional[str]) -> str:
+             editable_requirements: Dict[str, str],
+             allow_large_pex: bool = False,
+             additional_repo: Optional[str] = None) -> str:
         return conda.pack_venv_in_conda(
-                  self.env_name(),
-                  reqs,
-                  len(additional_packages) > 0 or len(ignored_packages) > 0,
-                  output,
-                  additional_repo)
+            self.env_name(),
+            reqs,
+            len(additional_packages) > 0 or len(ignored_packages) > 0,
+            output,
+            additional_repo)
 
     def pack_from_spec(self,
                        spec_file: str,
-                       output: str) -> str:
+                       output: str,
+                       allow_large_pex: bool = False) -> str:
         return conda.create_and_pack_conda_env(
-                            spec_file=spec_file,
-                            reqs=None,
-                            output=output)
+            spec_file=spec_file,
+            reqs=None,
+            output=output)
 
 
 class PexPacker(Packer):
@@ -242,18 +271,21 @@ class PexPacker(Packer):
              reqs: List[str],
              additional_packages: Dict[str, str],
              ignored_packages: Collection[str],
-             editable_requirements:  Dict[str, str],
+             editable_requirements: Dict[str, str],
+             allow_large_pex: bool = False,
              additional_repo: Optional[str] = None) -> str:
         return pack_in_pex(reqs,
                            output,
                            ignored_packages,
                            editable_requirements=editable_requirements,
+                           allow_large_pex=allow_large_pex,
                            additional_repo=additional_repo)
 
     def pack_from_spec(self,
                        spec_file: str,
-                       output: str) -> str:
-        return pack_spec_in_pex(spec_file=spec_file, output=output)
+                       output: str,
+                       allow_large_pex: bool = False) -> str:
+        return pack_spec_in_pex(spec_file=spec_file, output=output, allow_large_pex=allow_large_pex)
 
 
 CONDA_PACKER = CondaPacker()
@@ -278,8 +310,8 @@ def get_non_editable_requirements(executable: str = sys.executable) -> Dict[str,
 
 def detect_archive_names(
         packer: Packer,
-        package_path: str = None
-) -> Tuple[str, str, str]:
+        package_path: str = None,
+        allow_large_pex: bool = None) -> Tuple[str, str, str]:
     if _running_from_pex():
         pex_file = get_current_pex_filepath()
         env_name = os.path.splitext(os.path.basename(pex_file))[0]
@@ -294,6 +326,12 @@ def detect_archive_names(
         if "".join(os.path.splitext(package_path)[1]) != f".{packer.extension()}":
             raise ValueError(f"{package_path} has the wrong extension"
                              f", .{packer.extension()} is expected")
+
+    if (packer.extension() == PEX_PACKER.extension()
+            and pex_file == ""
+            and allow_large_pex
+            and not package_path.endswith('.zip')):
+        package_path += '.zip'
 
     return package_path, env_name, pex_file
 
@@ -343,8 +381,8 @@ def get_current_pex_filepath() -> str:
 
 
 def get_editable_requirements(
-    executable: str = sys.executable,
-    editable_packages_dir: str = os.getcwd()
+        executable: str = sys.executable,
+        editable_packages_dir: str = os.getcwd()
 ) -> Dict[str, str]:
     editable_requirements: Dict[str, str] = {}
     if _running_from_pex():

@@ -12,11 +12,18 @@ _logger = logging.getLogger(__name__)
 
 def add_packaged_environment(ssb: SparkSession.Builder, archive: str) -> None:
     archive = _make_path_hadoop_compatible(archive)
+
     if archive.endswith('pex'):
-        _add_or_merge(ssb, "spark.yarn.dist.files", f"{archive}")
         ssb.config("spark.executorEnv.PEX_ROOT", "./.pex")
+        _add_or_merge(ssb, "spark.yarn.dist.files", f"{archive}")
         os.environ['PYSPARK_PYTHON'] = './' + archive.split('/')[-1]
         os.environ['PYSPARK_DRIVER_PYTHON'] = archive.split('/')[-1]
+
+    elif archive.endswith('pex.zip'):
+        _add_archive(ssb, f"{archive}#pexenv")
+        os.environ['PYSPARK_PYTHON'] = "./pexenv/__main__.py"
+        os.environ['PYSPARK_DRIVER_PYTHON'] = 'python'
+
     else:
         _add_archive(ssb, f"{archive}#condaenv")
         os.environ['PYSPARK_PYTHON'] = "./condaenv/bin/python"

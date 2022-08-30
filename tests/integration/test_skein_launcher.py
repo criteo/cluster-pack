@@ -86,7 +86,8 @@ def test_skein(path_to_hdfs):
     _submit_and_await_app_master(launch_skein, assert_log_content=file_content)
 
 
-def test_pyspark(path_to_hdfs):
+@pytest.mark.parametrize("large_pex", [True, False])
+def test_pyspark(path_to_hdfs, large_pex):
     filepath_on_hdfs, file_content = path_to_hdfs
 
     def env(x):
@@ -97,9 +98,9 @@ def test_pyspark(path_to_hdfs):
         from pyspark.sql import SparkSession
         import cluster_pack
         from cluster_pack.spark import spark_config_builder
-        archive, _ = cluster_pack.upload_env()
+        archive, _ = cluster_pack.upload_env(allow_large_pex=large_pex)
         ssb = SparkSession.builder.master("yarn").config("spark.submit.deployMode", "client")
-        spark_config_builder.add_packaged_environment(ssb, archive)
+        spark_config_builder.add_packaged_environment(ssb, archive, large_pex=large_pex)
         sc = ssb.getOrCreate().sparkContext
         hdfs_cat_res = sc.parallelize([1], numSlices=1).map(env).collect()[0]
         print(f"pyspark result:{hdfs_cat_res}")
