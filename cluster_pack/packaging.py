@@ -11,7 +11,7 @@ import sys
 import tempfile
 from typing import (
     Tuple, Dict,
-    Collection, List, Any, Optional
+    Collection, List, Any, Optional, NamedTuple
 )
 import uuid
 import zipfile
@@ -32,6 +32,18 @@ JsonDictType = Dict[str, Any]
 
 class PexTooLargeError(RuntimeError):
     pass
+
+
+class PythonEnvDescription(NamedTuple):
+    path_to_archive: str
+    interpreter_cmd: str
+    dest_path: str
+    must_unpack: bool
+
+
+UNPACKED_ENV_NAME = "pyenv"
+CONDA_CMD = f"{UNPACKED_ENV_NAME}/bin/python"
+LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 
 def _get_tmp_dir() -> str:
@@ -406,6 +418,33 @@ def get_editable_requirements(
 
     _logger.info(f"found editable requirements {editable_requirements}")
     return editable_requirements
+
+
+def get_pyenv_usage_from_archive(path_to_archive: str) -> PythonEnvDescription:
+
+    archive_filename = os.path.basename(path_to_archive)
+
+    if archive_filename.endswith('.pex.zip'):
+        return PythonEnvDescription(
+            path_to_archive,
+            f"{LARGE_PEX_CMD}",
+            UNPACKED_ENV_NAME,
+            True)
+    elif archive_filename.endswith('.pex'):
+        return PythonEnvDescription(
+            path_to_archive,
+            f"./{archive_filename}",
+            archive_filename,
+            False)
+    elif archive_filename.endswith(".zip") or archive_filename.endswith(".tar.gz"):
+        return PythonEnvDescription(
+            path_to_archive,
+            f"{CONDA_CMD}",
+            UNPACKED_ENV_NAME,
+            True)
+    else:
+        raise ValueError(f"Archive format {archive_filename} unsupported. "
+                         "Must be .pex/pex.zip or conda .zip/.tar.gz")
 
 
 def get_default_fs() -> str:

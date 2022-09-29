@@ -12,5 +12,6 @@ from cluster_pack.packaging import (
     detect_packer_from_file,
     Packer,
     CONDA_PACKER,
-    PEX_PACKER
+    PEX_PACKER,
+    get_pyenv_usage_from_archive
 )
