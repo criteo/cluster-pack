@@ -3,7 +3,7 @@ import os
 import logging
 from pyspark.sql import SparkSession
 
-from cluster_pack import packaging
+from cluster_pack import packaging, get_pyenv_usage_from_archive
 
 from typing import Dict, Optional, Any
 
@@ -13,20 +13,18 @@ _logger = logging.getLogger(__name__)
 def add_packaged_environment(ssb: SparkSession.Builder, archive: str) -> None:
     archive = _make_path_hadoop_compatible(archive)
 
-    if archive.endswith('pex'):
+    usage = get_pyenv_usage_from_archive(archive)
+    os.environ['PYSPARK_PYTHON'] = usage.interpreter_cmd
+
+    if usage.must_unpack:
+        _add_archive(ssb, f"{archive}#{usage.dest_path}")
+    else:
         ssb.config("spark.executorEnv.PEX_ROOT", "./.pex")
         _add_or_merge(ssb, "spark.yarn.dist.files", f"{archive}")
-        os.environ['PYSPARK_PYTHON'] = './' + archive.split('/')[-1]
-        os.environ['PYSPARK_DRIVER_PYTHON'] = archive.split('/')[-1]
 
-    elif archive.endswith('pex.zip'):
-        _add_archive(ssb, f"{archive}#pexenv")
-        os.environ['PYSPARK_PYTHON'] = "./pexenv/__main__.py"
-        os.environ['PYSPARK_DRIVER_PYTHON'] = 'python'
-
+    if _get_value(ssb, "spark.submit.deployMode") == "cluster":
+        os.environ['PYSPARK_DRIVER_PYTHON'] = usage.interpreter_cmd
     else:
-        _add_archive(ssb, f"{archive}#condaenv")
-        os.environ['PYSPARK_PYTHON'] = "./condaenv/bin/python"
         os.environ['PYSPARK_DRIVER_PYTHON'] = 'python'
 
     if not _get_value(ssb, "spark.master") == "yarn":

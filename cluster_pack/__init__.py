@@ -12,5 +12,9 @@ from cluster_pack.packaging import (
     detect_packer_from_file,
     Packer,
     CONDA_PACKER,
-    PEX_PACKER
+    PEX_PACKER,
+    get_pyenv_usage_from_archive
 )
+
+from cluster_pack.spark.spark_config_builder \
+    import add_packaged_environment as spark_add_packaged_environment

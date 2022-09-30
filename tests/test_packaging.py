@@ -10,8 +10,8 @@ import zipfile
 
 import pytest
 
-from cluster_pack import packaging
-
+from cluster_pack import packaging, get_pyenv_usage_from_archive
+from cluster_pack.packaging import CONDA_CMD, UNPACKED_ENV_NAME, LARGE_PEX_CMD
 
 MODULE_TO_TEST = "cluster_pack.packaging"
 MYARCHIVE_FILENAME = "myarchive.pex"
@@ -284,3 +284,32 @@ def test_get_packages_with_warning():
     packages = packaging._get_packages(False)
     expected_packages = {"key": "value"}
     assert packages == expected_packages
+
+
+test_data = [
+    ("/path/to/myenv.pex",
+     "./myenv.pex",
+     "myenv.pex"),
+    ("/path/to/myenv.zip",
+     f"{CONDA_CMD}",
+     UNPACKED_ENV_NAME),
+    ("/path/to/myenv.pex.zip",
+     f"{LARGE_PEX_CMD}",
+     UNPACKED_ENV_NAME)
+]
+
+
+@pytest.mark.parametrize(
+    "path_to_archive,expected_cmd, expected_dest_path",
+    test_data)
+def test_gen_pyenvs_from_existing_env(path_to_archive, expected_cmd,
+                                      expected_dest_path):
+    result = get_pyenv_usage_from_archive(path_to_archive)
+    assert result.path_to_archive == path_to_archive
+    assert result.interpreter_cmd == expected_cmd
+    assert result.dest_path == expected_dest_path
+
+
+def test_gen_pyenvs_from_unknown_format():
+    with pytest.raises(ValueError):
+        get_pyenv_usage_from_archive("/path/to/pack.tar.bz2")
