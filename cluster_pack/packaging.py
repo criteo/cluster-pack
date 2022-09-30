@@ -366,7 +366,7 @@ def detect_packer_from_env() -> Packer:
 
 
 def detect_packer_from_file(zip_file: str) -> Packer:
-    if zip_file.endswith('.pex'):
+    if zip_file.endswith('.pex') or zip_file.endswith('.pex.zip'):
         return PEX_PACKER
     elif zip_file.endswith(".zip") or zip_file.endswith(".tar.gz"):
         return CONDA_PACKER
@@ -427,7 +427,7 @@ def get_pyenv_usage_from_archive(path_to_archive: str) -> PythonEnvDescription:
     if archive_filename.endswith('.pex.zip'):
         return PythonEnvDescription(
             path_to_archive,
-            f"{LARGE_PEX_CMD}",
+            LARGE_PEX_CMD,
             UNPACKED_ENV_NAME,
             True)
     elif archive_filename.endswith('.pex'):
@@ -439,7 +439,7 @@ def get_pyenv_usage_from_archive(path_to_archive: str) -> PythonEnvDescription:
     elif archive_filename.endswith(".zip") or archive_filename.endswith(".tar.gz"):
         return PythonEnvDescription(
             path_to_archive,
-            f"{CONDA_CMD}",
+            CONDA_CMD,
             UNPACKED_ENV_NAME,
             True)
     else:
