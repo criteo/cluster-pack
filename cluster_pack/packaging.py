@@ -11,7 +11,7 @@ import sys
 import tempfile
 from typing import (
     Tuple, Dict,
-    Collection, List, Any, Optional, NamedTuple
+    Collection, List, Any, Optional, NamedTuple, Union
 )
 import uuid
 import zipfile
@@ -102,14 +102,16 @@ def pack_spec_in_pex(spec_file: str,
                      output: str,
                      pex_inherit_path: str = "fallback",
                      allow_large_pex: bool = False,
-                     additional_repo: Optional[str] = None) -> str:
+                     additional_repo: Optional[Union[List[str], str]] = None,
+                     additional_indexes: Optional[List[str]] = None) -> str:
     with open(spec_file, "r") as f:
         lines = [line for line in f.read().splitlines()
                  if line and not line.startswith("#")]
         _logger.debug(f"used requirements: {lines}")
         return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path,
                            allow_large_pex=allow_large_pex,
-                           additional_repo=additional_repo)
+                           additional_repo=additional_repo,
+                           additional_indexes=additional_indexes)
 
 
 def pack_in_pex(requirements: List[str],
@@ -118,7 +120,8 @@ def pack_in_pex(requirements: List[str],
                 pex_inherit_path: str = "fallback",
                 editable_requirements: Dict[str, str] = {},
                 allow_large_pex: bool = False,
-                additional_repo: Optional[str] = None
+                additional_repo: Optional[Union[str, List[str]]] = None,
+                additional_indexes: Optional[List[str]] = None
                 ) -> str:
     """Pack current environment using a pex.
 
@@ -162,7 +165,14 @@ def pack_in_pex(requirements: List[str],
             cmd.append(f"--index-url={CRITEO_PYPI_URL}")
 
         if additional_repo is not None:
-            cmd.append(f"--index-url={additional_repo}")
+            additional_repo = additional_repo if isinstance(additional_repo, list) \
+                else [additional_repo]
+            for repo in additional_repo:
+                cmd.append(f"--index-url={repo}")
+
+        if additional_indexes:
+            for index in additional_indexes:
+                cmd.extend(["-f", index])
 
         cmd.extend(["-o", output + tmp_ext])
 
@@ -218,7 +228,8 @@ class Packer(object):
              ignored_packages: Collection[str],
              editable_requirements: Dict[str, str],
              allow_large_pex: bool = False,
-             additional_repo: Optional[str] = None) -> str:
+             additional_repo: Optional[Union[str, List[str]]] = None,
+             additional_indexes: Optional[List[str]] = None) -> str:
         raise NotImplementedError
 
     def pack_from_spec(self,
@@ -253,13 +264,15 @@ class CondaPacker(Packer):
              ignored_packages: Collection[str],
              editable_requirements: Dict[str, str],
              allow_large_pex: bool = False,
-             additional_repo: Optional[str] = None) -> str:
+             additional_repo: Optional[Union[str, List[str]]] = None,
+             additional_indexes: Optional[List[str]] = None) -> str:
         return conda.pack_venv_in_conda(
             self.env_name(),
             reqs,
             len(additional_packages) > 0 or len(ignored_packages) > 0,
             output,
-            additional_repo)
+            additional_repo,
+            additional_indexes)
 
     def pack_from_spec(self,
                        spec_file: str,
@@ -285,13 +298,15 @@ class PexPacker(Packer):
              ignored_packages: Collection[str],
              editable_requirements: Dict[str, str],
              allow_large_pex: bool = False,
-             additional_repo: Optional[str] = None) -> str:
+             additional_repo: Optional[Union[str, List[str]]] = None,
+             additional_indexes: Optional[List[str]] = None) -> str:
         return pack_in_pex(reqs,
                            output,
                            ignored_packages,
                            editable_requirements=editable_requirements,
                            allow_large_pex=allow_large_pex,
-                           additional_repo=additional_repo)
+                           additional_repo=additional_repo,
+                           additional_indexes=additional_indexes)
 
     def pack_from_spec(self,
                        spec_file: str,

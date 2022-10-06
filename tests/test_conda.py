@@ -64,6 +64,19 @@ def test_conda_env_from_reqs_with_external_repo():
             "torch", "1.10.1+cu113"
         )
 
+def test_conda_env_from_reqs_with_external_index():
+    with tempfile.TemporaryDirectory() as tempdir:
+        env_zip_path = conda.create_and_pack_conda_env(
+            reqs=["detectron2==0.6", "torch==1.10.1"],
+            additional_indexes=["https://dl.fbaipublicfiles.com/detectron2/wheels/cu102/torch1.10/index.html"]
+        )
+        assert os.path.isfile(env_zip_path)
+
+        _check_package(
+            tempdir, env_zip_path,
+            "detectron2", "0.6"
+        )
+
 
 def test_conda_env_from_spec():
     spec_file = os.path.join(os.path.dirname(__file__), "resources", "conda.yaml")
