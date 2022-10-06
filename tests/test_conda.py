@@ -35,7 +35,7 @@ def test_pack_venv_in_conda_changed_reqs(mock_conda_create, mock_conda_pack):
     mock_conda_pack.assert_not_called()
     mock_conda_create.assert_called_once_with(
         reqs=["a==1.0.0", "b==2.0.0"], output="testpath",
-        additional_repo=None)
+        additional_indexes=None, additional_repo=None)
 
 
 def test_conda_env_from_reqs():
@@ -64,11 +64,14 @@ def test_conda_env_from_reqs_with_external_repo():
             "torch", "1.10.1+cu113"
         )
 
+
 def test_conda_env_from_reqs_with_external_index():
     with tempfile.TemporaryDirectory() as tempdir:
         env_zip_path = conda.create_and_pack_conda_env(
             reqs=["detectron2==0.6", "torch==1.10.1"],
-            additional_indexes=["https://dl.fbaipublicfiles.com/detectron2/wheels/cu102/torch1.10/index.html"]
+            additional_indexes=[
+                "https://dl.fbaipublicfiles.com/detectron2/wheels/cu102/torch1.10/index.html"
+            ]
         )
         assert os.path.isfile(env_zip_path)
 

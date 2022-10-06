@@ -136,7 +136,7 @@ def create_and_pack_conda_env(
                 cmd.extend(['--extra-index-url', repo])
 
         if additional_indexes:
-            for index in repo:
+            for index in additional_indexes:
                 cmd.extend(["-f", index])
 
         process.call(cmd + reqs)
