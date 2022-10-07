@@ -12,7 +12,8 @@ from typing import (
     Collection,
     List,
     Any,
-    Optional
+    Optional,
+    Union
 )
 from urllib import parse, request
 
@@ -90,8 +91,28 @@ def upload_env(
         include_editable: bool = False,
         fs_args: Dict[str, Any] = {},
         allow_large_pex: bool = False,
-        additional_repo: Optional[str] = None
+        additional_repo: Optional[Union[str, List[str]]] = None,
+        additional_indexes: Optional[List[str]] = None
 ) -> Tuple[str, str]:
+    """Upload current python env.
+
+    :param package_path: path where to upload current python env
+    :param packer: packer to use to package the current python env
+    :param additional_packages: additional packages, absent from current env,
+                            to add to the uploaded env
+    :param ignored_packages: specific arguments for special file systems (like S3)
+    :param force_upload: force the packaging and upload of current env
+    :param include_editable: whether to include or not packages installed in editable mode
+    :param fs_args: filesystem args
+    :param allow_large_pex: whether to allow or not building a large pex
+    :param additional_repo: additional repositories compliant with PEP 503 or local directories
+                            laid out in the same format.
+                            ex: https://download.pytorch.org/whl/cu113
+    :param additional_indexes: URLs or paths to an html files/indexes listing packages
+                            ex: https://dl.fbaipublicfiles.com/detectron2/wheels/cu102/
+                                torch1.10/index.html
+    :return: package_path
+    """
     if packer is None:
         packer = packaging.detect_packer_from_env()
     package_path, env_name, pex_file = \
@@ -107,7 +128,8 @@ def upload_env(
             force_upload,
             include_editable,
             allow_large_pex=allow_large_pex,
-            additional_repo=additional_repo
+            additional_repo=additional_repo,
+            additional_indexes=additional_indexes
         )
     else:
         _upload_zip(pex_file, package_path, resolved_fs, force_upload)
@@ -247,7 +269,8 @@ def _upload_env_from_venv(
         force_upload: bool = False,
         include_editable: bool = False,
         allow_large_pex: bool = False,
-        additional_repo: Optional[str] = None
+        additional_repo: Optional[Union[str, List[str]]] = None,
+        additional_indexes: Optional[List[str]] = None
 ) -> None:
     executable = packaging.get_current_pex_filepath() \
         if packaging._running_from_pex() else sys.executable
@@ -321,7 +344,8 @@ def _upload_env_from_venv(
                 ignored_packages=ignored_packages,
                 editable_requirements=editable_requirements,
                 allow_large_pex=allow_large_pex,
-                additional_repo=additional_repo
+                additional_repo=additional_repo,
+                additional_indexes=additional_indexes
             )
 
         dir = os.path.dirname(package_path)

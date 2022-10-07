@@ -8,7 +8,7 @@ except NotImplementedError:
     # conda is not supported on windows
     pass
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from cluster_pack import process
 
@@ -75,11 +75,13 @@ def pack_venv_in_conda(
         reqs: List[str],
         changed_reqs: bool = False,
         output: str = None,
-        additional_repo: Optional[str] = None
+        additional_repo: Optional[Union[List[str], str]] = None,
+        additional_indexes: Optional[List[str]] = None
 ) -> str:
     """
     Pack the current virtual environment
-    :param additional_repo: an additional pypi repo if one was used env creation
+    :param additional_repo: additional pypi repo(s) to download packages from
+    :param additional_indexes: additional indexes to download packages from
     :param reqs: directory to zip
     :param changed_reqs:
        we prefer zipping the current virtual env as much as possible,
@@ -91,18 +93,23 @@ def pack_venv_in_conda(
     if not changed_reqs:
         return conda_pack.pack(name=name, output=output)
     else:
-        return create_and_pack_conda_env(reqs=reqs, output=output, additional_repo=additional_repo)
+        return create_and_pack_conda_env(
+            reqs=reqs, output=output, additional_repo=additional_repo,
+            additional_indexes=additional_indexes
+        )
 
 
 def create_and_pack_conda_env(
     spec_file: str = None,
     reqs: List[str] = None,
     output: str = None,
-    additional_repo: Optional[str] = None
+    additional_repo: Optional[Union[List[str], str]] = None,
+    additional_indexes: Optional[List[str]] = None
 ) -> str:
     """
     Create a new conda virtual environment and zip it
-    :param additional_repo: an additional pypi repo if one was used env creation
+    :param additional_repo: additional pypi repo(s) to download packages from
+    :param additional_indexes: additional indexes to download packages from
     :param spec_file: conda yaml spec file to use
     :param reqs: dependencies to install
     :param output: a dedicated output path
@@ -123,8 +130,14 @@ def create_and_pack_conda_env(
 
         cmd = [env_python_bin, "-m", "pip", "install"]
         if additional_repo is not None:
-            cmd.append('--extra-index-url')
-            cmd.append(additional_repo)
+            additional_repo = additional_repo if isinstance(additional_repo, list) \
+                else [additional_repo]
+            for repo in additional_repo:
+                cmd.extend(['--extra-index-url', repo])
+
+        if additional_indexes:
+            for index in additional_indexes:
+                cmd.extend(["-f", index])
 
         process.call(cmd + reqs)
 
