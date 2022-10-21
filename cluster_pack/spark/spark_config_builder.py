@@ -60,9 +60,12 @@ def _get_value(ssb: SparkSession.Builder, key: str) -> Optional[str]:
 
 
 def _add_or_merge(ssb: SparkSession.Builder, key: str, value: str) -> None:
+    sep = ','
     if key in ssb._options:
         old_value = ssb._options[key]
-        ssb.config(key, f"{old_value},{value}")
+        old_value_set = set(old_value.split(sep))
+        old_value_set.add(value)
+        ssb.config(key, sep.join(old_value_set))
     else:
         ssb.config(key, value)
 
