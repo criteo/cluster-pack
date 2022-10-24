@@ -24,18 +24,18 @@ docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
 
 ### Step by step
 
-We want to execute the pandas udf example from [PySpark Pandas UDFs (a.k.a. Vectorized UDFs)](https://spark.apache.org/docs/2.4.4/sql-pyspark-pandas-with-arrow.html#grouped-map).
+We want to execute the pandas udf example from [PySpark Pandas UDFs (a.k.a. Vectorized UDFs)](https://spark.apache.org/docs/3.2.2/api/python/user_guide/sql/arrow_pandas.html#grouped-map).
 
 As Spark uses pandas & pyarrow under the hood we need them to be installed on the executor. cluster-pack will take care making everything easily available on the cluster.
 
 #### Create the current virtual environment
 
 ```bash
-python3.6 -m venv /tmp/pyspark_env
+python3.9 -m venv /tmp/pyspark_env
 . /tmp/pyspark_env/bin/activate
 pip install -U pip setuptools
 pip install pypandoc
-pip install s3fs pandas pyarrow==0.14.1 pyspark==2.4.4
+pip install s3fs pandas pyspark==3.2.2
 pip install cluster-pack
 ```
 

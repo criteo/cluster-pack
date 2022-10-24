@@ -7,15 +7,43 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.6
+    - name: Set up Python 3.9
       uses: actions/setup-python@v2
       with:
-        python-version: 3.6
+        python-version: 3.9
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install .
+        pip install -r tests-requirements.txt
+    - name: Linter
+      run: |
+        pylama
+    - name: Typer checker
+      run: |
+        mypy --config-file setup.cfg
+    - name: Tests
+      run: |
+        pytest -m "not hadoop and not conda" -s tests
+
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9]   
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
         pip install --upgrade pip
@@ -90,7 +118,7 @@ jobs:
     - name: Run tests with conda
       run: |
         conda update -y conda
-        conda create -n venv -y python=3.6
+        conda create -n venv -y python=3.9
         # https://github.com/conda/conda/issues/7980
         eval "$(conda shell.bash hook)" 
         conda activate venv
