@@ -148,7 +148,7 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
             if out:
                 yield out
             else:
-                raise StopIteration
+                return
 
     def __iter__(self) -> Iterator[bytes]:
         return self._genline()

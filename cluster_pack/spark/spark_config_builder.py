@@ -54,15 +54,15 @@ def _add_archive(ssb: SparkSession.Builder, path: str) -> None:
 
 
 def _get_value(ssb: SparkSession.Builder, key: str) -> Optional[str]:
-    if key in ssb._options:
-        return ssb._options[key]
+    if key in ssb._options:  # type: ignore [attr-defined]
+        return ssb._options[key]  # type: ignore [attr-defined]
     return None
 
 
 def _add_or_merge(ssb: SparkSession.Builder, key: str, value: str) -> None:
     sep = ','
-    if key in ssb._options:
-        old_value = ssb._options[key]
+    if key in ssb._options:  # type: ignore [attr-defined]
+        old_value = ssb._options[key]  # type: ignore [attr-defined]
         old_value_set = set(old_value.split(sep))
         old_value_set.add(value)
         ssb.config(key, sep.join(old_value_set))

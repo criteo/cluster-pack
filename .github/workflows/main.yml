@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,28 +27,68 @@ jobs:
     - name: Typer checker
       run: |
         mypy --config-file setup.cfg
+
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9]   
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install .
+        pip install -r tests-requirements.txt
     - name: Tests
       run: |
         pytest -m "not hadoop and not conda" -s tests
 
-  standalone_spark_with_S3:
+  standalone_spark3_with_S3:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
     
     - name: Build spark-docker
-      run: docker build -t spark-docker ./examples/spark-with-S3
+      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=3.2.2 --build-arg PYTHON_VERSION=3.9.15
     
     - name: Build the docker-compose stack
-      run: docker-compose -f ./examples/spark-with-S3/docker-compose.yml up -d
+      run: |
+        export PYTHON_VERSION=3.9
+        docker-compose -f ./examples/spark-with-S3/docker-compose.yml up -d
       
     - name: Check running containers
       run: docker ps -a
 
     - name: Run spark Job
-      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
+      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh python3.9 3.2.2
 
+  standalone_spark2_with_S3:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Build spark-docker
+      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=2.4.2 --build-arg PYTHON_VERSION=3.6.9
+    
+    - name: Build the docker-compose stack
+      run: |
+        export PYTHON_VERSION=3.6
+        docker-compose -f ./examples/spark-with-S3/docker-compose.yml up -d
+      
+    - name: Check running containers
+      run: docker ps -a
+
+    - name: Run spark Job
+      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh python3.6 2.4.2
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest
 
@@ -84,13 +124,17 @@ jobs:
   conda:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        python-version: [3.6, 3.9]   
+
     steps:
     - uses: actions/checkout@v2
 
     - name: Run tests with conda
       run: |
         conda update -y conda
-        conda create -n venv -y python=3.6
+        conda create -n venv -y python=${{ matrix.python-version }}
         # https://github.com/conda/conda/issues/7980
         eval "$(conda shell.bash hook)" 
         conda activate venv
