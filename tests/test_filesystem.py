@@ -5,12 +5,7 @@ import tempfile
 from cluster_pack import filesystem
 
 
-lines = ("abcdef\n"
-         "\n"
-         "\n"
-         "123456789\n"
-         "\n"
-         "\n")
+lines = "abcdef\n" "\n" "\n" "123456789\n" "\n" "\n"
 
 
 def _create_temp_file(temp_dir: str, filename: str = "myfile.txt"):
@@ -27,7 +22,7 @@ def _create_temp_file(temp_dir: str, filename: str = "myfile.txt"):
         (3, b"abc"),
         (7, b"abcdef\n"),
         (10, b"abcdef\n"),
-    ]
+    ],
 )
 def test_readline(size, expected_line):
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -44,10 +39,10 @@ def test_readline(size, expected_line):
     "size,expected_lines",
     [
         (None, [b"abcdef\n", b"\n", b"\n", b"123456789\n", b"\n", b"\n"]),
-        (3, [b'abcdef\n']),
-        (7, [b'abcdef\n', b'\n']),
+        (3, [b"abcdef\n"]),
+        (7, [b"abcdef\n", b"\n"]),
         (10, [b"abcdef\n", b"\n", b"\n", b"123456789\n"]),
-    ]
+    ],
 )
 def test_readlines(size, expected_lines):
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -89,8 +84,7 @@ def test_chmod():
     with tempfile.TemporaryDirectory() as temp_dir:
         file = f"{temp_dir}/script.sh"
         with open(file, "wb") as f:
-            lines = ("#! /bin/bash\n"
-                     "echo 'Hello world'\n")
+            lines = "#! /bin/bash\n" "echo 'Hello world'\n"
             f.write(lines.encode())
 
         fs, _ = filesystem.resolve_filesystem_and_path(file)
@@ -128,8 +122,7 @@ def test_put():
     with tempfile.TemporaryDirectory() as temp_dir:
         file = f"{temp_dir}/script.sh"
         with open(file, "wb") as f:
-            lines = ("#! /bin/bash\n"
-                     "echo 'Hello world'\n")
+            lines = "#! /bin/bash\n" "echo 'Hello world'\n"
             f.write(lines.encode())
         os.chmod(file, 0o755)
 
