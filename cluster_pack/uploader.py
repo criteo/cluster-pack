@@ -50,7 +50,10 @@ def _dump_archive_metadata(
 
 
 def upload_zip(
-    zip_file: str, package_path: str = None, force_upload: bool = False, fs_args: Dict[str, Any] = {}
+    zip_file: str,
+    package_path: str = None,
+    force_upload: bool = False,
+    fs_args: Dict[str, Any] = {},
 ) -> str:
     packer = packaging.detect_packer_from_file(zip_file)
     package_path, _, _ = packaging.detect_archive_names(packer, package_path)
@@ -102,7 +105,9 @@ def upload_env(
     """
     if packer is None:
         packer = packaging.detect_packer_from_env()
-    package_path, env_name, pex_file = packaging.detect_archive_names(packer, package_path, allow_large_pex)
+    package_path, env_name, pex_file = packaging.detect_archive_names(
+        packer, package_path, allow_large_pex
+    )
 
     resolved_fs, _ = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
@@ -146,12 +151,17 @@ def upload_spec(
     packer = packaging.detect_packer_from_spec(spec_file)
     if not package_path:
         package_path = (
-            f"{packaging.get_default_fs()}/user/{getpass.getuser()}" f"/envs/{_unique_filename(spec_file, packer)}"
+            f"{packaging.get_default_fs()}/user/{getpass.getuser()}"
+            f"/envs/{_unique_filename(spec_file, packer)}"
         )
     elif not package_path.endswith(packer.extension()):
         package_path = os.path.join(package_path, _unique_filename(spec_file, packer))
 
-    if packer.extension() == packaging.PEX_PACKER.extension() and allow_large_pex and not package_path.endswith(".zip"):
+    if (
+        packer.extension() == packaging.PEX_PACKER.extension()
+        and allow_large_pex
+        and not package_path.endswith(".zip")
+    ):
         package_path += ".zip"
 
     resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
@@ -196,7 +206,10 @@ def _get_hash(spec_file: str) -> str:
 
 
 def _upload_zip(
-    zip_file: str, package_path: str, resolved_fs: filesystem.EnhancedFileSystem, force_upload: bool = False
+    zip_file: str,
+    package_path: str,
+    resolved_fs: filesystem.EnhancedFileSystem,
+    force_upload: bool = False,
 ) -> None:
     packer = packaging.detect_packer_from_file(zip_file)
     if packer == packaging.PEX_PACKER and resolved_fs.exists(package_path):
@@ -204,9 +217,13 @@ def _upload_zip(
             _logger.info(f"forcing upload: removing current {package_path}")
             resolved_fs.rm(package_path)
         elif not _check_pex_version(resolved_fs, zip_file, package_path):
-            raise FileExistsError(f"Package {zip_file} already exists" f"at destionation {package_path}")
+            raise FileExistsError(
+                f"Package {zip_file} already exists" f"at destionation {package_path}"
+            )
         else:
-            _logger.info(f"skip upload of current {zip_file}" f" as it is already uploaded on {package_path}")
+            _logger.info(
+                f"skip upload of current {zip_file}" f" as it is already uploaded on {package_path}"
+            )
             return
 
     _logger.info(f"upload current {zip_file} to {package_path}")
@@ -228,7 +245,9 @@ def _upload_zip(
 
 
 def _handle_packages(
-    current_packages: Dict[str, str], additional_packages: Dict[str, str] = {}, ignored_packages: Collection[str] = []
+    current_packages: Dict[str, str],
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = [],
 ) -> None:
     if len(additional_packages) > 0:
         additional_package_names = list(additional_packages.keys())
@@ -260,7 +279,9 @@ def _upload_env_from_venv(
     additional_repo: Optional[Union[str, List[str]]] = None,
     additional_indexes: Optional[List[str]] = None,
 ) -> None:
-    executable = packaging.get_current_pex_filepath() if packaging._running_from_pex() else sys.executable
+    executable = (
+        packaging.get_current_pex_filepath() if packaging._running_from_pex() else sys.executable
+    )
     current_packages = packaging.get_non_editable_requirements(executable)
 
     _handle_packages(current_packages, additional_packages, ignored_packages)
@@ -294,7 +315,9 @@ def _upload_env_from_venv(
             req_from_pex = _filter_out_requirements(
                 _sort_requirements(_normalize_requirements(_format_pex_requirements(pex_info)))
             )
-            req_from_venv = _filter_out_requirements(_sort_requirements(_normalize_requirements(reqs)))
+            req_from_venv = _filter_out_requirements(
+                _sort_requirements(_normalize_requirements(reqs))
+            )
 
             if req_from_pex == req_from_venv:
                 env_copied_from_fallback_location = True

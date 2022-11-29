@@ -54,7 +54,9 @@ def _expose_methods(child_class: Any, base_class: Any, ignored: List[str] = []) 
         and not [f for f in ignored if func.startswith(f)]
     ]
     for method_name in method_list:
-        _logger.debug(f"add method impl from {type(base_class)}.{method_name}" f" to {type(child_class)}")
+        _logger.debug(
+            f"add method impl from {type(base_class)}.{method_name}" f" to {type(child_class)}"
+        )
         setattr(child_class, method_name, _make_function(base_class, method_name))
 
 
@@ -91,7 +93,9 @@ def _hdfs_st_mode(self: Any, path: str) -> int:
 
 def _preserve_acls(base_fs: Any, local_file: str, remote_file: str) -> None:
     # this is useful for keeing pex excutable rights
-    if isinstance(base_fs, pyarrow.filesystem.LocalFileSystem) or isinstance(base_fs, pyarrow.hdfs.HadoopFileSystem):
+    if isinstance(base_fs, pyarrow.filesystem.LocalFileSystem) or isinstance(
+        base_fs, pyarrow.hdfs.HadoopFileSystem
+    ):
         st = os.stat(local_file)
         base_fs.chmod(remote_file, st.st_mode & 0o777)
 
@@ -140,7 +144,7 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
                 return
             except ValueError:
                 pass
-            last = full[-len(delimiter) :]
+            last = full[-len(delimiter):]
 
     def readline(self, size: int = None) -> bytes:
         """Read and return a line of bytes from the file.
@@ -227,9 +231,7 @@ class EnhancedFileSystem(filesystem.FileSystem):
                     target.write(out)
         _preserve_acls(self.base_fs, filename, path)
 
-    def put_atomic(self,
-         source_path: str,
-         destination_path: str) -> None:
+    def put_atomic(self, source_path: str, destination_path: str) -> None:
         tmp_upload_dir = f"{destination_path}.{uuid.uuid4()}.tmp"
         self.put(source_path, tmp_upload_dir)
         try:
