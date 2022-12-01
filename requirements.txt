@@ -1,8 +1,7 @@
 cloudpickle
-pex==2.1.54
+pex
 conda-pack
 pip>=18.1
 pyarrow
 fire
-types-setuptools
 wheel-filename
