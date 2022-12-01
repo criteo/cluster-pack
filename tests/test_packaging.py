@@ -164,13 +164,15 @@ def does_not_raise():
 @pytest.mark.parametrize(
     "pyarrow_version,expectation",
     [
-        ("0.14.1", does_not_raise()),
+        ("6.0.1", does_not_raise()),
         ("0.13.0", pytest.raises(subprocess.CalledProcessError)),
     ]
 )
 def test_pack_in_pex(pyarrow_version, expectation):
+    if sys.version_info.minor in {8, 9} and pyarrow_version == "0.13.0":
+        return
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["tensorflow==1.15.0", f"pyarrow=={pyarrow_version}"]
+        requirements = ["protobuf==3.19.6", "tensorflow==2.5.2", f"pyarrow=={pyarrow_version}"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
@@ -189,7 +191,7 @@ def test_pack_in_pex(pyarrow_version, expectation):
 
 def test_pack_in_pex_with_allow_large():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["pyarrow==0.14.1"]
+        requirements = ["pyarrow==6.0.1"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
@@ -215,13 +217,13 @@ def test_pack_in_pex_with_allow_large():
 
 def test_pack_in_pex_with_additional_repo():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["setuptools", "torch==1.10.1.0"]
+        requirements = ["setuptools", "torch"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false",
-            additional_repo="https://download.pytorch.org/whl/cu113")
+            additional_repo="https://download.pytorch.org/whl/cpu")
 
         assert os.path.exists(f"{tempdir}/out.pex")
         with does_not_raise():

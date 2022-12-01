@@ -3,14 +3,16 @@
 FROM debian:stretch
 
 RUN apt-get update
+ARG SPARK_INPUT_VERSION
+ARG PYTHON_VERSION
 
-# Python 3.6
+# Python
 RUN apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev \
   libreadline-dev libsqlite3-dev wget curl unzip llvm libncurses5-dev libncursesw5-dev \
   xz-utils tk-dev libffi-dev liblzma-dev
-RUN curl https://www.python.org/ftp/python/3.6.9/Python-3.6.9.tgz --output /usr/python.tgz
+RUN curl https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz --output /usr/python.tgz
 RUN tar xf /usr/python.tgz -C /usr && rm /usr/python.tgz
-RUN cd /usr/Python-3.6.9 \ 
+RUN cd /usr/Python-${PYTHON_VERSION} \ 
  && ./configure --enable-shared \
  && make -j8 \
  && make altinstall \
@@ -34,7 +36,7 @@ RUN curl -sL --retry 3 \
  && chown -R root:root $HADOOP_HOME
 
 # Spark
-ENV SPARK_VERSION 2.4.4
+ENV SPARK_VERSION ${SPARK_INPUT_VERSION}
 ENV SPARK_PACKAGE spark-${SPARK_VERSION}-bin-without-hadoop
 ENV SPARK_HOME /usr/spark-${SPARK_VERSION}
 ENV SPARK_DIST_CLASSPATH="$HADOOP_HOME/etc/hadoop/*:$HADOOP_HOME/share/hadoop/common/lib/*:$HADOOP_HOME/share/hadoop/common/*:$HADOOP_HOME/share/hadoop/hdfs/*:$HADOOP_HOME/share/hadoop/hdfs/lib/*:$HADOOP_HOME/share/hadoop/hdfs/*:$HADOOP_HOME/share/hadoop/yarn/lib/*:$HADOOP_HOME/share/hadoop/yarn/*:$HADOOP_HOME/share/hadoop/mapreduce/lib/*:$HADOOP_HOME/share/hadoop/mapreduce/*:$HADOOP_HOME/share/hadoop/tools/lib/*"

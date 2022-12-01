@@ -1,3 +1,4 @@
+import sys
 import contextlib
 import json
 import os
@@ -323,17 +324,17 @@ def test__handle_packages_use_local_wheel():
 
 
 def test__handle_packages_use_other_package():
-    current_packages = {"tensorflow": "0.15.2"}
+    current_packages = {"tensorflow": "2.5.2"}
     uploader._handle_packages(
         current_packages,
-        additional_packages={"tensorflow_gpu": "0.15.3"},
+        additional_packages={"tensorflow_gpu": "2.5.2"},
         ignored_packages="tensorflow"
     )
 
     print(current_packages)
     assert len(current_packages) == 1
     assert next(iter(current_packages.keys())) == "tensorflow_gpu"
-    assert next(iter(current_packages.values())) == "0.15.3"
+    assert next(iter(current_packages.values())) == "2.5.2"
 
 
 @pytest.mark.parametrize("spec_file, expected", [
@@ -355,7 +356,8 @@ def test_format_pex_requirements():
             pex_inherit_path="false")
         pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
         cleaned_requirements = uploader._format_pex_requirements(pex_info)
-        assert ['pip==21.3.1', 'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
+        pip_version = 'pip==21.3.1' if sys.version_info.minor == 6 else 'pip==22.3.1'
+        assert [pip_version, 'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
 
 
 @pytest.mark.parametrize("req, expected", [
