@@ -276,13 +276,7 @@ def _upload_env_from_venv(
         if packaging._running_from_pex() else sys.executable
     current_packages = packaging.get_non_editable_requirements(executable)
 
-    _handle_packages(
-        current_packages,
-        additional_packages,
-        ignored_packages
-    )
-
-    reqs = packaging.format_requirements(current_packages)
+    reqs = _build_reqs_from_venv(additional_packages, current_packages, ignored_packages)
 
     _logger.debug(f"Packaging current_packages={reqs}")
 
@@ -291,62 +285,9 @@ def _upload_env_from_venv(
         return
 
     with tempfile.TemporaryDirectory() as tempdir:
-        env_copied_from_fallback_location = False
-        local_package_path = f'{tempdir}/{packer.env_name()}.{packer.extension()}'
-        local_fs, local_package_path = filesystem.resolve_filesystem_and_path(local_package_path)
-
-        fallback_path = os.environ.get('C_PACK_ENV_FALLBACK_PATH')
-        if not force_upload and fallback_path and packer.extension() == 'pex':
-            _logger.info(f"Copying pre-built env from {fallback_path} to {local_package_path}")
-            if fallback_path.startswith("http://") or fallback_path.startswith("https://"):
-                request.urlretrieve(fallback_path, local_package_path)
-            else:
-                fallback_fs, fallback_path = filesystem.resolve_filesystem_and_path(fallback_path)
-                fallback_fs.get(fallback_path, local_package_path)
-
-            _logger.info(f'Checking requirements in {local_package_path}')
-
-            pex_info = PexInfo.from_pex(local_package_path)
-
-            req_from_pex = _filter_out_requirements(
-                _sort_requirements(
-                    _normalize_requirements(
-                        _format_pex_requirements(pex_info)
-                    )
-                )
-            )
-            req_from_venv = _filter_out_requirements(
-                _sort_requirements(
-                    _normalize_requirements(reqs)
-                )
-            )
-
-            if (req_from_pex == req_from_venv):
-                env_copied_from_fallback_location = True
-                _dump_archive_metadata(local_package_path, reqs, local_fs)
-                _logger.info('Env copied from fallback location')
-            else:
-                _logger.warning(f'Requirements not met for pre-built {local_package_path}')
-                _logger.info(f'Requirements from pex {req_from_pex}')
-                _logger.info(f'Requirements from venv {req_from_venv}')
-
-        if not env_copied_from_fallback_location:
-            if include_editable:
-                editable_requirements = packaging.get_editable_requirements(executable)
-            else:
-                editable_requirements = {}
-
-            _logger.info(f"Generating and zipping your env to {local_package_path}")
-            local_package_path = packer.pack(
-                output=local_package_path,
-                reqs=reqs,
-                additional_packages=additional_packages,
-                ignored_packages=ignored_packages,
-                editable_requirements=editable_requirements,
-                allow_large_pex=allow_large_pex,
-                additional_repo=additional_repo,
-                additional_indexes=additional_indexes
-            )
+        local_package_path = _pack_from_venv(executable, reqs, tempdir, packer, additional_packages,
+                                             ignored_packages, force_upload, include_editable,
+                                             allow_large_pex, additional_indexes, additional_repo)
 
         dir = os.path.dirname(package_path)
         if not resolved_fs.exists(dir):
@@ -355,6 +296,76 @@ def _upload_env_from_venv(
         resolved_fs.put(local_package_path, package_path)
 
         _dump_archive_metadata(package_path, reqs, resolved_fs)
+
+
+def _build_reqs_from_venv(additional_packages, current_packages, ignored_packages):
+    _handle_packages(
+        current_packages,
+        additional_packages,
+        ignored_packages
+    )
+    reqs = packaging.format_requirements(current_packages)
+    return reqs
+
+
+def _pack_from_venv(executable, reqs, tempdir, packer=packaging.PEX_PACKER, additional_packages={},
+                    ignored_packages=[], force_upload=False, include_editable=False,
+                    allow_large_pex=False, additional_indexes=None, additional_repo=None):
+    env_copied_from_fallback_location = False
+    local_package_path = f'{tempdir}/{packer.env_name()}.{packer.extension()}'
+    local_fs, local_package_path = filesystem.resolve_filesystem_and_path(local_package_path)
+    fallback_path = os.environ.get('C_PACK_ENV_FALLBACK_PATH')
+    if not force_upload and fallback_path and packer.extension() == 'pex':
+        _logger.info(f"Copying pre-built env from {fallback_path} to {local_package_path}")
+        if fallback_path.startswith("http://") or fallback_path.startswith("https://"):
+            request.urlretrieve(fallback_path, local_package_path)
+        else:
+            fallback_fs, fallback_path = filesystem.resolve_filesystem_and_path(fallback_path)
+            fallback_fs.get(fallback_path, local_package_path)
+
+        _logger.info(f'Checking requirements in {local_package_path}')
+
+        pex_info = PexInfo.from_pex(local_package_path)
+
+        req_from_pex = _filter_out_requirements(
+            _sort_requirements(
+                _normalize_requirements(
+                    _format_pex_requirements(pex_info)
+                )
+            )
+        )
+        req_from_venv = _filter_out_requirements(
+            _sort_requirements(
+                _normalize_requirements(reqs)
+            )
+        )
+
+        if (req_from_pex == req_from_venv):
+            env_copied_from_fallback_location = True
+            _dump_archive_metadata(local_package_path, reqs, local_fs)
+            _logger.info('Env copied from fallback location')
+        else:
+            _logger.warning(f'Requirements not met for pre-built {local_package_path}')
+            _logger.info(f'Requirements from pex {req_from_pex}')
+            _logger.info(f'Requirements from venv {req_from_venv}')
+    if not env_copied_from_fallback_location:
+        if include_editable:
+            editable_requirements = packaging.get_editable_requirements(executable)
+        else:
+            editable_requirements = {}
+
+        _logger.info(f"Generating and zipping your env to {local_package_path}")
+        local_package_path = packer.pack(
+            output=local_package_path,
+            reqs=reqs,
+            additional_packages=additional_packages,
+            ignored_packages=ignored_packages,
+            editable_requirements=editable_requirements,
+            allow_large_pex=allow_large_pex,
+            additional_repo=additional_repo,
+            additional_indexes=additional_indexes
+        )
+    return local_package_path
 
 
 def _sort_requirements(a: List[str]) -> List[str]:

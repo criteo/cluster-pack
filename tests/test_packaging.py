@@ -10,7 +10,7 @@ import zipfile
 
 import pytest
 
-from cluster_pack import packaging, get_pyenv_usage_from_archive
+from cluster_pack import packaging, get_pyenv_usage_from_archive, uploader
 from cluster_pack.packaging import CONDA_CMD, UNPACKED_ENV_NAME, LARGE_PEX_CMD
 
 MODULE_TO_TEST = "cluster_pack.packaging"
@@ -213,6 +213,35 @@ def test_pack_in_pex_with_allow_large():
                      """import pyarrow;"""
                      """print("Successfully imported pyarrow!")""")]
                 ))
+
+def test_pack_in_pex_with_large_correctly_retrieves_zip_archive ():
+    with tempfile.TemporaryDirectory() as tempdir:
+        current_packages = packaging.get_non_editable_requirements(sys.executable)
+        reqs = uploader._build_reqs_from_venv({}, current_packages, [])
+        local_package_path = uploader._pack_from_venv(sys.executable, reqs, tempdir,
+                                                      include_editable=True, allow_large_pex=True)
+        assert os.path.exists(local_package_path)
+
+        unzipped_pex_path=local_package_path.replace('.zip', '')
+        os.mkdir(unzipped_pex_path)
+        shutil.unpack_archive(local_package_path, unzipped_pex_path)
+        st = os.stat(f"{unzipped_pex_path}/__main__.py")
+        os.chmod(f"{unzipped_pex_path}/__main__.py", st.st_mode | stat.S_IEXEC)
+        with does_not_raise():
+            print(subprocess.check_output([
+                f"{unzipped_pex_path}/__main__.py",
+                "-c",
+                ("""print("Start importing cluster-pack..");"""
+                 """from cluster_pack import packaging;"""
+                 """packer = packaging.detect_packer_from_env();"""
+                 """package_path = "hdfs/dummy/path/env.pex";"""
+                 """allow_large_pex=True;"""
+                 """package_path, env_name, pex_file = \
+                    packaging.detect_archive_names(packer, package_path, allow_large_pex);"""
+                 """assert(package_path == "hdfs/dummy/path/env.pex.zip");"""
+                 """assert(pex_file.endswith('.pex'));"""
+                 )]
+            ))
 
 
 def test_pack_in_pex_with_additional_repo():

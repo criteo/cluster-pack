@@ -355,7 +355,6 @@ def detect_archive_names(
                              f", .{packer.extension()} is expected")
 
     if (packer.extension() == PEX_PACKER.extension()
-            and pex_file == ""
             and allow_large_pex
             and not package_path.endswith('.zip')):
         package_path += '.zip'
