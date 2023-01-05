@@ -287,7 +287,7 @@ def _upload_env_from_venv(
     with tempfile.TemporaryDirectory() as tempdir:
         local_package_path = _pack_from_venv(executable, reqs, tempdir, packer, additional_packages,
                                              ignored_packages, force_upload, include_editable,
-                                             allow_large_pex, additional_indexes, additional_repo)
+                                             allow_large_pex, additional_repo, additional_indexes)
 
         dir = os.path.dirname(package_path)
         if not resolved_fs.exists(dir):
@@ -298,19 +298,29 @@ def _upload_env_from_venv(
         _dump_archive_metadata(package_path, reqs, resolved_fs)
 
 
-def _build_reqs_from_venv(additional_packages, current_packages, ignored_packages):
+def _build_reqs_from_venv(
+        additional_packages: Dict[str, str],
+        current_packages: Dict[str, str],
+        ignored_packages: Collection[str]) -> List[str]:
     _handle_packages(
         current_packages,
         additional_packages,
         ignored_packages
     )
-    reqs = packaging.format_requirements(current_packages)
-    return reqs
+    return packaging.format_requirements(current_packages)
 
 
-def _pack_from_venv(executable, reqs, tempdir, packer=packaging.PEX_PACKER, additional_packages={},
-                    ignored_packages=[], force_upload=False, include_editable=False,
-                    allow_large_pex=False, additional_indexes=None, additional_repo=None):
+def _pack_from_venv(executable: str,
+                    reqs: List[str],
+                    tempdir: str,
+                    packer: packaging.Packer = packaging.PEX_PACKER,
+                    additional_packages: Dict[str, str] = {},
+                    ignored_packages: Collection[str] = [],
+                    force_upload: bool = False,
+                    include_editable: bool = False,
+                    allow_large_pex: bool = False,
+                    additional_repo: Optional[Union[str, List[str]]] = None,
+                    additional_indexes: Optional[List[str]] = None) -> str:
     env_copied_from_fallback_location = False
     local_package_path = f'{tempdir}/{packer.env_name()}.{packer.extension()}'
     local_fs, local_package_path = filesystem.resolve_filesystem_and_path(local_package_path)
