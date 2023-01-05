@@ -214,7 +214,8 @@ def test_pack_in_pex_with_allow_large():
                      """print("Successfully imported pyarrow!")""")]
                 ))
 
-def test_pack_in_pex_with_large_correctly_retrieves_zip_archive ():
+
+def test_pack_in_pex_with_large_correctly_retrieves_zip_archive():
     with tempfile.TemporaryDirectory() as tempdir:
         current_packages = packaging.get_non_editable_requirements(sys.executable)
         reqs = uploader._build_reqs_from_venv({}, current_packages, [])
@@ -222,7 +223,7 @@ def test_pack_in_pex_with_large_correctly_retrieves_zip_archive ():
                                                       include_editable=True, allow_large_pex=True)
         assert os.path.exists(local_package_path)
 
-        unzipped_pex_path=local_package_path.replace('.zip', '')
+        unzipped_pex_path = local_package_path.replace('.zip', '')
         os.mkdir(unzipped_pex_path)
         shutil.unpack_archive(local_package_path, unzipped_pex_path)
         st = os.stat(f"{unzipped_pex_path}/__main__.py")
