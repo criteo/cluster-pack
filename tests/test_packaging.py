@@ -5,6 +5,7 @@ import subprocess
 import sys
 import shutil
 import tempfile
+import getpass
 from unittest import mock
 import zipfile
 
@@ -332,7 +333,7 @@ test_data = [
 
 
 @pytest.mark.parametrize(
-    "path_to_archive,expected_cmd, expected_dest_path",
+    "path_to_archive, expected_cmd, expected_dest_path",
     test_data)
 def test_gen_pyenvs_from_existing_env(path_to_archive, expected_cmd,
                                       expected_dest_path):
@@ -345,3 +346,33 @@ def test_gen_pyenvs_from_existing_env(path_to_archive, expected_cmd,
 def test_gen_pyenvs_from_unknown_format():
     with pytest.raises(ValueError):
         get_pyenv_usage_from_archive("/path/to/pack.tar.bz2")
+
+
+archive_test_data = [
+    (False, "dummy/path/exe.pex", False, "dummy/path/exe.pex"),
+    (False, "dummy/path/exe.pex", True, "dummy/path/exe.pex.zip"),
+    (True, "dummy/path/exe.pex", False, "dummy/path/exe.pex"),
+    (True, "dummy/path/exe.pex", True, "dummy/path/exe.pex.zip"),
+    (False, None, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
+    (False, None, True, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex.zip"),
+    (True, None, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex"),
+    (True, None, True, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex.zip"),
+]
+
+
+@pytest.mark.parametrize(
+    "running_from_pex, package_path, allow_large_pex, expected", archive_test_data)
+def test_detect_archive_names(running_from_pex, package_path, allow_large_pex, expected):
+    with (
+        mock.patch(f"{MODULE_TO_TEST}._running_from_pex") as mock_running_from_pex,
+        mock.patch(f"{MODULE_TO_TEST}.get_current_pex_filepath") as mock_current_filepath,
+        mock.patch(f"{MODULE_TO_TEST}.get_default_fs") as mock_fs,
+        mock.patch(f"{MODULE_TO_TEST}.get_env_name") as mock_venv
+    ):
+        mock_running_from_pex.return_value = running_from_pex
+        mock_current_filepath.return_value = "pex_exe.pex"
+        mock_fs.return_value = "hdfs://"
+        mock_venv.return_value = "venv_exe"
+        actual, _, _ = packaging.detect_archive_names(
+            packaging.PEX_PACKER, package_path, allow_large_pex)
+        assert(actual == expected)
