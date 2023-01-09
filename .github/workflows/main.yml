@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
 
     steps:
     - uses: actions/checkout@v2
@@ -29,7 +29,7 @@ jobs:
         mypy --config-file setup.cfg
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
 
     strategy:
       matrix:
@@ -44,14 +44,14 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install .
+        pip install -e .
         pip install -r tests-requirements.txt
     - name: Tests
       run: |
         pytest -m "not hadoop and not conda" -s tests
 
   standalone_spark3_with_S3:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
 
     steps:
     - uses: actions/checkout@v2
@@ -71,7 +71,7 @@ jobs:
       run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh python3.9 3.2.2
 
   standalone_spark2_with_S3:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
 
     steps:
     - uses: actions/checkout@v2
@@ -90,7 +90,7 @@ jobs:
     - name: Run spark Job
       run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh python3.6 2.4.2
   # hadoop_hdfs:
-  #   runs-on: ubuntu-latest
+  #   runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
 
   #   steps:
   #   - uses: actions/checkout@v2
@@ -122,7 +122,7 @@ jobs:
   #                     htcluster exec -s edge -- /home/testuser/cluster-pack/tests/integration/hadoop_hdfs_tests.sh"
 
   conda:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
 
     strategy:
       matrix:
