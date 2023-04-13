@@ -83,12 +83,15 @@ def build(
     if not package_path:
         package_path, _ = uploader.upload_env()
 
-    script = _get_script(
-        package_path,
-        module_name,
-        args)
+    python_env_descriptor = packaging.get_pyenv_usage_from_archive(package_path)
 
-    files = _get_files(package_path, additional_files, tmp_dir)
+    script = _get_script(
+        python_env_descriptor,
+        module_name,
+        args
+    )
+
+    files = _get_files(python_env_descriptor, additional_files, tmp_dir)
 
     env = {"SKEIN_CONFIG": "./.skein",
            "GIT_PYTHON_REFRESH": "quiet"}
@@ -118,17 +121,14 @@ def build(
 
 
 def _get_script(
-        package_path: str,
+        python_env_descriptor: packaging.PythonEnvDescription,
         module_name: str,
         args: List[Any] = []
 ) -> str:
-    python_bin = f"./{os.path.basename(package_path)}" if package_path.endswith(
-        '.pex') else f"./{os.path.basename(package_path)}/bin/python"
-
     launch_options = "-m" if not module_name.endswith(".py") else ""
     launch_args = " ".join(args)
 
-    cmd = f"{python_bin} {launch_options} {module_name} {launch_args}"
+    cmd = f"{python_env_descriptor.interpreter_cmd} {launch_options} {module_name} {launch_args}"
 
     script = f'''
                 export PEX_ROOT="./.pex"
@@ -141,17 +141,16 @@ def _get_script(
 
 
 def _get_files(
-        package_path: str,
+        python_env_descriptor: packaging.PythonEnvDescription,
         additional_files: Optional[List[str]] = None,
         tmp_dir: str = packaging._get_tmp_dir()
 ) -> Dict[str, str]:
-
-    files_to_upload = [package_path]
+    dict_files_to_upload = {
+        python_env_descriptor.dest_path: python_env_descriptor.path_to_archive
+    }
     if additional_files:
-        files_to_upload = files_to_upload + additional_files
-
-    dict_files_to_upload = {os.path.basename(path): path
-                            for path in files_to_upload}
+        for additional_file in additional_files:
+            dict_files_to_upload[os.path.basename(additional_file)] = additional_file
 
     editable_requirements = packaging.get_editable_requirements()
 
