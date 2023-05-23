@@ -36,10 +36,8 @@ def test_get_virtualenv_empty_returns_default():
 def test_get_empty_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        subprocess.check_call([
-                        f"{tempdir}/bin/python", "-m", "pip", "install",
-                        "cloudpickle", _get_editable_package_name(), "pip==18.1"
-                        ])
+        subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
+                               "cloudpickle", _get_editable_package_name(), "pip==18.1"])
         editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
         assert len(editable_requirements) == 0
 
@@ -47,10 +45,8 @@ def test_get_empty_editable_requirements():
 def test_get_empty_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        subprocess.check_call([
-                    f"{tempdir}/bin/python", "-m", "pip", "install",
-                    "-e", _get_editable_package_name(), "pip==18.1"
-                    ])
+        subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
+                               "-e", _get_editable_package_name(), "pip==18.1"])
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python")
         assert len(non_editable_requirements) == 2

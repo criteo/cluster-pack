@@ -95,9 +95,9 @@ def test_upload_env():
     with contextlib.ExitStack() as stack:
         # Mock all objects
         mock_is_archive = stack.enter_context(
-                mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date"))
+            mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date"))
         mock_get_packages = stack.enter_context(
-                mock.patch(f"{MODULE_TO_TEST}.packaging.get_non_editable_requirements"))
+            mock.patch(f"{MODULE_TO_TEST}.packaging.get_non_editable_requirements"))
 
         mock_resolve_fs = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path"))
