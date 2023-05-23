@@ -1,10 +1,10 @@
 # docker file/docker-compose derived from https://github.com/gettyimages/docker-spark
 # https://github.com/gettyimages/docker-spark/blob/master/LICENSE
-FROM debian:stretch
+FROM debian:buster
 
 RUN apt-get update
-ARG SPARK_INPUT_VERSION
-ARG PYTHON_VERSION
+ARG SPARK_INPUT_VERSION=3.2.2
+ARG PYTHON_VERSION=3.9.15
 
 # Python
 RUN apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev \
@@ -19,7 +19,7 @@ RUN cd /usr/Python-${PYTHON_VERSION} \
  && cd -
 
 # Java
-RUN apt-get install -y openjdk-8-jre \
+RUN apt-get install -y openjdk-11-jre \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
