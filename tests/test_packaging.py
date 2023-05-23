@@ -173,7 +173,8 @@ def test_pack_in_pex(pyarrow_version, expectation):
     if sys.version_info.minor in {8, 9} and pyarrow_version == "0.13.0":
         return
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["protobuf==3.19.6", "tensorflow==2.5.2", f"pyarrow=={pyarrow_version}"]
+        requirements = ["tensorflow", f"pyarrow=={pyarrow_version}",
+                        "urllib3<2.0"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
