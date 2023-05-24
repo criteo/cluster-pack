@@ -51,7 +51,7 @@ jobs:
         pytest -m "not hadoop and not conda" -s tests
 
   standalone_spark3_with_S3:
-    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
@@ -77,11 +77,11 @@ jobs:
     - uses: actions/checkout@v2
     
     - name: Build spark-docker
-      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=2.4.2 --build-arg PYTHON_VERSION=3.9.15
+      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=2.4.2 --build-arg PYTHON_VERSION=3.6.9
     
     - name: Build the docker-compose stack
       run: |
-        export PYTHON_VERSION=3.9
+        export PYTHON_VERSION=3.6
         docker-compose -f ./examples/spark-with-S3/docker-compose.yml up -d
       
     - name: Check running containers

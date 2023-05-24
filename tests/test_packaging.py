@@ -244,6 +244,10 @@ def test_pack_in_pex_with_large_correctly_retrieves_zip_archive():
 
 
 def test_pack_in_pex_with_additional_repo():
+    if sys.version_info.minor == 6:
+        # dependency issue with available pytorch on https://download.pytorch.org/whl/cpu
+        return
+
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = ["setuptools", "torch"]
         packaging.pack_in_pex(
