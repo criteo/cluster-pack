@@ -95,9 +95,9 @@ def test_upload_env():
     with contextlib.ExitStack() as stack:
         # Mock all objects
         mock_is_archive = stack.enter_context(
-                mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date"))
+            mock.patch(f"{MODULE_TO_TEST}._is_archive_up_to_date"))
         mock_get_packages = stack.enter_context(
-                mock.patch(f"{MODULE_TO_TEST}.packaging.get_non_editable_requirements"))
+            mock.patch(f"{MODULE_TO_TEST}.packaging.get_non_editable_requirements"))
 
         mock_resolve_fs = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path"))
@@ -356,7 +356,7 @@ def test_format_pex_requirements():
             pex_inherit_path="false")
         pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
         cleaned_requirements = uploader._format_pex_requirements(pex_info)
-        pip_version = 'pip==21.3.1' if sys.version_info.minor == 6 else 'pip==22.3.1'
+        pip_version = 'pip==21.3.1' if sys.version_info.minor == 6 else 'pip==23.1.2'
         assert [pip_version, 'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
 
 
