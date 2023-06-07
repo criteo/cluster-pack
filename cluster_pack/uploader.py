@@ -21,6 +21,7 @@ from pex.pex_info import PexInfo
 from wheel_filename import parse_wheel_filename
 
 from cluster_pack import filesystem, packaging
+from cluster_pack.utils import catchtime
 
 _logger = logging.getLogger(__name__)
 
@@ -293,7 +294,8 @@ def _upload_env_from_venv(
         if not resolved_fs.exists(dir):
             resolved_fs.mkdir(dir)
         _logger.info(f'Uploading env at {local_package_path} to {package_path}')
-        resolved_fs.put(local_package_path, package_path)
+        with catchtime("upload pex"):
+            resolved_fs.put(local_package_path, package_path)
 
         _dump_archive_metadata(package_path, reqs, resolved_fs)
 

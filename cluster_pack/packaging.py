@@ -18,6 +18,7 @@ import zipfile
 import setuptools
 
 from cluster_pack import conda
+from cluster_pack.utils import catchtime
 
 CRITEO_PYPI_URL = "http://build-nexus.prod.crto.in/repository/moab.pypi/simple"
 
@@ -177,14 +178,15 @@ def pack_in_pex(requirements: List[str],
         cmd.extend(["-o", output + tmp_ext])
 
         try:
-            print(f"Running command: {' '.join(cmd)}")
-            call = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-            call.check_returncode()
+            with catchtime("build pex"):
+                print(f"Running command: {' '.join(cmd)}")
+                call = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+                call.check_returncode()
 
-            if not allow_large_pex and os.path.getsize(output + tmp_ext) > 2 * 1024 * 1024 * 1024:
-                raise PexTooLargeError("The generate pex is larger than 2Gb and won't be executable"
-                                       " by python; Please set the 'allow_large_pex' "
-                                       "flag in upload_env")
+                if not allow_large_pex and os.path.getsize(output + tmp_ext) > 2 * 1024 * 1024 * 1024:
+                    raise PexTooLargeError("The generate pex is larger than 2Gb and won't be executable"
+                                           " by python; Please set the 'allow_large_pex' "
+                                           "flag in upload_env")
 
         except CalledProcessError as err:
             _logger.exception('Cannot create pex')
@@ -192,7 +194,8 @@ def pack_in_pex(requirements: List[str],
             raise
 
         if allow_large_pex:
-            shutil.make_archive(output, 'zip', output + tmp_ext)
+            with catchtime("zip pex"):
+                shutil.make_archive(output, 'zip', output + tmp_ext)
 
     return output + '.zip' if allow_large_pex else output
 
