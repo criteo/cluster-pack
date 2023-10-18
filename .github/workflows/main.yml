@@ -51,7 +51,7 @@ jobs:
         pytest -m "not hadoop and not conda" -s tests
 
   standalone_spark3_with_S3:
-    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
