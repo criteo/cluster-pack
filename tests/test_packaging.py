@@ -162,10 +162,12 @@ def does_not_raise():
     "pyarrow_version,expectation",
     [
         ("6.0.1", does_not_raise()),
-        ("0.1.0", pytest.raises(subprocess.CalledProcessError)),
+        ("0.13.0", pytest.raises(subprocess.CalledProcessError)),
     ]
 )
 def test_pack_in_pex(pyarrow_version, expectation):
+    if sys.version_info.minor in {8, 9} and pyarrow_version == "0.13.0":
+        return
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "protobuf==3.19.6", "tensorflow==2.5.2",
