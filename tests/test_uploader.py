@@ -356,7 +356,7 @@ def test_format_pex_requirements():
             pex_inherit_path="false")
         pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
         cleaned_requirements = uploader._format_pex_requirements(pex_info)
-        pip_version = 'pip==21.3.1' if sys.version_info.minor == 6 else 'pip==23.0.1'
+        pip_version = 'pip==21.3.1' if sys.version_info.minor == 6 else 'pip==23.3'
         assert [pip_version, 'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
 
 
