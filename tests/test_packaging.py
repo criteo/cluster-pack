@@ -169,13 +169,11 @@ def test_pack_in_pex(pyarrow_version, expectation):
     if sys.version_info.minor in {8, 9} and pyarrow_version == "0.13.0":
         return
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["tensorflow", f"pyarrow=={pyarrow_version}",
-                        "urllib3<2.0"]
-        packaging.pack_in_pex(
-            requirements,
-            f"{tempdir}/out.pex",
-            # make isolated pex from current pytest virtual env
-            pex_inherit_path="false")
+        requirements = [
+            "protobuf==3.19.6", "tensorflow==2.5.2",
+            "tensorboard==2.10.1", f"pyarrow=={pyarrow_version}"
+        ]
+        packaging.pack_in_pex(requirements, f"{tempdir}/out.pex", pex_inherit_path="false")
         assert os.path.exists(f"{tempdir}/out.pex")
         with expectation:
             print(subprocess.check_output([
