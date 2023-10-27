@@ -19,7 +19,7 @@ import setuptools
 
 from cluster_pack import conda
 
-CRITEO_PYPI_URL = "http://build-nexus.prod.crto.in/repository/moab.pypi/simple"
+CRITEO_PYPI_URL = "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
 
 CONDA_DEFAULT_ENV = 'CONDA_DEFAULT_ENV'
 
