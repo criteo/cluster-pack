@@ -33,6 +33,7 @@ JsonDictType = Dict[str, Any]
 class PexTooLargeError(RuntimeError):
     pass
 
+
 class PexCreationError(RuntimeError):
     pass
 
@@ -191,8 +192,8 @@ def pack_in_pex(requirements: List[str],
 
         if not allow_large_pex and os.path.getsize(output + tmp_ext) > 2 * 1024 * 1024 * 1024:
             raise PexTooLargeError("The generate pex is larger than 2Gb and won't be executable"
-                                       " by python; Please set the 'allow_large_pex' "
-                                       "flag in upload_env")
+                                   " by python; Please set the 'allow_large_pex' "
+                                   "flag in upload_env")
 
         if allow_large_pex:
             shutil.make_archive(output, 'zip', output + tmp_ext)
