@@ -34,6 +34,10 @@ class PexTooLargeError(RuntimeError):
     pass
 
 
+class PexCreationError(RuntimeError):
+    pass
+
+
 class PythonEnvDescription(NamedTuple):
     path_to_archive: str
     interpreter_cmd: str
@@ -181,15 +185,15 @@ def pack_in_pex(requirements: List[str],
             call = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
             call.check_returncode()
 
-            if not allow_large_pex and os.path.getsize(output + tmp_ext) > 2 * 1024 * 1024 * 1024:
-                raise PexTooLargeError("The generate pex is larger than 2Gb and won't be executable"
-                                       " by python; Please set the 'allow_large_pex' "
-                                       "flag in upload_env")
-
         except CalledProcessError as err:
             _logger.exception('Cannot create pex')
             _logger.exception(err.stderr.decode("ascii"))
-            raise
+            raise PexCreationError(err.stderr.decode("ascii"))
+
+        if not allow_large_pex and os.path.getsize(output + tmp_ext) > 2 * 1024 * 1024 * 1024:
+            raise PexTooLargeError("The generate pex is larger than 2Gb and won't be executable"
+                                   " by python; Please set the 'allow_large_pex' "
+                                   "flag in upload_env")
 
         if allow_large_pex:
             shutil.make_archive(output, 'zip', output + tmp_ext)
