@@ -326,7 +326,8 @@ PEX_PACKER = PexPacker()
 def _get_editable_requirements(executable: str = sys.executable) -> List[str]:
     top_level_pkgs = []
     for pkg in _get_packages(True, executable):
-        for _pkg in setuptools.find_packages(pkg["location"]):
+        location = pkg.get("editable_project_location", pkg.get("location", ""))
+        for _pkg in setuptools.find_packages(location):
             if "." in _pkg:
                 continue
             imported = __import__(_pkg)

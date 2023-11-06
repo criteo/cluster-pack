@@ -64,6 +64,18 @@ def test__get_editable_requirements():
         assert "user_lib2" in pkg_names
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+def test__get_editable_requirements_withpip23():
+    with tempfile.TemporaryDirectory() as tempdir:
+        _create_venv(tempdir)
+        _pip_install(tempdir, "23.1")
+        editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
+        assert len(editable_requirements) == 2
+        pkg_names = [os.path.basename(req) for req in editable_requirements]
+        assert "user_lib" in pkg_names
+        assert "user_lib2" in pkg_names
+
+
 def test_get_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
@@ -78,9 +90,9 @@ def _create_venv(tempdir: str):
     subprocess.check_call([sys.executable, "-m", "venv", f"{tempdir}"])
 
 
-def _pip_install(tempdir: str):
+def _pip_install(tempdir: str, pip_version: str = "18.1"):
     subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
-                           "cloudpickle", "pip==18.1"])
+                           "cloudpickle", f"pip=={pip_version}"])
     pkg = _get_editable_package_name()
     subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install", "-e", pkg])
     if pkg not in sys.path:
