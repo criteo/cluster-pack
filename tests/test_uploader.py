@@ -119,7 +119,7 @@ def test_upload_env():
         cluster_pack.upload_env(MYARCHIVE_FILENAME, cluster_pack.PEX_PACKER)
         mock_packer.assert_called_once_with(
             ["a==1.0", "b==2.0"], Any(str), [], additional_indexes=None, additional_repo=None,
-            allow_large_pex=False, editable_requirements={}
+            allow_large_pex=False, editable_requirements={}, include_pex_tools=False
         )
         mock_fs.put.assert_called_once_with(MYARCHIVE_FILENAME, MYARCHIVE_FILENAME)
 
@@ -131,7 +131,7 @@ def test_upload_env():
         )
         mock_packer.assert_called_once_with(
             ["b==2.0", "c==3.0"], Any(str), ["a"], additional_indexes=None, additional_repo=None,
-            allow_large_pex=False, editable_requirements={}
+            allow_large_pex=False, editable_requirements={}, include_pex_tools=False
         )
 
 
@@ -356,7 +356,7 @@ def test_format_pex_requirements():
             pex_inherit_path="false")
         pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
         cleaned_requirements = uploader._format_pex_requirements(pex_info)
-        pip_version = 'pip==21.3.1' if sys.version_info.minor == 6 else 'pip==23.3.1'
+        pip_version = 'pip==21.3.1' if sys.version_info.minor == 6 else 'pip==23.3.2'
         assert [pip_version, 'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
 
 
