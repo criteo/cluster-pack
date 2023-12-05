@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import pathlib
+import platform
 import tempfile
 from typing import (
     Tuple,
@@ -24,6 +25,10 @@ from cluster_pack import filesystem, packaging
 
 _logger = logging.getLogger(__name__)
 
+PACKAGE_INSTALLED_KEY = "package_installed"
+PLATFORM_KEY = "platform"
+PYTHON_VERSION_KEY = "python_version"
+
 
 def _get_archive_metadata_path(package_path: str) -> str:
     url = parse.urlparse(package_path)
@@ -41,8 +46,18 @@ def _is_archive_up_to_date(package_path: str,
         _logger.debug(f'metadata for archive {package_path} does not exist')
         return False
     with resolved_fs.open(archive_meta_data, "rb") as fd:
-        packages_installed = json.loads(fd.read())
-        return sorted(packages_installed) == sorted(current_packages_list)
+        metadata_dict = json.loads(fd.read())
+        if not isinstance(metadata_dict, dict):
+            _logger.debug('metadata exists but was built with old format')
+            return False
+
+        current_platform, current_python_version = get_platform_and_python_version()
+        packages_installed = metadata_dict.get(PACKAGE_INSTALLED_KEY, [])
+        platform = metadata_dict.get(PLATFORM_KEY, "")
+        python_version = metadata_dict.get(PYTHON_VERSION_KEY, "")
+        return (sorted(packages_installed) == sorted(current_packages_list)
+                and platform == current_platform
+                and python_version == current_python_version)
 
 
 def _dump_archive_metadata(package_path: str,
@@ -50,13 +65,32 @@ def _dump_archive_metadata(package_path: str,
                            resolved_fs: Any = None
                            ) -> None:
     archive_meta_data = _get_archive_metadata_path(package_path)
+    metadata_dict = build_metadata_dict(current_packages_list)
     with tempfile.TemporaryDirectory() as tempdir:
         tempfile_path = os.path.join(tempdir, "metadata.json")
         with open(tempfile_path, "w") as fd:
-            fd.write(json.dumps(current_packages_list, sort_keys=True, indent=4))
+            fd.write(json.dumps(metadata_dict, indent=4))
         if resolved_fs.exists(archive_meta_data):
             resolved_fs.rm(archive_meta_data)
         resolved_fs.put(tempfile_path, archive_meta_data)
+
+
+def build_metadata_dict(current_packages_list: List[str]) -> Dict:
+    cur_platform, python_version = get_platform_and_python_version()
+    metadata_dict = {
+        PACKAGE_INSTALLED_KEY: current_packages_list,
+        PLATFORM_KEY: cur_platform,
+        PYTHON_VERSION_KEY: python_version
+    }
+    return metadata_dict
+
+
+def get_platform_and_python_version() -> Tuple[str, str]:
+    system, _node, release, _version, _machine, _processor = platform.uname()
+    current_platform_str = f"{system}-{release}"
+    python_version = sys.version_info
+    python_version_str = f"{python_version.major}.{python_version.minor}.{python_version.micro}"
+    return current_platform_str, python_version_str
 
 
 def upload_zip(
