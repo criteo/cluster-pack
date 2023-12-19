@@ -106,6 +106,7 @@ def pack_spec_in_pex(spec_file: str,
                      output: str,
                      pex_inherit_path: str = "fallback",
                      allow_large_pex: bool = False,
+                     include_pex_tools: bool = False,
                      additional_repo: Optional[Union[List[str], str]] = None,
                      additional_indexes: Optional[List[str]] = None) -> str:
     with open(spec_file, "r") as f:
@@ -114,6 +115,7 @@ def pack_spec_in_pex(spec_file: str,
         _logger.debug(f"used requirements: {lines}")
         return pack_in_pex(lines, output, pex_inherit_path=pex_inherit_path,
                            allow_large_pex=allow_large_pex,
+                           include_pex_tools=include_pex_tools,
                            additional_repo=additional_repo,
                            additional_indexes=additional_indexes)
 
@@ -124,6 +126,7 @@ def pack_in_pex(requirements: List[str],
                 pex_inherit_path: str = "fallback",
                 editable_requirements: Dict[str, str] = {},
                 allow_large_pex: bool = False,
+                include_pex_tools: bool = False,
                 additional_repo: Optional[Union[str, List[str]]] = None,
                 additional_indexes: Optional[List[str]] = None
                 ) -> str:
@@ -149,6 +152,8 @@ def pack_in_pex(requirements: List[str],
             tmp_ext = ".tmp"
         else:
             tmp_ext = ""
+        if include_pex_tools:
+            cmd.extend(["--include-tools"])
 
         if editable_requirements and len(editable_requirements) > 0:
             for current_package in editable_requirements.values():
@@ -232,6 +237,7 @@ class Packer(object):
              ignored_packages: Collection[str],
              editable_requirements: Dict[str, str],
              allow_large_pex: bool = False,
+             include_pex_tools: bool = False,
              additional_repo: Optional[Union[str, List[str]]] = None,
              additional_indexes: Optional[List[str]] = None) -> str:
         raise NotImplementedError
@@ -239,7 +245,8 @@ class Packer(object):
     def pack_from_spec(self,
                        spec_file: str,
                        output: str,
-                       allow_large_pex: bool = False) -> str:
+                       allow_large_pex: bool = False,
+                       include_pex_tools: bool = False) -> str:
         raise NotImplementedError
 
 
@@ -268,6 +275,7 @@ class CondaPacker(Packer):
              ignored_packages: Collection[str],
              editable_requirements: Dict[str, str],
              allow_large_pex: bool = False,
+             include_pex_tools: bool = False,
              additional_repo: Optional[Union[str, List[str]]] = None,
              additional_indexes: Optional[List[str]] = None) -> str:
         return conda.pack_venv_in_conda(
@@ -281,7 +289,8 @@ class CondaPacker(Packer):
     def pack_from_spec(self,
                        spec_file: str,
                        output: str,
-                       allow_large_pex: bool = False) -> str:
+                       allow_large_pex: bool = False,
+                       include_pex_tools: bool = False) -> str:
         return conda.create_and_pack_conda_env(
             spec_file=spec_file,
             reqs=None,
@@ -302,6 +311,7 @@ class PexPacker(Packer):
              ignored_packages: Collection[str],
              editable_requirements: Dict[str, str],
              allow_large_pex: bool = False,
+             include_pex_tools: bool = False,
              additional_repo: Optional[Union[str, List[str]]] = None,
              additional_indexes: Optional[List[str]] = None) -> str:
         return pack_in_pex(reqs,
@@ -309,14 +319,18 @@ class PexPacker(Packer):
                            ignored_packages,
                            editable_requirements=editable_requirements,
                            allow_large_pex=allow_large_pex,
+                           include_pex_tools=include_pex_tools,
                            additional_repo=additional_repo,
                            additional_indexes=additional_indexes)
 
     def pack_from_spec(self,
                        spec_file: str,
                        output: str,
-                       allow_large_pex: bool = False) -> str:
-        return pack_spec_in_pex(spec_file=spec_file, output=output, allow_large_pex=allow_large_pex)
+                       allow_large_pex: bool = False,
+                       include_pex_tools: bool = False) -> str:
+        return pack_spec_in_pex(spec_file=spec_file, output=output,
+                                allow_large_pex=allow_large_pex,
+                                include_pex_tools=include_pex_tools)
 
 
 CONDA_PACKER = CondaPacker()
@@ -329,7 +343,7 @@ def _get_editable_requirements(executable: str = sys.executable) -> List[str]:
         location = pkg.get("editable_project_location", pkg.get("location", ""))
         packages_found = set(
             setuptools.find_packages(location) + setuptools.find_packages(f"{location}/src")
-            )
+        )
         for _pkg in packages_found:
             if "." in _pkg:
                 continue

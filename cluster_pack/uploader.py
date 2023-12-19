@@ -125,6 +125,7 @@ def upload_env(
         include_editable: bool = False,
         fs_args: Dict[str, Any] = {},
         allow_large_pex: bool = False,
+        include_pex_tools: bool = False,
         additional_repo: Optional[Union[str, List[str]]] = None,
         additional_indexes: Optional[List[str]] = None
 ) -> Tuple[str, str]:
@@ -139,6 +140,7 @@ def upload_env(
     :param include_editable: whether to include or not packages installed in editable mode
     :param fs_args: filesystem args
     :param allow_large_pex: whether to allow or not building a large pex
+    :param include_pex_tools: whether to include tools or not when building pex
     :param additional_repo: additional repositories compliant with PEP 503 or local directories
                             laid out in the same format.
                             ex: https://download.pytorch.org/whl/cu113
@@ -162,6 +164,7 @@ def upload_env(
             force_upload,
             include_editable,
             allow_large_pex=allow_large_pex,
+            include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
             additional_indexes=additional_indexes
         )
@@ -303,6 +306,7 @@ def _upload_env_from_venv(
         force_upload: bool = False,
         include_editable: bool = False,
         allow_large_pex: bool = False,
+        include_pex_tools: bool = False,
         additional_repo: Optional[Union[str, List[str]]] = None,
         additional_indexes: Optional[List[str]] = None
 ) -> None:
@@ -321,7 +325,8 @@ def _upload_env_from_venv(
     with tempfile.TemporaryDirectory() as tempdir:
         local_package_path = _pack_from_venv(executable, reqs, tempdir, packer, additional_packages,
                                              ignored_packages, force_upload, include_editable,
-                                             allow_large_pex, additional_repo, additional_indexes)
+                                             allow_large_pex, include_pex_tools, additional_repo,
+                                             additional_indexes)
 
         dir = os.path.dirname(package_path)
         if not resolved_fs.exists(dir):
@@ -353,6 +358,7 @@ def _pack_from_venv(executable: str,
                     force_upload: bool = False,
                     include_editable: bool = False,
                     allow_large_pex: bool = False,
+                    include_pex_tools: bool = False,
                     additional_repo: Optional[Union[str, List[str]]] = None,
                     additional_indexes: Optional[List[str]] = None) -> str:
     env_copied_from_fallback_location = False
@@ -406,6 +412,7 @@ def _pack_from_venv(executable: str,
             ignored_packages=ignored_packages,
             editable_requirements=editable_requirements,
             allow_large_pex=allow_large_pex,
+            include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
             additional_indexes=additional_indexes
         )

@@ -239,6 +239,29 @@ def test_pack_in_pex_with_allow_large():
                 ))
 
 
+def test_pack_in_pex_with_include_tools():
+    with tempfile.TemporaryDirectory() as tempdir:
+        requirements = ["pyarrow==6.0.1"]
+        packaging.pack_in_pex(
+            requirements,
+            f"{tempdir}/out.pex",
+            # make isolated pex from current pytest virtual env
+            pex_inherit_path="false",
+            include_pex_tools=True)
+        assert os.path.exists(f"{tempdir}/out.pex")
+        cmd = ('print("Start importing pyarrow.."); '
+               'import pyarrow; '
+               'print("Successfully imported pyarrow!")')
+
+        with does_not_raise():
+            print(subprocess.check_output(
+                (f"PEX_TOOLS=1 {tempdir}/out.pex venv {tempdir}/pex_venv "
+                f"&& . {tempdir}/pex_venv/bin/activate "
+                f"&& python -c '{cmd}'"),
+                shell=True
+            ))
+
+
 def test_pack_in_pex_with_large_correctly_retrieves_zip_archive():
     with tempfile.TemporaryDirectory() as tempdir:
         current_packages = packaging.get_non_editable_requirements(sys.executable)
