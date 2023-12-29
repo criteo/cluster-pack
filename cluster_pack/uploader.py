@@ -86,11 +86,9 @@ def build_metadata_dict(current_packages_list: List[str]) -> Dict:
 
 
 def get_platform_and_python_version() -> Tuple[str, str]:
-    system, _node, release, _version, _machine, _processor = platform.uname()
-    current_platform_str = f"{system}-{release}"
     python_version = sys.version_info
     python_version_str = f"{python_version.major}.{python_version.minor}.{python_version.micro}"
-    return current_platform_str, python_version_str
+    return platform.platform(), python_version_str
 
 
 def upload_zip(
