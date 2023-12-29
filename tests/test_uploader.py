@@ -36,37 +36,37 @@ def test_update_no_metadata():
 @pytest.mark.parametrize("current_packages, metadata_packages, expected", [
     pytest.param(["a==2.0", "b==1.0"],
                  {'package_installed': ["a==2.0", "b==1.0"],
-                  'platform': 'fake_system-fake_release',
+                  'platform': 'fake_platform',
                   'python_version': '3.9.10'},
                  True),
     pytest.param(["a==2.0", "b==1.0"],
                  {'package_installed': ["a==1.0", "b==1.0"],
-                  'platform': 'fake_system-fake_release',
+                  'platform': 'fake_platform',
                   'python_version': '3.9.10'},
                  False),
     pytest.param(["a==2.0", "b==1.0"],
                  {'package_installed': ["a==2.0"],
-                  'platform': 'fake_system-fake_release',
+                  'platform': 'fake_platform',
                   'python_version': '3.9.10'},
                  False),
     pytest.param(["a==2.0"],
                  {'package_installed': ["a==2.0", "b==1.0"],
-                  'platform': 'fake_system-fake_release',
+                  'platform': 'fake_platform',
                   'python_version': '3.9.10'},
                  False),
     pytest.param([],
                  {'package_installed': ["a==2.0", "b==1.0"],
-                  'platform': 'fake_system-fake_release',
+                  'platform': 'fake_platform',
                   'python_version': '3.9.10'},
                  False),
     pytest.param(["a==2.0"],
                  {'package_installed': ["c==1.0"],
-                  'platform': 'fake_system-fake_release',
+                  'platform': 'fake_platform',
                   'python_version': '3.9.10'},
                  False),
     pytest.param([],
                  {'package_installed': [],
-                  'platform': 'fake_system-fake_release',
+                  'platform': 'fake_platform',
                   'python_version': '3.9.10'},
                  True),
     pytest.param(["a==2.0", "b==1.0"],
@@ -74,20 +74,20 @@ def test_update_no_metadata():
                  False),
     pytest.param(["a==2.0", "b==1.0"],
                  {'package_installed': ["a==2.0", "b==1.0"],
-                  'platform': 'fake_system-fake_release2',
+                  'platform': 'fake_platform2',
                   'python_version': '3.9.10'},
                  False),
     pytest.param(["a==2.0", "b==1.0"],
                  {'package_installed': ["a==2.0", "b==1.0"],
-                  'platform': 'fake_system-fake_release',
+                  'platform': 'fake_platform',
                   'python_version': '3.6.8'},
                  False),
 ])
-@mock.patch(f'{MODULE_TO_TEST}.platform.uname')
+@mock.patch(f'{MODULE_TO_TEST}.platform.platform')
 @mock.patch(f'{MODULE_TO_TEST}.sys')
-def test_update_version_comparaison(sys_mock, uname_mock,
+def test_update_version_comparaison(sys_mock, platform_mock,
                                     current_packages, metadata_packages, expected):
-    uname_mock.return_value = build_uname_mock()
+    platform_mock.return_value = build_platform_mock()
     sys_mock.version_info = build_python_version_mock()
     map_is_exist = {MYARCHIVE_FILENAME: True,
                     MYARCHIVE_METADATA: True}
@@ -126,14 +126,14 @@ def build_python_version_mock():
     return python_version_mock
 
 
-def build_uname_mock():
-    return "fake_system", "", "fake_release", "", "", ""
+def build_platform_mock():
+    return "fake_platform"
 
 
-@mock.patch(f'{MODULE_TO_TEST}.platform.uname')
+@mock.patch(f'{MODULE_TO_TEST}.platform.platform')
 @mock.patch(f'{MODULE_TO_TEST}.sys')
-def test_dump_metadata(sys_mock, uname_mock):
-    uname_mock.return_value = build_uname_mock()
+def test_dump_metadata(sys_mock, platform_mock):
+    platform_mock.return_value = build_platform_mock()
     sys_mock.version_info = build_python_version_mock()
     mock_fs = mock.Mock()
     mock_fs.rm.return_value = True
@@ -150,7 +150,7 @@ def test_dump_metadata(sys_mock, uname_mock):
         mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
         mock_open().write.assert_called_once_with(
             b'{\n    "package_installed": [\n        "a==1.0",\n        "b==2.0"\n    ],'
-            + b'\n    "platform": "fake_system-fake_release",\n    "python_version": "3.9.10"\n}'
+            + b'\n    "platform": "fake_platform",\n    "python_version": "3.9.10"\n}'
         )
 
 
@@ -301,10 +301,10 @@ def test_upload_spec_hdfs(
     assert result_path == "hdfs:///user/testuser/envs/myenv.pex"
 
 
-@mock.patch(f'{MODULE_TO_TEST}.platform.uname')
+@mock.patch(f'{MODULE_TO_TEST}.platform.platform')
 @mock.patch(f'{MODULE_TO_TEST}.sys')
-def test_upload_spec_local_fs(sys_mock, uname_mock):
-    uname_mock.return_value = build_uname_mock()
+def test_upload_spec_local_fs(sys_mock, platform_mock):
+    platform_mock.return_value = build_platform_mock()
     sys_mock.version_info = build_python_version_mock()
     spec_file = os.path.join(os.path.dirname(__file__), "resources", "requirements.txt")
     with tempfile.TemporaryDirectory() as tempdir:
@@ -313,13 +313,13 @@ def test_upload_spec_local_fs(sys_mock, uname_mock):
         _check_metadata(
             f"{tempdir}/package.json",
             {'package_installed': ['5a5f33b106aad8584345f5a0044a4188ce78b3f4'],
-             'platform': 'fake_system-fake_release', 'python_version': '3.9.10'})
+             'platform': 'fake_platform', 'python_version': '3.9.10'})
 
 
-@mock.patch(f'{MODULE_TO_TEST}.platform.uname')
+@mock.patch(f'{MODULE_TO_TEST}.platform.platform')
 @mock.patch(f'{MODULE_TO_TEST}.sys')
-def test_upload_spec_unique_name(sys_mock, uname_mock):
-    uname_mock.return_value = build_uname_mock()
+def test_upload_spec_unique_name(sys_mock, platform_mock):
+    platform_mock.return_value = build_platform_mock()
     sys_mock.version_info = build_python_version_mock()
     with tempfile.TemporaryDirectory() as tempdir:
         spec_file = f"{tempdir}/myproject/requirements.txt"
@@ -332,9 +332,10 @@ def test_upload_spec_unique_name(sys_mock, uname_mock):
         _check_metadata(
             f"{tempdir}/cluster_pack_myproject.json",
             {'package_installed': ["b8721a3c125d3f7edfa27d7b13236e696f652a16"],
-             'platform': 'fake_system-fake_release', 'python_version': '3.9.10'})
+             'platform': 'fake_platform', 'python_version': '3.9.10'})
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 9), reason="fail on ci above python3.9")
 @mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
 def test_upload_spec_local_fs_use_cache(mock_pack_spec_in_pex):
     with tempfile.TemporaryDirectory() as tempdir:
@@ -353,12 +354,33 @@ def test_upload_spec_local_fs_use_cache(mock_pack_spec_in_pex):
         assert result_path == result_path1 == pex_file
 
 
-@mock.patch(f'{MODULE_TO_TEST}.platform.uname')
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="replacement test for python3.9 and above")
+@mock.patch(f"{MODULE_TO_TEST}.platform.platform")
+@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
+def test_upload_spec_local_fs_use_cache_py39(mock_pack_spec_in_pex, platform_mock):
+    platform_mock.return_value = build_platform_mock()
+    with tempfile.TemporaryDirectory() as tempdir:
+        spec_file = f"{tempdir}/myproject/requirements.txt"
+        _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
+
+        pex_file = os.path.join(tempdir, "package.pex")
+        mock_pack_spec_in_pex.return_value = pex_file
+        with open(pex_file, "w"):
+            pass
+        result_path = cluster_pack.upload_spec(spec_file, pex_file)
+        result_path1 = cluster_pack.upload_spec(spec_file, pex_file)
+
+        mock_pack_spec_in_pex.assert_called_once()
+        assert os.path.exists(result_path)
+        assert result_path == result_path1 == pex_file
+
+
+@mock.patch(f'{MODULE_TO_TEST}.platform.platform')
 @mock.patch(f'{MODULE_TO_TEST}.sys')
 @mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
-def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex, sys_mock, uname_mock):
+def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex, sys_mock, platform_mock):
     mock_pack_spec_in_pex.return_value = "/tmp/tmp.pex"
-    uname_mock.return_value = build_uname_mock()
+    platform_mock.return_value = build_platform_mock()
     sys_mock.version_info = build_python_version_mock()
 
     with tempfile.TemporaryDirectory() as tempdir:
@@ -386,7 +408,7 @@ def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex, sys_mock, unam
         _check_metadata(
             f"{tempdir}/package.json",
             {'package_installed': ['0fd17ced922a2387fa660fb0cb78e1c77fbe3349'],
-             'platform': 'fake_system-fake_release', 'python_version': '3.9.10'})
+             'platform': 'fake_platform', 'python_version': '3.9.10'})
 
 
 def test__handle_packages_use_local_wheel():
