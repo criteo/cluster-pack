@@ -136,6 +136,24 @@ def test_get_current_pex_filepath():
         )
 
 
+def test_get_current_pex_filepath():
+    with tempfile.TemporaryDirectory() as tempdir:
+        path_to_pex = f"{tempdir}/out.pex"
+        packaging.pack_in_pex(
+            ["numpy"],
+            path_to_pex,
+            # make isolated pex from current pytest virtual env
+            pex_inherit_path="false",
+            allow_large_pex=True)
+        assert os.path.exists(path_to_pex)
+        subprocess.check_output([
+            path_to_pex,
+            "-c",
+            ("""import cluster_pack;"""
+             """assert "PEX" in os.environ;""")]
+        )
+
+
 def test_get_editable_requirements():
     with mock.patch(f"{MODULE_TO_TEST}._running_from_pex") as mock_running_from_pex:
         mock_running_from_pex.return_value = True
@@ -262,7 +280,15 @@ def test_pack_in_pex_with_include_tools():
             ))
 
 
-def test_pack_in_pex_with_large_correctly_retrieves_zip_archive():
+@pytest.mark.parametrize(
+    "is_large_pex,package_path",
+    [
+        (True, "hdfs://dummy/path/env.pex"),
+        (None, "hdfs://dummy/path/env.pex"),
+        (None, None)
+    ]
+)
+def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(is_large_pex, package_path):
     with tempfile.TemporaryDirectory() as tempdir:
         current_packages = packaging.get_non_editable_requirements(sys.executable)
         reqs = uploader._build_reqs_from_venv({}, current_packages, [])
@@ -275,18 +301,27 @@ def test_pack_in_pex_with_large_correctly_retrieves_zip_archive():
         shutil.unpack_archive(local_package_path, unzipped_pex_path)
         st = os.stat(f"{unzipped_pex_path}/__main__.py")
         os.chmod(f"{unzipped_pex_path}/__main__.py", st.st_mode | stat.S_IEXEC)
+        package_argument_as_string = "None" if package_path is None else f"'{package_path}'"
+        expected_package_path = (
+            f"hdfs:///user/{getpass.getuser()}/envs/{os.path.basename(unzipped_pex_path)}.zip"
+            if is_large_pex is None else f"{package_path}.zip"
+        )
         with does_not_raise():
             print(subprocess.check_output([
                 f"{unzipped_pex_path}/__main__.py",
                 "-c",
                 ("""print("Start importing cluster-pack..");"""
                  """from cluster_pack import packaging;"""
+                 """from unittest import mock;"""
                  """packer = packaging.detect_packer_from_env();"""
-                 """package_path = "hdfs/dummy/path/env.pex";"""
-                 """allow_large_pex=True;"""
+                 """packaging.get_default_fs = mock.Mock(return_value='hdfs://');"""
+                 f"""package_path={package_argument_as_string};"""
+                 f"""allow_large_pex={is_large_pex};"""
                  """package_path, env_name, pex_file = \
                     packaging.detect_archive_names(packer, package_path, allow_large_pex);"""
-                 """assert(package_path == "hdfs/dummy/path/env.pex.zip");"""
+                 """print(f'package_path: {package_path}');"""
+                 """print(f'pex_file: {pex_file}');"""
+                 f"""assert(package_path == "{expected_package_path}");"""
                  """assert(pex_file.endswith('.pex'));"""
                  )]
             ))
@@ -399,20 +434,23 @@ def test_gen_pyenvs_from_unknown_format():
 
 
 archive_test_data = [
-    (False, "dummy/path/exe.pex", False, "dummy/path/exe.pex"),
-    (False, "dummy/path/exe.pex", True, "dummy/path/exe.pex.zip"),
-    (True, "dummy/path/exe.pex", False, "dummy/path/exe.pex"),
-    (True, "dummy/path/exe.pex", True, "dummy/path/exe.pex.zip"),
-    (False, None, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
-    (False, None, True, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex.zip"),
-    (True, None, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex"),
-    (True, None, True, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex.zip"),
+    (False, "dummy/path/exe.pex", False, False, "dummy/path/exe.pex"),
+    (False, "dummy/path/exe.pex", True, False, "dummy/path/exe.pex.zip"),
+    (True, "dummy/path/exe.pex", False, False, "dummy/path/exe.pex"),
+    (True, "dummy/path/exe.pex", True, False, "dummy/path/exe.pex.zip"),
+    (False, None, False,  False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
+    (False, None, None,  False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
+    (False, None, True, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex.zip"),
+    (True, None, False, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex"),
+    (True, None, True, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex.zip"),
+    (True, None, None, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex"),
+    (True, None, None, True, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex.zip"),
 ]
 
 
 @pytest.mark.parametrize(
-    "running_from_pex, package_path, allow_large_pex, expected", archive_test_data)
-def test_detect_archive_names(running_from_pex, package_path, allow_large_pex, expected):
+    "running_from_pex, package_path, allow_large_pex, is_dir, expected", archive_test_data)
+def test_detect_archive_names(running_from_pex, package_path, allow_large_pex, is_dir, expected):
     with contextlib.ExitStack() as stack:
         mock_running_from_pex = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}._running_from_pex"))
@@ -422,11 +460,17 @@ def test_detect_archive_names(running_from_pex, package_path, allow_large_pex, e
             mock.patch(f"{MODULE_TO_TEST}.get_default_fs"))
         mock_venv = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}.get_env_name"))
+        mock_is_dir = stack.enter_context(
+            mock.patch(f"os.path.isdir"))
+        mock_glob = stack.enter_context(
+            mock.patch(f"glob.glob"))
 
         mock_running_from_pex.return_value = running_from_pex
         mock_current_filepath.return_value = "pex_exe.pex"
         mock_fs.return_value = "hdfs://"
         mock_venv.return_value = "venv_exe"
+        mock_is_dir.return_value = is_dir
+        mock_glob.return_value = "pex_exe.pex.zip"
         actual, _, _ = packaging.detect_archive_names(
             packaging.PEX_PACKER, package_path, allow_large_pex)
         assert actual == expected
