@@ -453,7 +453,7 @@ def test_detect_archive_names(running_from_pex, package_path, allow_large_pex, i
         mock_fs.return_value = "hdfs://"
         mock_venv.return_value = "venv_exe"
         mock_is_dir.return_value = is_dir
-        mock_glob.return_value = "pex_exe.pex.zip"
+        mock_glob.return_value = ["pex_exe.pex.zip"]
         actual, _, _ = packaging.detect_archive_names(
             packaging.PEX_PACKER, package_path, allow_large_pex)
         assert actual == expected
