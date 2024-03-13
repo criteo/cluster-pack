@@ -256,8 +256,8 @@ def test_pack_in_pex_with_include_tools():
         with does_not_raise():
             print(subprocess.check_output(
                 (f"PEX_TOOLS=1 {tempdir}/out.pex venv {tempdir}/pex_venv "
-                f"&& . {tempdir}/pex_venv/bin/activate "
-                f"&& python -c '{cmd}'"),
+                 f"&& . {tempdir}/pex_venv/bin/activate "
+                 f"&& python -c '{cmd}'"),
                 shell=True
             ))
 
@@ -315,7 +315,8 @@ def test_pack_in_pex_with_additional_repo():
         return
 
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["setuptools", "torch"]
+        requirements = ["setuptools", "torch",
+                        "networkx<2.6"]  # restricted version of netorkx for python < 3.9
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
@@ -420,8 +421,8 @@ archive_test_data = [
     (False, "dummy/path/exe.pex", True, False, "dummy/path/exe.pex.zip"),
     (True, "dummy/path/exe.pex", False, False, "dummy/path/exe.pex"),
     (True, "dummy/path/exe.pex", True, False, "dummy/path/exe.pex.zip"),
-    (False, None, False,  False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
-    (False, None, None,  False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
+    (False, None, False, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
+    (False, None, None, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
     (False, None, True, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex.zip"),
     (True, None, False, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex"),
     (True, None, True, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex.zip"),
