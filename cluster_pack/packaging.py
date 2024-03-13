@@ -3,6 +3,7 @@ import imp
 import json
 import logging
 import os
+import glob
 import pathlib
 import shutil
 import subprocess
@@ -357,6 +358,15 @@ def get_non_editable_requirements(executable: str = sys.executable) -> Dict[str,
             for package in _get_packages(False, executable)}
 
 
+def _build_package_path(name: str,
+                        extension: Optional[str]) -> str:
+    path = (f"{get_default_fs()}/user/{getpass.getuser()}"
+            f"/envs/{name}")
+    if extension is None:
+        return path
+    return f"{path}.{extension}"
+
+
 def detect_archive_names(
         packer: Packer,
         package_path: str = None,
@@ -367,19 +377,32 @@ def detect_archive_names(
     else:
         pex_file = ""
         env_name = packer.env_name()
+    extension = packer.extension()
 
     if not package_path:
-        package_path = (f"{get_default_fs()}/user/{getpass.getuser()}"
-                        f"/envs/{env_name}.{packer.extension()}")
+        package_path = _build_package_path(env_name, extension)
     else:
-        if "".join(os.path.splitext(package_path)[1]) != f".{packer.extension()}":
+        if "".join(os.path.splitext(package_path)[1]) != f".{extension}":
             raise ValueError(f"{package_path} has the wrong extension"
                              f", .{packer.extension()} is expected")
 
-    if (packer.extension() == PEX_PACKER.extension()
+    # we are actually building or reusing a large pex and we have the information from the
+    # allow_large_pex flag
+    if (extension == PEX_PACKER.extension()
             and allow_large_pex
             and not package_path.endswith('.zip')):
         package_path += '.zip'
+
+    # We are running from an unzipped large pex and we have the information because `pex_file` is
+    # not empty, and it is a directory instead of a zipapp
+    if (pex_file != ""
+            and os.path.isdir(pex_file)
+            and not package_path.endswith('.zip')):
+
+        pex_files = glob.glob(f"{os.path.dirname(pex_file)}/*.pex.zip")
+        assert len(pex_files) == 1, \
+            f"Expected to find single zipped PEX in same dir as {pex_file}, got {pex_files}"
+        package_path = _build_package_path(os.path.basename(pex_files[0]), None)
 
     return package_path, env_name, pex_file
 
@@ -430,7 +453,7 @@ def get_current_pex_filepath() -> str:
 
 def get_editable_requirements(
         executable: str = sys.executable,
-        editable_packages_dir: str = os.getcwd()
+        editable_packages_dir: str = os.getcwd()  # only overridden for tests
 ) -> Dict[str, str]:
     editable_requirements: Dict[str, str] = {}
     if _running_from_pex():
@@ -457,7 +480,6 @@ def get_editable_requirements(
 
 
 def get_pyenv_usage_from_archive(path_to_archive: str) -> PythonEnvDescription:
-
     archive_filename = os.path.basename(path_to_archive)
 
     if archive_filename.endswith('.pex.zip'):
