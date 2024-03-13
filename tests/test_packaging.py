@@ -136,24 +136,6 @@ def test_get_current_pex_filepath():
         )
 
 
-def test_get_current_pex_filepath():
-    with tempfile.TemporaryDirectory() as tempdir:
-        path_to_pex = f"{tempdir}/out.pex"
-        packaging.pack_in_pex(
-            ["numpy"],
-            path_to_pex,
-            # make isolated pex from current pytest virtual env
-            pex_inherit_path="false",
-            allow_large_pex=True)
-        assert os.path.exists(path_to_pex)
-        subprocess.check_output([
-            path_to_pex,
-            "-c",
-            ("""import cluster_pack;"""
-             """assert "PEX" in os.environ;""")]
-        )
-
-
 def test_get_editable_requirements():
     with mock.patch(f"{MODULE_TO_TEST}._running_from_pex") as mock_running_from_pex:
         mock_running_from_pex.return_value = True
@@ -461,9 +443,9 @@ def test_detect_archive_names(running_from_pex, package_path, allow_large_pex, i
         mock_venv = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}.get_env_name"))
         mock_is_dir = stack.enter_context(
-            mock.patch(f"os.path.isdir"))
+            mock.patch("os.path.isdir"))
         mock_glob = stack.enter_context(
-            mock.patch(f"glob.glob"))
+            mock.patch("glob.glob"))
 
         mock_running_from_pex.return_value = running_from_pex
         mock_current_filepath.return_value = "pex_exe.pex"
