@@ -358,6 +358,15 @@ def get_non_editable_requirements(executable: str = sys.executable) -> Dict[str,
             for package in _get_packages(False, executable)}
 
 
+def _build_package_path(name: str,
+                        extension: Optional[str]) -> str:
+    path = (f"{get_default_fs()}/user/{getpass.getuser()}"
+            f"/envs/{name}")
+    if extension is None:
+        return path
+    return f"{path}.{extension}"
+
+
 def detect_archive_names(
         packer: Packer,
         package_path: str = None,
@@ -368,32 +377,24 @@ def detect_archive_names(
     else:
         pex_file = ""
         env_name = packer.env_name()
-
-    def build_package_path(name: str = env_name,
-                           extension: Optional[str] = packer.extension()) -> str:
-        path = (f"{get_default_fs()}/user/{getpass.getuser()}"
-                f"/envs/{name}")
-        if extension is None:
-            return path
-        return f"{path}.{extension}"
+    extension = packer.extension()
 
     if not package_path:
-        package_path = build_package_path()
+        package_path = _build_package_path(env_name, extension)
     else:
-        if "".join(os.path.splitext(package_path)[1]) != f".{packer.extension()}":
+        if "".join(os.path.splitext(package_path)[1]) != f".{extension}":
             raise ValueError(f"{package_path} has the wrong extension"
                              f", .{packer.extension()} is expected")
 
     # we are actually building or reusing a large pex and we have the information from the
     # allow_large_pex flag
-    if (packer.extension() == PEX_PACKER.extension()
+    if (extension == PEX_PACKER.extension()
             and allow_large_pex
             and not package_path.endswith('.zip')):
         package_path += '.zip'
 
     # We are running from an unzipped large pex and we have the information because `pex_file` is
     # not empty, and it is a directory instead of a zipapp
-
     if (pex_file != ""
             and os.path.isdir(pex_file)
             and not package_path.endswith('.zip')):
@@ -401,7 +402,7 @@ def detect_archive_names(
         pex_files = glob.glob(f"{os.path.dirname(pex_file)}/*.pex.zip")
         assert len(pex_files) == 1, \
             f"Expected to find single zipped PEX in same dir as {pex_file}, got {pex_files}"
-        package_path = build_package_path(os.path.basename(pex_files[0]), None)
+        package_path = _build_package_path(os.path.basename(pex_files[0]), None)
 
     return package_path, env_name, pex_file
 
