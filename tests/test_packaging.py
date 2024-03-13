@@ -316,7 +316,8 @@ def test_pack_in_pex_with_additional_repo():
 
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = ["setuptools", "torch",
-                        "networkx<2.6"]  # restricted version of netorkx for python < 3.9
+                        "typing-extensions<=3.7.4.3; python_version<'3.8'",
+                        "networkx<2.6; python_version<'3.9'"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
