@@ -399,12 +399,17 @@ def detect_archive_names(
             and os.path.isdir(pex_file)
             and not package_path.endswith('.zip')):
 
-        pex_files = glob.glob(f"{os.path.dirname(pex_file)}/*.pex.zip")
-        assert len(pex_files) == 1, \
-            f"Expected to find single zipped PEX in same dir as {pex_file}, got {pex_files}"
-        package_path = _build_package_path(os.path.basename(pex_files[0]), None)
+        zip_pex_file = resolve_zip_from_pex_dir(pex_file)
+        package_path = _build_package_path(os.path.basename(zip_pex_file), None)
 
     return package_path, env_name, pex_file
+
+
+def resolve_zip_from_pex_dir(pex_dir: str) -> str:
+    pex_files = glob.glob(f"{os.path.dirname(pex_dir)}/*.pex.zip")
+    assert len(pex_files) == 1, \
+        f"Expected to find single zipped PEX in same dir as {pex_dir}, got {pex_files}"
+    return pex_files[0]
 
 
 def detect_packer_from_spec(spec_file: str) -> Packer:
