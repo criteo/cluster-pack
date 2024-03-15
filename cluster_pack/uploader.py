@@ -260,16 +260,22 @@ def _upload_pex_file(
                              f" as it is already uploaded on {package_path}")
                 return
 
-    _logger.info(f"upload current {pex_file_or_dir} to {package_path}")
-
     dir = os.path.dirname(package_path)
     if not resolved_fs.exists(dir):
         resolved_fs.mkdir(dir)
+
     pex_file = (
         packaging.resolve_zip_from_pex_dir(pex_file_or_dir) if os.path.isdir(pex_file_or_dir)
         else pex_file_or_dir
     )
-    resolved_fs.put(pex_file, package_path)
+    _logger.info(f"upload current {pex_file} to {package_path}")
+
+    try:
+        resolved_fs.put(pex_file, package_path)
+    except OSError:
+        if resolved_fs.exists(package_path):
+            resolved_fs.rm(package_path)
+
     # Remove previous metadata
     archive_meta_data = _get_archive_metadata_path(package_path)
     if resolved_fs.exists(archive_meta_data):
