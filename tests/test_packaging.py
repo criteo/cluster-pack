@@ -311,10 +311,6 @@ def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(is_large_pex, pa
 
 
 def test_pack_in_pex_with_additional_repo():
-    if sys.version_info.minor == 6:
-        # dependency issue with available pytorch on https://download.pytorch.org/whl/cpu
-        return
-
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = ["torch",
                         "typing-extensions<=3.7.4.3; python_version<'3.8'",
