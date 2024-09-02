@@ -12,7 +12,8 @@ import zipfile
 import pytest
 
 from cluster_pack import packaging, get_pyenv_usage_from_archive, uploader
-from cluster_pack.packaging import CONDA_CMD, UNPACKED_ENV_NAME, LARGE_PEX_CMD
+from cluster_pack.packaging import CONDA_CMD, UNPACKED_ENV_NAME, LARGE_PEX_CMD, \
+    resolve_zip_from_pex_dir
 
 MODULE_TO_TEST = "cluster_pack.packaging"
 MYARCHIVE_FILENAME = "myarchive.pex"
@@ -454,3 +455,63 @@ def test_detect_archive_names(running_from_pex, package_path, allow_large_pex, i
         actual, _, _ = packaging.detect_archive_names(
             packaging.PEX_PACKER, package_path, allow_large_pex)
         assert actual == expected
+
+
+def test_resolve_zip_from_pex_dir_with_1_pex():
+    # the function should work even if file and dir names are different if we handle only 1 pex
+    with tempfile.TemporaryDirectory() as tempdir:
+        open(os.path.join(tempdir, "pex1.pex.zip"), 'a').close()
+        pex_dir = os.path.join(tempdir, "pex_dir")
+        os.mkdir(pex_dir)
+
+        resolved = resolve_zip_from_pex_dir(pex_dir)
+
+    assert resolved == os.path.join(tempdir, 'pex1.pex.zip')
+
+
+def test_resolve_zip_from_pex_dir_with_2_pexes_with_correct_names():
+    with tempfile.TemporaryDirectory() as tempdir:
+        open(os.path.join(tempdir, "pex1.pex.zip"), 'a').close()
+        pex1_dir = os.path.join(tempdir, "pex1.pex")
+        os.mkdir(pex1_dir)
+
+        open(os.path.join(tempdir, "pex2.pex.zip"), 'a').close()
+        pex2_dir = os.path.join(tempdir, "pex2.pex")
+        os.mkdir(pex2_dir)
+
+        assert resolve_zip_from_pex_dir(pex1_dir) == os.path.join(tempdir, 'pex1.pex.zip')
+        assert resolve_zip_from_pex_dir(pex2_dir) == os.path.join(tempdir, 'pex2.pex.zip')
+
+def test_resolve_zip_from_pex_dir_with_2_pexes_with_overlapping_names():
+    with tempfile.TemporaryDirectory() as tempdir:
+        open(os.path.join(tempdir, "pex1.pex.zip"), 'a').close()
+        pex1_dir = os.path.join(tempdir, "pex1.pex")
+        os.mkdir(pex1_dir)
+
+        open(os.path.join(tempdir, "other_pex1.pex.zip"), 'a').close()
+        pex2_dir = os.path.join(tempdir, "other_pex1.pex")
+        os.mkdir(pex2_dir)
+
+        assert resolve_zip_from_pex_dir(pex1_dir) == os.path.join(tempdir, 'pex1.pex.zip')
+        assert resolve_zip_from_pex_dir(pex2_dir) == os.path.join(tempdir, 'other_pex1.pex.zip')
+
+
+def test_resolve_zip_from_pex_dir_with_2_pexes_with_wrong_names():
+    with tempfile.TemporaryDirectory() as tempdir:
+        open(os.path.join(tempdir, "pex1.pex.zip"), 'a').close()
+        pex1_dir = os.path.join(tempdir, "pex_dir.pex")
+        os.mkdir(pex1_dir)
+
+        open(os.path.join(tempdir, "pex2.pex.zip"), 'a').close()
+
+        with pytest.raises(ValueError, match=r".zip not found"):
+            resolve_zip_from_pex_dir(pex1_dir)
+
+
+def test_resolve_zip_from_pex_dir_with_no_zip_found():
+    with tempfile.TemporaryDirectory() as tempdir:
+        pex1_dir = os.path.join(tempdir, "pex_dir.pex")
+        os.mkdir(pex1_dir)
+
+        with pytest.raises(ValueError, match=r".zip not found"):
+            resolve_zip_from_pex_dir(pex1_dir)
