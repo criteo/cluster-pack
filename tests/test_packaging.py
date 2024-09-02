@@ -18,6 +18,7 @@ MODULE_TO_TEST = "cluster_pack.packaging"
 MYARCHIVE_FILENAME = "myarchive.pex"
 MYARCHIVE_METADATA = "myarchive.json"
 VARNAME = 'VARNAME'
+PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE = {"numpy": "numpy<2"}
 
 
 def test_get_virtualenv_name():
@@ -123,7 +124,7 @@ def test_get_current_pex_filepath():
     with tempfile.TemporaryDirectory() as tempdir:
         path_to_pex = f"{tempdir}/out.pex"
         packaging.pack_in_pex(
-            ["numpy"],
+            [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE['numpy']],
             path_to_pex,
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false")
@@ -215,7 +216,7 @@ def test_pack_in_pex(pyarrow_version, expectation):
 
 def test_pack_in_pex_with_allow_large():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["pyarrow==6.0.1"]
+        requirements = [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE['numpy'], "pyarrow==6.0.1"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
@@ -241,7 +242,7 @@ def test_pack_in_pex_with_allow_large():
 
 def test_pack_in_pex_with_include_tools():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["pyarrow==6.0.1"]
+        requirements = [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE['numpy'], "pyarrow==6.0.1"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
@@ -315,7 +316,7 @@ def test_pack_in_pex_with_additional_repo():
         return
 
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["setuptools", "torch",
+        requirements = ["torch",
                         "typing-extensions<=3.7.4.3; python_version<'3.8'",
                         "networkx<2.6; python_version<'3.9'"]
         packaging.pack_in_pex(
