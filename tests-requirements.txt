@@ -5,4 +5,3 @@ pytest
 pyflakes==2.4.0
 pylama
 mypy
-protobuf!=4.21.0

@@ -8,14 +8,14 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.6
+    - name: Set up Python 3.9
       uses: actions/setup-python@v2
       with:
-        python-version: 3.6
+        python-version: 3.9
     - name: Install dependencies
       run: |
         pip install --upgrade pip
@@ -29,11 +29,11 @@ jobs:
         mypy --config-file setup.cfg
 
   build:
-    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]   
+        python-version: [3.7, 3.8, 3.9]
 
     steps:
     - uses: actions/checkout@v2
@@ -71,34 +71,35 @@ jobs:
       run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh python3.9 3.2.2
 
   standalone_spark2_with_S3:
-    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
     
     - name: Build spark-docker
-      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=2.4.2 --build-arg PYTHON_VERSION=3.6.9
+      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=2.4.2 --build-arg PYTHON_VERSION=3.9.15
     
     - name: Build the docker-compose stack
       run: |
-        export PYTHON_VERSION=3.6
+        export PYTHON_VERSION=3.9
         docker-compose -f ./examples/spark-with-S3/docker-compose.yml up -d
       
     - name: Check running containers
       run: docker ps -a
 
     - name: Run spark Job
-      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh python3.6 2.4.2
+      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh python3.9 2.4.2
+
   # hadoop_hdfs:
-  #   runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
+  #   runs-on: ubuntu-latest
 
   #   steps:
   #   - uses: actions/checkout@v2
 
-  #   - name: Set up Python 3.6
+  #   - name: Set up Python 3.9
   #     uses: actions/setup-python@v2
   #     with:
-  #       python-version: 3.6
+  #       python-version: 3.9
 
   #   - name: Install hadoop-test-cluster
   #     run: |
@@ -111,8 +112,8 @@ jobs:
   #   - name: Start Job
   #     run: |
   #       # for the hack with script .. see https://github.com/actions/runner/issues/241#issuecomment-577360161
-  #       # the prebuild image only contains a conda install, we also install python 3.6.10
-  #       # to avoid sharing files on the worker node we copy the python3.6 install script via hdfs to worker /tmp folder
+  #       # the prebuild image only contains a conda install, we also install python
+  #       # to avoid sharing files on the worker node we copy the python install script via hdfs to worker /tmp folder
   #       script -e -c "htcluster exec -u root -s edge -- chown -R testuser /home/testuser && \
   #                     htcluster exec -u root -s edge -- /home/testuser/cluster-pack/tests/integration/install_python.sh && \                    
   #                     htcluster exec -u root -s edge -- hdfs dfs -put /home/testuser/cluster-pack/tests/integration/install_python.sh hdfs:///tmp && \
@@ -122,11 +123,11 @@ jobs:
   #                     htcluster exec -s edge -- /home/testuser/cluster-pack/tests/integration/hadoop_hdfs_tests.sh"
 
   conda:
-    runs-on: ubuntu-20.04 # Latest version supporting Python 3.6
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        python-version: [3.6, 3.9]   
+        python-version: [3.9]
 
     steps:
     - uses: actions/checkout@v2

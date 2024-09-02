@@ -77,11 +77,6 @@ def test_update_no_metadata():
                   'platform': 'fake_platform2',
                   'python_version': '3.9.10'},
                  False),
-    pytest.param(["a==2.0", "b==1.0"],
-                 {'package_installed': ["a==2.0", "b==1.0"],
-                  'platform': 'fake_platform',
-                  'python_version': '3.6.8'},
-                 False),
 ])
 @mock.patch(f'{MODULE_TO_TEST}.platform.platform')
 @mock.patch(f'{MODULE_TO_TEST}.sys')
