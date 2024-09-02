@@ -5,3 +5,4 @@ pytest
 pyflakes==2.4.0
 pylama
 mypy
+numpy<2  # breaking changes from numpy 2+, can be removed when all dependencies are compatible
