@@ -76,7 +76,6 @@ def test__get_editable_requirements_for_src_layout():
         assert "user_lib2" in pkg_names
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test__get_editable_requirements_withpip23():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
