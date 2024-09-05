@@ -482,6 +482,7 @@ def test_resolve_zip_from_pex_dir_with_2_pexes_with_correct_names():
         assert resolve_zip_from_pex_dir(pex1_dir) == os.path.join(tempdir, 'pex1.pex.zip')
         assert resolve_zip_from_pex_dir(pex2_dir) == os.path.join(tempdir, 'pex2.pex.zip')
 
+
 def test_resolve_zip_from_pex_dir_with_2_pexes_with_overlapping_names():
     with tempfile.TemporaryDirectory() as tempdir:
         open(os.path.join(tempdir, "pex1.pex.zip"), 'a').close()
