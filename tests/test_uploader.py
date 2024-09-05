@@ -453,7 +453,8 @@ def get_latest_pip_version() -> str:
     return None
 
 
-def test_lateste_pip():
+def test_latest_pip():
+
     assert get_latest_pip_version() is not None
 
 
