@@ -18,6 +18,7 @@ MODULE_TO_TEST = "cluster_pack.packaging"
 MYARCHIVE_FILENAME = "myarchive.pex"
 MYARCHIVE_METADATA = "myarchive.json"
 VARNAME = 'VARNAME'
+PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE = {"numpy": "numpy<2"}
 
 
 def test_get_virtualenv_name():
@@ -37,7 +38,7 @@ def test_get_empty_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
         subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
-                               "cloudpickle", _get_editable_package_name(), "pip==18.1"])
+                               "cloudpickle", _get_editable_package_name(), "pip==22.0"])
         editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
         assert len(editable_requirements) == 0
 
@@ -46,7 +47,7 @@ def test_get_empty_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
         subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
-                               "-e", _get_editable_package_name(), "pip==18.1"])
+                               "-e", _get_editable_package_name(), "pip==22.0"])
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python")
         assert len(non_editable_requirements) == 2
@@ -75,7 +76,6 @@ def test__get_editable_requirements_for_src_layout():
         assert "user_lib2" in pkg_names
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test__get_editable_requirements_withpip23():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
@@ -101,7 +101,7 @@ def _create_venv(tempdir: str):
     subprocess.check_call([sys.executable, "-m", "venv", f"{tempdir}"])
 
 
-def _pip_install(tempdir: str, pip_version: str = "18.1", use_src_layout: bool = False):
+def _pip_install(tempdir: str, pip_version: str = "22.0", use_src_layout: bool = False):
     subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
                            "cloudpickle", f"pip=={pip_version}"])
     pkg = (_get_editable_package_name_src_layout() if use_src_layout
@@ -123,7 +123,7 @@ def test_get_current_pex_filepath():
     with tempfile.TemporaryDirectory() as tempdir:
         path_to_pex = f"{tempdir}/out.pex"
         packaging.pack_in_pex(
-            ["numpy"],
+            [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE['numpy']],
             path_to_pex,
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false")
@@ -215,7 +215,7 @@ def test_pack_in_pex(pyarrow_version, expectation):
 
 def test_pack_in_pex_with_allow_large():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["pyarrow==6.0.1"]
+        requirements = [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE['numpy'], "pyarrow==6.0.1"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
@@ -241,7 +241,7 @@ def test_pack_in_pex_with_allow_large():
 
 def test_pack_in_pex_with_include_tools():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["pyarrow==6.0.1"]
+        requirements = [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE['numpy'], "pyarrow==6.0.1"]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
@@ -310,12 +310,8 @@ def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(is_large_pex, pa
 
 
 def test_pack_in_pex_with_additional_repo():
-    if sys.version_info.minor == 6:
-        # dependency issue with available pytorch on https://download.pytorch.org/whl/cpu
-        return
-
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["setuptools", "torch",
+        requirements = ["torch",
                         "typing-extensions<=3.7.4.3; python_version<'3.8'",
                         "networkx<2.6; python_version<'3.9'"]
         packaging.pack_in_pex(

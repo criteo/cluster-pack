@@ -13,7 +13,7 @@ docker build -t spark-docker ./examples/spark-with-S3
 2) Start standalone Spark & local S3 containers (using [minio](https://min.io/))
 
 ```bash
-docker-compose -f ./examples/spark-with-S3/docker-compose.yml up -d
+docker-compose -f ./examples/spark-with-S3/docker compose.yml up -d
 ```
 
 ### Quick run

@@ -30,10 +30,11 @@ CLASSIFIERS = [
     "Environment :: Console",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Topic :: Software Development :: Libraries"
 ]
 
@@ -44,7 +45,7 @@ setuptools.setup(
     version=versioneer.get_version(),
     install_requires=REQUIREMENTS,
     tests_require=["pytest"],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     maintainer="Criteo",
     maintainer_email="github@criteo.com",
     description=DESCRIPTION,

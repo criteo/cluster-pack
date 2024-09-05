@@ -28,7 +28,7 @@ $ pip install .
 
 ## Prerequisites
 
-cluster-pack supports Python ≥3.6.
+cluster-pack supports Python ≥3.7.
 
 ## Features
 

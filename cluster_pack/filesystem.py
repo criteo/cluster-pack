@@ -6,7 +6,7 @@ import types
 
 
 from typing import Tuple, Any, List, Iterator
-from pyarrow import filesystem
+from pyarrow import fs
 from urllib.parse import urlparse
 
 try:
@@ -67,8 +67,8 @@ def _rm(self: Any, path: str, recursive: bool = False) -> None:
 
 def _preserve_acls(base_fs: Any, local_file: str, remote_file: str) -> None:
     # this is useful for keeing pex excutable rights
-    if (isinstance(base_fs, pyarrow.filesystem.LocalFileSystem) or
-        isinstance(base_fs, pyarrow.hdfs.HadoopFileSystem)
+    if (isinstance(base_fs, pyarrow.fs.LocalFileSystem) or
+        isinstance(base_fs, pyarrow.fs.HadoopFileSystem)
     ):
         st = os.stat(local_file)
         base_fs.chmod(remote_file, st.st_mode & 0o777)
@@ -184,11 +184,11 @@ class EnhancedHdfsFile(pyarrow.HdfsFile):
             return lines
 
 
-class EnhancedFileSystem(filesystem.FileSystem):
+class EnhancedFileSystem(fs.FileSystem):
 
     def __init__(self, base_fs: Any):
         self.base_fs = base_fs
-        if isinstance(base_fs, pyarrow.filesystem.LocalFileSystem):
+        if isinstance(base_fs, pyarrow.fs.LocalFileSystem):
             base_fs.chmod = types.MethodType(_chmod, base_fs)
             base_fs.rm = types.MethodType(_rm, base_fs)
         _expose_methods(self, base_fs, ignored=["open"])
@@ -232,12 +232,12 @@ def resolve_filesystem_and_path(uri: str, **kwargs: Any) -> Tuple[EnhancedFileSy
         if len(netloc_split) == 2 and netloc_split[1].isnumeric():
             port = int(netloc_split[1])
 
-        fs = EnhancedFileSystem(pyarrow.hdfs.connect(host=host, port=port))
+        fs = EnhancedFileSystem(pyarrow.fs.HadoopFileSystem(host=host, port=port))
     elif parsed_uri.scheme == 's3' or parsed_uri.scheme == 's3a':
-        fs = EnhancedFileSystem(pyarrow.filesystem.S3FSWrapper(S3FileSystem(**kwargs)))
+        fs = EnhancedFileSystem(pyarrow.fs.S3FSWrapper(S3FileSystem(**kwargs)))
     else:
         # Input is local path such as /home/user/myfile.parquet
-        fs = EnhancedFileSystem(pyarrow.filesystem.LocalFileSystem.get_instance())
+        fs = EnhancedFileSystem(pyarrow.fs.LocalFileSystem.get_instance())
 
     _logger.info(f"Resolved base filesystem: {type(fs.base_fs)}")
     return fs, fs_path
