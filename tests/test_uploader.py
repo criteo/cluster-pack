@@ -1,3 +1,5 @@
+import re
+import subprocess
 import sys
 import contextlib
 import json
@@ -76,11 +78,6 @@ def test_update_no_metadata():
                  {'package_installed': ["a==2.0", "b==1.0"],
                   'platform': 'fake_platform2',
                   'python_version': '3.9.10'},
-                 False),
-    pytest.param(["a==2.0", "b==1.0"],
-                 {'package_installed': ["a==2.0", "b==1.0"],
-                  'platform': 'fake_platform',
-                  'python_version': '3.6.8'},
                  False),
 ])
 @mock.patch(f'{MODULE_TO_TEST}.platform.platform')
@@ -446,6 +443,21 @@ def test__unique_filename(spec_file, expected):
     assert expected == uploader._unique_filename(spec_file, packaging.PEX_PACKER)
 
 
+def get_latest_pip_version() -> str:
+    p = subprocess.Popen("pip index versions pip", shell=True,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    for line in p.stdout.readlines():
+        result = re.match(r"pip \((.+)\)", line.decode("utf-8"))
+        if result:
+            return result.group(1)
+    return None
+
+
+def test_latest_pip():
+
+    assert get_latest_pip_version() is not None
+
+
 def test_format_pex_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = ["pipdeptree==2.0.0", "six==1.15.0"]
@@ -456,8 +468,8 @@ def test_format_pex_requirements():
             pex_inherit_path="false")
         pex_info = PexInfo.from_pex(f"{tempdir}/out.pex")
         cleaned_requirements = uploader._format_pex_requirements(pex_info)
-        pip_version = 'pip==21.3.1' if sys.version_info.minor == 6 else 'pip==24.0'
-        assert [pip_version, 'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
+        assert [f'pip=={get_latest_pip_version()}',
+                'pipdeptree==2.0.0', 'six==1.15.0'] == cleaned_requirements
 
 
 @pytest.mark.parametrize("req, expected", [

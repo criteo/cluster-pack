@@ -4,5 +4,5 @@ name: tutorial
 channels:
   - defaults
 dependencies:
-  - python=3.6
+  - python=3.9
   - botocore==1.17.12
