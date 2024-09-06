@@ -406,10 +406,16 @@ def detect_archive_names(
 
 
 def resolve_zip_from_pex_dir(pex_dir: str) -> str:
-    pex_files = glob.glob(f"{os.path.dirname(pex_dir)}/*.pex.zip")
-    assert len(pex_files) == 1, \
-        f"Expected to find single zipped PEX in same dir as {pex_dir}, got {pex_files}"
-    return pex_files[0]
+    parent_dir = os.path.dirname(pex_dir)
+    pex_files = glob.glob(f"{parent_dir}/*.pex.zip")
+    if len(pex_files) == 1:
+        return pex_files[0]
+
+    pex_file = next((x for x in pex_files if pex_dir == x.split(".zip")[0]), None)
+    if pex_file is None:
+        raise ValueError(f"{pex_dir}.zip not found, found {pex_files}")
+
+    return pex_file
 
 
 def detect_packer_from_spec(spec_file: str) -> Packer:
