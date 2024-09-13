@@ -66,7 +66,8 @@ def build(
         package_path: Optional[str] = None,
         additional_files: Optional[List[str]] = None,
         tmp_dir: str = packaging._get_tmp_dir(),
-        process_logs: Callable[[str], Any] = None
+        process_logs: Callable[[str], Any] = None,
+        allow_large_pex: bool = True
 ) -> SkeinConfig:
     """Build the skein config for a module to execute
 
@@ -81,7 +82,7 @@ def build(
     :return: SkeinConfig
     """
     if not package_path:
-        package_path, _ = uploader.upload_env()
+        package_path, _ = uploader.upload_env(allow_large_pex=allow_large_pex)
 
     python_env_descriptor = packaging.get_pyenv_usage_from_archive(package_path)
 

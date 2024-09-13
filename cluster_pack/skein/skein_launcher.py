@@ -25,7 +25,8 @@ def submit(skein_client: skein.Client,
            acquire_map_reduce_delegation_token: bool = False,
            pre_script_hook: Optional[str] = None,
            max_attempts: int = 1, max_restarts: int = 0,
-           process_logs: Callable[[str], Any] = None) -> str:
+           process_logs: Callable[[str], Any] = None,
+           allow_large_pex: bool = True) -> str:
     """Execute a python module in a skein container
 
     :param skein_client: skein.Client to use
@@ -59,7 +60,8 @@ def submit(skein_client: skein.Client,
             package_path=package_path,
             additional_files=additional_files,
             tmp_dir=tmp_dir,
-            process_logs=process_logs)
+            process_logs=process_logs,
+            allow_large_pex=True)
 
         return _submit(
             skein_client, skein_config,
