@@ -67,7 +67,7 @@ def build(
         additional_files: Optional[List[str]] = None,
         tmp_dir: str = packaging._get_tmp_dir(),
         process_logs: Callable[[str], Any] = None,
-        allow_large_pex: bool = True
+        allow_large_pex: bool = False
 ) -> SkeinConfig:
     """Build the skein config for a module to execute
 
@@ -79,6 +79,9 @@ def build(
     :param tmp_dir: a temp dir for local files
     :param process_logs: hook with the local log path as a parameter,
                          can be used to uplaod the logs somewhere
+    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
+                            python's limitation with zips > 2Gb. The file will need to be unzipped
+                            and the entry point will be <output>/__main__.py
     :return: SkeinConfig
     """
     if not package_path:
