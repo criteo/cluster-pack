@@ -25,7 +25,8 @@ def submit(skein_client: skein.Client,
            acquire_map_reduce_delegation_token: bool = False,
            pre_script_hook: Optional[str] = None,
            max_attempts: int = 1, max_restarts: int = 0,
-           process_logs: Callable[[str], Any] = None) -> str:
+           process_logs: Callable[[str], Any] = None,
+           allow_large_pex: bool = False) -> str:
     """Execute a python module in a skein container
 
     :param skein_client: skein.Client to use
@@ -50,6 +51,9 @@ def submit(skein_client: skein.Client,
     :param max_restarts: maximum number of restarts allowed for the service
     :param process_logs: hook with the local log path as a parameter,
                          can be used to uplaod the logs somewhere
+    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
+                            python's limitation with zips > 2Gb. The file will need to be unzipped
+                            and the entry point will be <output>/__main__.py
     :return: SkeinConfig
     """
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -59,7 +63,8 @@ def submit(skein_client: skein.Client,
             package_path=package_path,
             additional_files=additional_files,
             tmp_dir=tmp_dir,
-            process_logs=process_logs)
+            process_logs=process_logs,
+            allow_large_pex=allow_large_pex)
 
         return _submit(
             skein_client, skein_config,
