@@ -148,20 +148,24 @@ def test_dump_metadata(sys_mock, platform_mock):
     mock_fs = mock.Mock()
     mock_fs.rm.return_value = True
     mock_fs.exists.return_value = True
-    mock_open = mock.mock_open()
-    with mock.patch.object(mock_fs, 'open', mock_open):
-        mock_fs.exists.return_value = True
-        packages = ["a==1.0", "b==2.0"]
-        uploader._dump_archive_metadata(
-            MYARCHIVE_FILENAME,
-            packages,
-            filesystem.EnhancedFileSystem(mock_fs))
-        # Check previous file has been deleted
-        mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
-        mock_open().write.assert_called_once_with(
-            b'{\n    "package_installed": [\n        "a==1.0",\n        "b==2.0"\n    ],'
-            + b'\n    "platform": "fake_platform",\n    "python_version": "3.9.10"\n}'
-        )
+
+    def put_mock(src, dest):
+        with open(src, "r") as f:
+            assert f.read() == (
+                '{\n    "package_installed": [\n        "a==1.0",\n        "b==2.0"\n    ],'
+                + '\n    "platform": "fake_platform",\n    "python_version": "3.9.10"\n}'
+            )
+
+    mock_fs.put.side_effect = put_mock
+
+    packages = ["a==1.0", "b==2.0"]
+    uploader._dump_archive_metadata(
+        MYARCHIVE_FILENAME,
+        packages,
+        mock_fs)
+    # Check previous file has been deleted
+    mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
+    mock_fs.put.assert_called_once()
 
 
 def test_upload_env():

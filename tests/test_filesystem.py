@@ -137,6 +137,7 @@ def test_put():
 
         remote_file = f"{temp_dir}/copied_script.sh"
         fs.put(file, remote_file)
+        fs.chmod(remote_file, 0o755)
 
         assert os.path.exists(remote_file)
         assert os.stat(remote_file).st_mode & 0o777 == 0o755

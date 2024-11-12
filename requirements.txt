@@ -2,7 +2,8 @@ cloudpickle
 pex==2.1.137
 conda-pack
 pip>=22.0
-pyarrow<16.0.0
+pyarrow
 fire
 types-setuptools
 wheel-filename
+fsspec
