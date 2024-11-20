@@ -127,6 +127,19 @@ def build_platform_mock():
     return "fake_platform"
 
 
+def pack_spec_in_pex_mock(spec_file,
+                          output,
+                          pex_inherit_path="fallback",
+                          allow_large_pex=False,
+                          include_pex_tools=False,
+                          additional_repo=None,
+                          additional_indexes=None):
+    # Write empty output file
+    with open(output, "w"):
+        pass
+    return output
+
+
 @mock.patch(f'{MODULE_TO_TEST}.platform.platform')
 @mock.patch(f'{MODULE_TO_TEST}.sys')
 def test_dump_metadata(sys_mock, platform_mock):
@@ -135,20 +148,24 @@ def test_dump_metadata(sys_mock, platform_mock):
     mock_fs = mock.Mock()
     mock_fs.rm.return_value = True
     mock_fs.exists.return_value = True
-    mock_open = mock.mock_open()
-    with mock.patch.object(mock_fs, 'open', mock_open):
-        mock_fs.exists.return_value = True
-        packages = ["a==1.0", "b==2.0"]
-        uploader._dump_archive_metadata(
-            MYARCHIVE_FILENAME,
-            packages,
-            filesystem.EnhancedFileSystem(mock_fs))
-        # Check previous file has been deleted
-        mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
-        mock_open().write.assert_called_once_with(
-            b'{\n    "package_installed": [\n        "a==1.0",\n        "b==2.0"\n    ],'
-            + b'\n    "platform": "fake_platform",\n    "python_version": "3.9.10"\n}'
-        )
+
+    def put_mock(src, dest):
+        with open(src, "r") as f:
+            assert f.read() == (
+                '{\n    "package_installed": [\n        "a==1.0",\n        "b==2.0"\n    ],'
+                + '\n    "platform": "fake_platform",\n    "python_version": "3.9.10"\n}'
+            )
+
+    mock_fs.put.side_effect = put_mock
+
+    packages = ["a==1.0", "b==2.0"]
+    uploader._dump_archive_metadata(
+        MYARCHIVE_FILENAME,
+        packages,
+        mock_fs)
+    # Check previous file has been deleted
+    mock_fs.rm.assert_called_once_with(MYARCHIVE_METADATA)
+    mock_fs.put.assert_called_once()
 
 
 def test_upload_env():
@@ -333,16 +350,13 @@ def test_upload_spec_unique_name(sys_mock, platform_mock):
 
 
 @pytest.mark.skipif(sys.version_info >= (3, 9), reason="fail on ci above python3.9")
-@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
+@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex", side_effect=pack_spec_in_pex_mock)
 def test_upload_spec_local_fs_use_cache(mock_pack_spec_in_pex):
     with tempfile.TemporaryDirectory() as tempdir:
         spec_file = f"{tempdir}/myproject/requirements.txt"
         _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
 
         pex_file = os.path.join(tempdir, "package.pex")
-        mock_pack_spec_in_pex.return_value = pex_file
-        with open(pex_file, "w"):
-            pass
         result_path = cluster_pack.upload_spec(spec_file, pex_file)
         result_path1 = cluster_pack.upload_spec(spec_file, pex_file)
 
@@ -353,7 +367,7 @@ def test_upload_spec_local_fs_use_cache(mock_pack_spec_in_pex):
 
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="replacement test for python3.9 and above")
 @mock.patch(f"{MODULE_TO_TEST}.platform.platform")
-@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
+@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex", side_effect=pack_spec_in_pex_mock)
 def test_upload_spec_local_fs_use_cache_py39(mock_pack_spec_in_pex, platform_mock):
     platform_mock.return_value = build_platform_mock()
     with tempfile.TemporaryDirectory() as tempdir:
@@ -361,9 +375,6 @@ def test_upload_spec_local_fs_use_cache_py39(mock_pack_spec_in_pex, platform_moc
         _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
 
         pex_file = os.path.join(tempdir, "package.pex")
-        mock_pack_spec_in_pex.return_value = pex_file
-        with open(pex_file, "w"):
-            pass
         result_path = cluster_pack.upload_spec(spec_file, pex_file)
         result_path1 = cluster_pack.upload_spec(spec_file, pex_file)
 
@@ -374,9 +385,8 @@ def test_upload_spec_local_fs_use_cache_py39(mock_pack_spec_in_pex, platform_moc
 
 @mock.patch(f'{MODULE_TO_TEST}.platform.platform')
 @mock.patch(f'{MODULE_TO_TEST}.sys')
-@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
+@mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex", side_effect=pack_spec_in_pex_mock)
 def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex, sys_mock, platform_mock):
-    mock_pack_spec_in_pex.return_value = "/tmp/tmp.pex"
     platform_mock.return_value = build_platform_mock()
     sys_mock.version_info = build_python_version_mock()
 
@@ -385,9 +395,6 @@ def test_upload_spec_local_fs_changed_reqs(mock_pack_spec_in_pex, sys_mock, plat
         _write_spec_file(spec_file, ["cloudpickle==1.4.1"])
 
         pex_file = os.path.join(tempdir, "package.pex")
-        mock_pack_spec_in_pex.return_value = pex_file
-        with open(pex_file, "w") as f:
-            pass
 
         result_path = cluster_pack.upload_spec(
             spec_file,
