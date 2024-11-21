@@ -223,17 +223,22 @@ def get_application_logs(
     wait_for_nb_logs: Optional[int] = None,
     log_tries: int = 15
 ) -> Optional[skein.model.ApplicationLogs]:
+    nb_keys = 0
     for ind in range(log_tries):
         try:
             logs = client.application_logs(app_id)
             nb_keys = len(logs.keys())
             logger.info(f"Got {nb_keys}/{wait_for_nb_logs} log files")
-            if not wait_for_nb_logs or nb_keys == wait_for_nb_logs:
+            if not wait_for_nb_logs or nb_keys >= wait_for_nb_logs:
                 return logs
         except Exception:
             logger.warning(
                 f"Cannot collect logs (attempt {ind+1}/{log_tries})")
         time.sleep(3)
+    if nb_keys >= 1:
+        logger.warning(
+            f"Only {nb_keys} logs retrieved instead of {wait_for_nb_logs} requested")
+        return logs
     return None
 
 
