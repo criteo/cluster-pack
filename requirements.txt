@@ -7,3 +7,4 @@ fire
 types-setuptools
 wheel-filename
 fsspec
+skein
