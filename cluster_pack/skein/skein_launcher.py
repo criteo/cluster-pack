@@ -86,7 +86,8 @@ def submit_func(skein_client: skein.Client,
                 acquire_map_reduce_delegation_token: bool = False,
                 pre_script_hook: Optional[str] = None,
                 max_attempts: int = 1, max_restarts: int = 0,
-                process_logs: Callable[[str], Any] = None) -> str:
+                process_logs: Callable[[str], Any] = None,
+                allow_large_pex: bool = False) -> str:
     """Submit a function in a skein container
 
     :param skein_client: skein.Client to use
@@ -111,6 +112,9 @@ def submit_func(skein_client: skein.Client,
     :param max_restarts: maximum number of restarts allowed for the service
     :param process_logs: hook with the local log path as a parameter,
                          can be used to uplaod the logs somewhere
+    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
+                            python's limitation with zips > 2Gb. The file will need to be unzipped
+                            and the entry point will be <output>/__main__.py
     :return: SkeinConfig
     """
 
@@ -121,7 +125,8 @@ def submit_func(skein_client: skein.Client,
             package_path=package_path,
             additional_files=additional_files,
             tmp_dir=tmp_dir,
-            process_logs=process_logs)
+            process_logs=process_logs,
+            allow_large_pex=allow_large_pex)
 
         return _submit(
             skein_client, skein_config,
@@ -218,17 +223,22 @@ def get_application_logs(
     wait_for_nb_logs: Optional[int] = None,
     log_tries: int = 15
 ) -> Optional[skein.model.ApplicationLogs]:
+    nb_keys = 0
     for ind in range(log_tries):
         try:
             logs = client.application_logs(app_id)
             nb_keys = len(logs.keys())
             logger.info(f"Got {nb_keys}/{wait_for_nb_logs} log files")
-            if not wait_for_nb_logs or nb_keys == wait_for_nb_logs:
+            if not wait_for_nb_logs or nb_keys >= wait_for_nb_logs:
                 return logs
         except Exception:
             logger.warning(
                 f"Cannot collect logs (attempt {ind+1}/{log_tries})")
         time.sleep(3)
+    if nb_keys >= 1:
+        logger.warning(
+            f"Only {nb_keys} logs retrieved instead of {wait_for_nb_logs} requested")
+        return logs
     return None
 
 
