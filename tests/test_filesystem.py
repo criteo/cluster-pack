@@ -1,4 +1,6 @@
 import os
+from unittest import mock
+
 import pytest
 import subprocess
 import tempfile
@@ -141,3 +143,24 @@ def test_put():
 
         assert os.path.exists(remote_file)
         assert os.stat(remote_file).st_mode & 0o777 == 0o755
+
+
+@pytest.mark.parametrize(
+    "uri,expected_protocol,expected_kwargs,expected_path",
+    [
+        ("viewfs:///path/", "hdfs", {"host": "default", "port": 0}, "/path/"),
+        ("viewfs://root/path/", "hdfs", {"host": "viewfs://root", "port": 0}, "/path/"),
+        ("viewfs://localhost:1234/path/", "hdfs", {"host": "viewfs://localhost", "port": 1234},
+         "/path/"),
+        ("hdfs://root/path/", "hdfs", {"host": "hdfs://root", "port": 0}, "/path/"),
+        ("/path/", "file", {}, "/path/"),
+        ("file:///path/", "file", {}, "/path/"),
+    ]
+)
+def test_resolve_filesystem_and_path(uri, expected_protocol, expected_kwargs, expected_path):
+    with mock.patch("fsspec.filesystem") as fsspec_filesystem_mock:
+        fs, path = filesystem.resolve_filesystem_and_path(uri)
+        args, kwargs = fsspec_filesystem_mock.call_args
+        assert args == (expected_protocol,)
+        assert kwargs == expected_kwargs
+        assert path == expected_path
