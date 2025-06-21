@@ -119,6 +119,7 @@ def upload_env(
         packer: packaging.Packer = None,
         additional_packages: Dict[str, str] = {},
         ignored_packages: Collection[str] = [],
+        only_packages: Optional[Collection[str]] = None,
         force_upload: bool = False,
         include_editable: bool = False,
         fs_args: Dict[str, Any] = {},
@@ -134,6 +135,7 @@ def upload_env(
     :param additional_packages: additional packages, absent from current env,
                             to add to the uploaded env
     :param ignored_packages: specific arguments for special file systems (like S3)
+    :param only_packages: packages from the env to upload (useful to filter out everything else)
     :param force_upload: force the packaging and upload of current env
     :param include_editable: whether to include or not packages installed in editable mode
     :param fs_args: filesystem args
@@ -157,7 +159,7 @@ def upload_env(
     if pex_file == "":
         _upload_env_from_venv(
             package_path, packer,
-            additional_packages, ignored_packages,
+            additional_packages, ignored_packages, only_packages,
             resolved_fs,
             force_upload,
             include_editable,
@@ -285,7 +287,8 @@ def _upload_pex_file(
 def _handle_packages(
         current_packages: Dict[str, str],
         additional_packages: Dict[str, str] = {},
-        ignored_packages: Collection[str] = []
+        ignored_packages: Collection[str] = [],
+        only_packages: Optional[Collection[str]] = None,
 ) -> None:
     if len(additional_packages) > 0:
         additional_package_names = list(additional_packages.keys())
@@ -304,12 +307,20 @@ def _handle_packages(
                 _logger.debug(f"Remove package {name}")
                 current_packages.pop(name)
 
+    if only_packages is not None:
+        only_packages = set(only_packages)
+        for name in list(current_packages.keys()):
+            if name not in only_packages:
+                _logger.debug(f"Remove package {name} as it is not in the only_packages list")
+                current_packages.pop(name)
+
 
 def _upload_env_from_venv(
         package_path: str,
         packer: packaging.Packer = packaging.PEX_PACKER,
         additional_packages: Dict[str, str] = {},
         ignored_packages: Collection[str] = [],
+        only_packages: Optional[Collection[str]] = None,
         resolved_fs: Any = None,
         force_upload: bool = False,
         include_editable: bool = False,
@@ -322,7 +333,7 @@ def _upload_env_from_venv(
         if packaging._running_from_pex() else sys.executable
     current_packages = packaging.get_non_editable_requirements(executable)
 
-    reqs = _build_reqs_from_venv(additional_packages, current_packages, ignored_packages)
+    reqs = _build_reqs_from_venv(additional_packages, current_packages, ignored_packages, only_packages)
 
     _logger.debug(f"Packaging current_packages={reqs}")
 
@@ -348,11 +359,13 @@ def _upload_env_from_venv(
 def _build_reqs_from_venv(
         additional_packages: Dict[str, str],
         current_packages: Dict[str, str],
-        ignored_packages: Collection[str]) -> List[str]:
+        ignored_packages: Collection[str],
+        only_packages: Optional[Collection[str]] = None,) -> List[str]:
     _handle_packages(
         current_packages,
         additional_packages,
-        ignored_packages
+        ignored_packages,
+        only_packages
     )
     return packaging.format_requirements(current_packages)
 
