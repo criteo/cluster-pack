@@ -333,7 +333,8 @@ def _upload_env_from_venv(
         if packaging._running_from_pex() else sys.executable
     current_packages = packaging.get_non_editable_requirements(executable)
 
-    reqs = _build_reqs_from_venv(additional_packages, current_packages, ignored_packages, only_packages)
+    reqs = _build_reqs_from_venv(
+        additional_packages, current_packages, ignored_packages, only_packages)
 
     _logger.debug(f"Packaging current_packages={reqs}")
 
