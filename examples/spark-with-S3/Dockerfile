@@ -1,6 +1,6 @@
 # docker file/docker-compose derived from https://github.com/gettyimages/docker-spark
 # https://github.com/gettyimages/docker-spark/blob/master/LICENSE
-FROM debian:buster
+FROM debian:latest
 
 RUN apt-get update
 ARG SPARK_INPUT_VERSION=3.2.2
