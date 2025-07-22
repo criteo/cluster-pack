@@ -1,9 +1,9 @@
 # docker file/docker-compose derived from https://github.com/gettyimages/docker-spark
 # https://github.com/gettyimages/docker-spark/blob/master/LICENSE
-FROM debian:buster
+FROM debian:bookworm
 
 RUN apt-get update
-ARG SPARK_INPUT_VERSION=3.2.2
+ARG SPARK_INPUT_VERSION=3.3.1
 ARG PYTHON_VERSION=3.9.15
 
 # Python
@@ -19,7 +19,7 @@ RUN cd /usr/Python-${PYTHON_VERSION} \
  && cd -
 
 # Java
-RUN apt-get install -y openjdk-11-jre \
+RUN apt-get install -y openjdk-17-jre \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
