@@ -3,7 +3,7 @@
 FROM debian:bookworm
 
 RUN apt-get update
-ARG SPARK_INPUT_VERSION=3.2.2
+ARG SPARK_INPUT_VERSION=3.3.1
 ARG PYTHON_VERSION=3.9.15
 
 # Python
