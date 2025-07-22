@@ -1,4 +1,5 @@
 #!/bin/bash
+eval "$(pyenv init -)"
 rm -rf /tmp/pyspark_env
 $1 -m venv /tmp/pyspark_env
 . /tmp/pyspark_env/bin/activate

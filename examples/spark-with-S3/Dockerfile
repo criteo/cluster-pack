@@ -4,19 +4,20 @@ FROM debian:bookworm
 
 RUN apt-get update
 ARG SPARK_INPUT_VERSION=3.3.1
-ARG PYTHON_VERSION=3.9.15
+ARG PYTHON_VERSION=3.9
 
 # Python
 RUN apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev \
   libreadline-dev libsqlite3-dev wget curl unzip llvm libncurses5-dev libncursesw5-dev \
-  xz-utils tk-dev libffi-dev liblzma-dev
-RUN curl https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz --output /usr/python.tgz
-RUN tar xf /usr/python.tgz -C /usr && rm /usr/python.tgz
-RUN cd /usr/Python-${PYTHON_VERSION} \ 
- && ./configure --enable-shared \
- && make -j8 \
- && make altinstall \
- && cd -
+  xz-utils tk-dev libffi-dev liblzma-dev git
+RUN curl https://pyenv.run | bash
+
+ENV PATH=/root/.pyenv/bin:$PATH
+
+RUN eval "$(pyenv init -)" 
+
+RUN pyenv install ${PYTHON_VERSION} 
+RUN pyenv global ${PYTHON_VERSION}
 
 # Java
 RUN apt-get install -y openjdk-17-jre \
