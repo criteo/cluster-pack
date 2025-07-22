@@ -349,7 +349,8 @@ def _get_editable_requirements(executable: str = sys.executable) -> List[str]:
             if "." in _pkg:
                 continue
             imported = __import__(_pkg)
-            top_level_pkgs.append(os.path.dirname(imported.__file__))
+            if imported.__file__:
+                top_level_pkgs.append(os.path.dirname(imported.__file__))
     return top_level_pkgs
 
 
