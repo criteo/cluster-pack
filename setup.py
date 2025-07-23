@@ -28,7 +28,7 @@ CLASSIFIERS = [
     "Intended Audience :: Science/Research",
     "Operating System :: POSIX :: Linux",
     "Environment :: Console",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: Apache License, Version 2.0 (Apache-2.0)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -43,7 +43,9 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     version=versioneer.get_version(),
     install_requires=REQUIREMENTS,
-    tests_require=["pytest"],
+    extras_require={
+        "tests": ["pytest"]
+    },
     python_requires=">=3.8",
     maintainer="Criteo",
     maintainer_email="github@criteo.com",
