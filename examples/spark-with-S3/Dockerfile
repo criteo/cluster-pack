@@ -12,12 +12,13 @@ RUN apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev \
   xz-utils tk-dev libffi-dev liblzma-dev git
 RUN curl https://pyenv.run | bash
 
-ENV PATH=/root/.pyenv/bin:$PATH
+ENV PYENV_ROOT="/root/.pyenv"
+ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
 
 RUN eval "$(pyenv init -)" 
-
 RUN pyenv install ${PYTHON_VERSION} 
 RUN pyenv global ${PYTHON_VERSION}
+RUN pyenv rehash
 
 # Java
 RUN apt-get install -y openjdk-17-jre \
