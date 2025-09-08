@@ -5,8 +5,7 @@ import versioneer
 here = os.path.abspath(os.path.dirname(__file__))
 
 DESCRIPTION = (
-    "A library on top of either pex or conda-pack"
-    "to make your Python code easily available on a cluster"
+    "A library on top of pex to make your Python code easily available on a cluster"
 )
 
 try:

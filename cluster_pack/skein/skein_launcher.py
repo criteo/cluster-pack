@@ -44,8 +44,7 @@ def submit(
     :param name: skein's application name
     :param num_cores: number of reserved vcore on yarn
     :param memory: memory of yarn container
-    :param package_path: path on distributed storage where to find
-                         the application package (pex, conda zip)
+    :param package_path: path on distributed storage where to find the application package (pex)
     :param hadoop_file_systems: hadoop delegation token to aqcuire
     :param queue: yarn queue
     :param env_vars: env variables for the container
@@ -125,8 +124,7 @@ def submit_func(
     :param name: skein's application name
     :param num_cores: number of reserved vcore on yarn
     :param memory: memory of yarn container
-    :param package_path: path on distributed storage where to find
-                         the application package (pex, conda zip)
+    :param package_path: path on distributed storage where to find the application package (pex)
     :param hadoop_file_systems: hadoop delegation token to aqcuire
     :param queue: yarn queue
     :param env_vars: env variables for the container
