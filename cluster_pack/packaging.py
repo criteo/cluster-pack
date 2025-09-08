@@ -15,13 +15,9 @@ import uuid
 import zipfile
 import setuptools
 
-from cluster_pack import conda
-
 CRITEO_PYPI_URL = (
     "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
 )
-
-CONDA_DEFAULT_ENV = "CONDA_DEFAULT_ENV"
 
 EDITABLE_PACKAGES_INDEX = "editable_packages_index"
 
@@ -46,7 +42,6 @@ class PythonEnvDescription(NamedTuple):
 
 
 UNPACKED_ENV_NAME = "pyenv"
-CONDA_CMD = f"{UNPACKED_ENV_NAME}/bin/python"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 
@@ -300,46 +295,6 @@ def get_env_name(env_var_name: str) -> str:
         return os.path.basename(virtual_env_path)
 
 
-class CondaPacker(Packer):
-    def env_name(self) -> str:
-        return pathlib.Path(sys.executable).parents[1].name
-
-    def extension(self) -> str:
-        return "tar.gz"
-
-    def pack(
-        self,
-        output: str,
-        reqs: List[str],
-        additional_packages: Dict[str, str],
-        ignored_packages: Collection[str],
-        editable_requirements: Dict[str, str],
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-        additional_repo: Optional[Union[str, List[str]]] = None,
-        additional_indexes: Optional[List[str]] = None,
-    ) -> str:
-        return conda.pack_venv_in_conda(
-            self.env_name(),
-            reqs,
-            len(additional_packages) > 0 or len(ignored_packages) > 0,
-            output,
-            additional_repo,
-            additional_indexes,
-        )
-
-    def pack_from_spec(
-        self,
-        spec_file: str,
-        output: str,
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-    ) -> str:
-        return conda.create_and_pack_conda_env(
-            spec_file=spec_file, reqs=None, output=output
-        )
-
-
 class PexPacker(Packer):
     def env_name(self) -> str:
         return get_env_name("VIRTUAL_ENV")
@@ -385,7 +340,6 @@ class PexPacker(Packer):
         )
 
 
-CONDA_PACKER = CondaPacker()
 PEX_PACKER = PexPacker()
 
 
@@ -474,31 +428,21 @@ def resolve_zip_from_pex_dir(pex_dir: str) -> str:
 def detect_packer_from_spec(spec_file: str) -> Packer:
     if os.path.basename(spec_file) == "requirements.txt":
         return PEX_PACKER
-    elif spec_file.endswith(".yaml") or spec_file.endswith(".yml"):
-        return CONDA_PACKER
     else:
         raise ValueError(
-            f"Archive format {spec_file} unsupported. "
-            "Must be requirements.txt or conda .yaml"
+            f"Archive format {spec_file} unsupported. Must be requirements.txt"
         )
 
 
 def detect_packer_from_env() -> Packer:
-    if _is_conda_env():
-        return CONDA_PACKER
-    else:
-        return PEX_PACKER
+    return PEX_PACKER
 
 
 def detect_packer_from_file(zip_file: str) -> Packer:
     if zip_file.endswith(".pex") or zip_file.endswith(".pex.zip"):
         return PEX_PACKER
-    elif zip_file.endswith(".zip") or zip_file.endswith(".tar.gz"):
-        return CONDA_PACKER
     else:
-        raise ValueError(
-            f"Archive format {zip_file} unsupported. Must be .pex or conda .zip/.tar.gz"
-        )
+        raise ValueError(f"Archive format {zip_file} unsupported. Must be .pex")
 
 
 def get_current_pex_filepath() -> str:
@@ -568,12 +512,9 @@ def get_pyenv_usage_from_archive(path_to_archive: str) -> PythonEnvDescription:
         return PythonEnvDescription(
             path_to_archive, f"./{archive_filename}", archive_filename, False
         )
-    elif archive_filename.endswith(".zip") or archive_filename.endswith(".tar.gz"):
-        return PythonEnvDescription(path_to_archive, CONDA_CMD, UNPACKED_ENV_NAME, True)
     else:
         raise ValueError(
-            f"Archive format {archive_filename} unsupported. "
-            "Must be .pex/pex.zip or conda .zip/.tar.gz"
+            f"Archive format {archive_filename} unsupported. Must be .pex/pex.zip"
         )
 
 
@@ -583,10 +524,6 @@ def get_default_fs() -> str:
         .strip()
         .decode()
     )
-
-
-def _is_conda_env() -> bool:
-    return os.environ.get(CONDA_DEFAULT_ENV) is not None
 
 
 def _running_from_pex() -> bool:
