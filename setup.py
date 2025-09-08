@@ -4,8 +4,10 @@ import versioneer
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-DESCRIPTION = ("A library on top of either pex or conda-pack"
-               "to make your Python code easily available on a cluster")
+DESCRIPTION = (
+    "A library on top of either pex or conda-pack"
+    "to make your Python code easily available on a cluster"
+)
 
 try:
     LONG_DESCRIPTION = open(os.path.join(here, "README.md"), encoding="utf-8").read()
@@ -16,8 +18,9 @@ except Exception:
 def _read_reqs(relpath):
     fullpath = os.path.join(os.path.dirname(__file__), relpath)
     with open(fullpath) as f:
-        return [s.strip() for s in f.readlines()
-                if (s.strip() and not s.startswith("#"))]
+        return [
+            s.strip() for s in f.readlines() if (s.strip() and not s.startswith("#"))
+        ]
 
 
 REQUIREMENTS = _read_reqs("requirements.txt")
@@ -34,7 +37,7 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Topic :: Software Development :: Libraries"
+    "Topic :: Software Development :: Libraries",
 ]
 
 
@@ -52,5 +55,5 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     classifiers=CLASSIFIERS,
     keywords="hadoop distributed cluster S3 HDFS",
-    url="https://github.com/criteo/cluster-pack"
+    url="https://github.com/criteo/cluster-pack",
 )

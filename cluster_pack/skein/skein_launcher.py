@@ -14,19 +14,28 @@ from cluster_pack import filesystem
 logger = logging.getLogger(__name__)
 
 
-def submit(skein_client: skein.Client,
-           module_name: str, args: Optional[List[str]] = None, name: str = "skein_launcher",
-           num_cores: int = 1, memory: str = "1 GiB",
-           package_path: Optional[str] = None,
-           hadoop_file_systems: Optional[List[str]] = None,
-           queue: Optional[str] = None, env_vars: Optional[Dict[str, str]] = None,
-           additional_files: Optional[List[str]] = None, node_label: Optional[str] = None,
-           num_containers: int = 1, user: Optional[str] = None,
-           acquire_map_reduce_delegation_token: bool = False,
-           pre_script_hook: Optional[str] = None,
-           max_attempts: int = 1, max_restarts: int = 0,
-           process_logs: Callable[[str], Any] = None,
-           allow_large_pex: bool = False) -> str:
+def submit(
+    skein_client: skein.Client,
+    module_name: str,
+    args: Optional[List[str]] = None,
+    name: str = "skein_launcher",
+    num_cores: int = 1,
+    memory: str = "1 GiB",
+    package_path: Optional[str] = None,
+    hadoop_file_systems: Optional[List[str]] = None,
+    queue: Optional[str] = None,
+    env_vars: Optional[Dict[str, str]] = None,
+    additional_files: Optional[List[str]] = None,
+    node_label: Optional[str] = None,
+    num_containers: int = 1,
+    user: Optional[str] = None,
+    acquire_map_reduce_delegation_token: bool = False,
+    pre_script_hook: Optional[str] = None,
+    max_attempts: int = 1,
+    max_restarts: int = 0,
+    process_logs: Callable[[str], Any] = None,
+    allow_large_pex: bool = False,
+) -> str:
     """Execute a python module in a skein container
 
     :param skein_client: skein.Client to use
@@ -64,30 +73,50 @@ def submit(skein_client: skein.Client,
             additional_files=additional_files,
             tmp_dir=tmp_dir,
             process_logs=process_logs,
-            allow_large_pex=allow_large_pex)
+            allow_large_pex=allow_large_pex,
+        )
 
         return _submit(
-            skein_client, skein_config,
-            name=name, num_cores=num_cores, memory=memory,
-            hadoop_file_systems=hadoop_file_systems, queue=queue, env_vars=env_vars,
-            node_label=node_label, num_containers=num_containers, user=user,
+            skein_client,
+            skein_config,
+            name=name,
+            num_cores=num_cores,
+            memory=memory,
+            hadoop_file_systems=hadoop_file_systems,
+            queue=queue,
+            env_vars=env_vars,
+            node_label=node_label,
+            num_containers=num_containers,
+            user=user,
             acquire_map_reduce_delegation_token=acquire_map_reduce_delegation_token,
-            pre_script_hook=pre_script_hook, max_attempts=max_attempts, max_restarts=max_restarts)
+            pre_script_hook=pre_script_hook,
+            max_attempts=max_attempts,
+            max_restarts=max_restarts,
+        )
 
 
-def submit_func(skein_client: skein.Client,
-                func: Callable, args: List[Any] = [], name: str = "skein_launcher",
-                num_cores: int = 1, memory: str = "1 GiB",
-                package_path: Optional[str] = None,
-                hadoop_file_systems: Optional[List[str]] = None,
-                queue: Optional[str] = None, env_vars: Optional[Dict[str, str]] = None,
-                additional_files: Optional[List[str]] = None, node_label: Optional[str] = None,
-                num_containers: int = 1, user: Optional[str] = None,
-                acquire_map_reduce_delegation_token: bool = False,
-                pre_script_hook: Optional[str] = None,
-                max_attempts: int = 1, max_restarts: int = 0,
-                process_logs: Callable[[str], Any] = None,
-                allow_large_pex: bool = False) -> str:
+def submit_func(
+    skein_client: skein.Client,
+    func: Callable,
+    args: List[Any] = [],
+    name: str = "skein_launcher",
+    num_cores: int = 1,
+    memory: str = "1 GiB",
+    package_path: Optional[str] = None,
+    hadoop_file_systems: Optional[List[str]] = None,
+    queue: Optional[str] = None,
+    env_vars: Optional[Dict[str, str]] = None,
+    additional_files: Optional[List[str]] = None,
+    node_label: Optional[str] = None,
+    num_containers: int = 1,
+    user: Optional[str] = None,
+    acquire_map_reduce_delegation_token: bool = False,
+    pre_script_hook: Optional[str] = None,
+    max_attempts: int = 1,
+    max_restarts: int = 0,
+    process_logs: Callable[[str], Any] = None,
+    allow_large_pex: bool = False,
+) -> str:
     """Submit a function in a skein container
 
     :param skein_client: skein.Client to use
@@ -126,29 +155,44 @@ def submit_func(skein_client: skein.Client,
             additional_files=additional_files,
             tmp_dir=tmp_dir,
             process_logs=process_logs,
-            allow_large_pex=allow_large_pex)
+            allow_large_pex=allow_large_pex,
+        )
 
         return _submit(
-            skein_client, skein_config,
-            name=name, num_cores=num_cores, memory=memory,
-            hadoop_file_systems=hadoop_file_systems, queue=queue, env_vars=env_vars,
-            node_label=node_label, num_containers=num_containers, user=user,
+            skein_client,
+            skein_config,
+            name=name,
+            num_cores=num_cores,
+            memory=memory,
+            hadoop_file_systems=hadoop_file_systems,
+            queue=queue,
+            env_vars=env_vars,
+            node_label=node_label,
+            num_containers=num_containers,
+            user=user,
             acquire_map_reduce_delegation_token=acquire_map_reduce_delegation_token,
-            pre_script_hook=pre_script_hook, max_attempts=max_attempts, max_restarts=max_restarts)
+            pre_script_hook=pre_script_hook,
+            max_attempts=max_attempts,
+            max_restarts=max_restarts,
+        )
 
 
 def _submit(
     skein_client: skein.Client,
     skein_config: skein_config_builder.SkeinConfig,
-    name: str, num_cores: int, memory: str,
+    name: str,
+    num_cores: int,
+    memory: str,
     hadoop_file_systems: Optional[List[str]],
-    queue: Optional[str], env_vars: Optional[Dict[str, str]],
+    queue: Optional[str],
+    env_vars: Optional[Dict[str, str]],
     node_label: Optional[str],
-    num_containers: int, user: Optional[str],
+    num_containers: int,
+    user: Optional[str],
     acquire_map_reduce_delegation_token: bool,
     pre_script_hook: Optional[str],
     max_attempts: int,
-    max_restarts: int
+    max_restarts: int,
 ) -> str:
     env = dict(env_vars) if env_vars else dict()
     pre_script_hook = pre_script_hook if pre_script_hook else ""
@@ -156,7 +200,7 @@ def _submit(
 
     krb5_ticket_path = _get_kerberos_ticket_path()
     if krb5_ticket_path:
-        env['KRB5CCNAME'] = f'FILE:{os.path.basename(krb5_ticket_path)}'
+        env["KRB5CCNAME"] = f"FILE:{os.path.basename(krb5_ticket_path)}"
         skein_config.files[os.path.basename(krb5_ticket_path)] = krb5_ticket_path
 
     service = skein.Service(
@@ -164,24 +208,20 @@ def _submit(
         instances=num_containers,
         files=skein_config.files,
         env=env,
-        script=f'''{pre_script_hook}
-                   {skein_config.script}''',
-        max_restarts=max_restarts
+        script=f"""{pre_script_hook}
+                   {skein_config.script}""",
+        max_restarts=max_restarts,
     )
 
     spec = skein.ApplicationSpec(
         name=name,
         file_systems=hadoop_file_systems,
         services={name: service},
-        acls=skein.model.ACLs(
-            enable=True,
-            ui_users=['*'],
-            view_users=['*']
-        ),
-        max_attempts=max_attempts
+        acls=skein.model.ACLs(enable=True, ui_users=["*"], view_users=["*"]),
+        max_attempts=max_attempts,
     )
     # workaround for https://github.com/jcrist/skein/pull/197
-    if hasattr(skein.ApplicationSpec, 'acquire_map_reduce_delegation_token'):
+    if hasattr(skein.ApplicationSpec, "acquire_map_reduce_delegation_token"):
         spec.acquire_map_reduce_delegation_token = acquire_map_reduce_delegation_token
 
     # activate Impersonation only if user to run the job is not the current user (yarn issue)
@@ -205,7 +245,7 @@ def _get_kerberos_ticket_path() -> Optional[str]:
                 return None
         else:
             filepath = os.environ["KRB5CCNAME"]
-            if filepath.startswith('FILE:'):
+            if filepath.startswith("FILE:"):
                 return filepath[5:]
         return filepath
     except KeyError:
@@ -221,7 +261,7 @@ def get_application_logs(
     client: skein.Client,
     app_id: str,
     wait_for_nb_logs: Optional[int] = None,
-    log_tries: int = 15
+    log_tries: int = 15,
 ) -> Optional[skein.model.ApplicationLogs]:
     nb_keys = 0
     for ind in range(log_tries):
@@ -232,24 +272,25 @@ def get_application_logs(
             if not wait_for_nb_logs or nb_keys >= wait_for_nb_logs:
                 return logs
         except Exception:
-            logger.warning(
-                f"Cannot collect logs (attempt {ind+1}/{log_tries})")
+            logger.warning(f"Cannot collect logs (attempt {ind + 1}/{log_tries})")
         time.sleep(3)
     if nb_keys >= 1:
         logger.warning(
-            f"Only {nb_keys} logs retrieved instead of {wait_for_nb_logs} requested")
+            f"Only {nb_keys} logs retrieved instead of {wait_for_nb_logs} requested"
+        )
         return logs
     return None
 
 
-def wait_for_finished(client: skein.Client, app_id: str, poll_every_secs: int = 5) -> bool:
+def wait_for_finished(
+    client: skein.Client, app_id: str, poll_every_secs: int = 5
+) -> bool:
     logger.info(f"waiting for application_id: {app_id}")
     state = None
     while True:
         report = client.application_report(app_id)
 
-        logger.info(
-            f"Application report for {app_id} (state: {report.state})")
+        logger.info(f"Application report for {app_id} (state: {report.state})")
         if state != report.state:
             logger.info(_format_app_report(report))
 
@@ -270,10 +311,11 @@ def _format_app_report(report: skein.model.ApplicationReport) -> str:
         "finish_time",
         "final_status",
         "tracking_url",
-        "user"
+        "user",
     ]
     return os.linesep + os.linesep.join(
-        f"{attr:>16}: {getattr(report, attr) or ''}" for attr in attrs)
+        f"{attr:>16}: {getattr(report, attr) or ''}" for attr in attrs
+    )
 
 
 if __name__ == "__main__":
