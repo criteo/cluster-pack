@@ -7,15 +7,7 @@ import sys
 import pathlib
 import platform
 import tempfile
-from typing import (
-    Tuple,
-    Dict,
-    Collection,
-    List,
-    Any,
-    Optional,
-    Union
-)
+from typing import Tuple, Dict, Collection, List, Any, Optional, Union
 from urllib import parse, request
 
 from pex.pex_info import PexInfo
@@ -32,38 +24,38 @@ PYTHON_VERSION_KEY = "python_version"
 
 def _get_archive_metadata_path(package_path: str) -> str:
     url = parse.urlparse(package_path)
-    return url._replace(path=str(pathlib.Path(url.path).with_suffix('.json'))).geturl()
+    return url._replace(path=str(pathlib.Path(url.path).with_suffix(".json"))).geturl()
 
 
-def _is_archive_up_to_date(package_path: str,
-                           current_packages_list: List[str],
-                           resolved_fs: Any = None
-                           ) -> bool:
+def _is_archive_up_to_date(
+    package_path: str, current_packages_list: List[str], resolved_fs: Any = None
+) -> bool:
     if not resolved_fs.exists(package_path):
         return False
     archive_meta_data = _get_archive_metadata_path(package_path)
     if not resolved_fs.exists(archive_meta_data):
-        _logger.debug(f'metadata for archive {package_path} does not exist')
+        _logger.debug(f"metadata for archive {package_path} does not exist")
         return False
     with resolved_fs.open(archive_meta_data, "rb") as fd:
         metadata_dict = json.loads(fd.read())
         if not isinstance(metadata_dict, dict):
-            _logger.debug('metadata exists but was built with old format')
+            _logger.debug("metadata exists but was built with old format")
             return False
 
         current_platform, current_python_version = get_platform_and_python_version()
         packages_installed = metadata_dict.get(PACKAGE_INSTALLED_KEY, [])
         platform = metadata_dict.get(PLATFORM_KEY, "")
         python_version = metadata_dict.get(PYTHON_VERSION_KEY, "")
-        return (sorted(packages_installed) == sorted(current_packages_list)
-                and platform == current_platform
-                and python_version == current_python_version)
+        return (
+            sorted(packages_installed) == sorted(current_packages_list)
+            and platform == current_platform
+            and python_version == current_python_version
+        )
 
 
-def _dump_archive_metadata(package_path: str,
-                           current_packages_list: List[str],
-                           resolved_fs: Any = None
-                           ) -> None:
+def _dump_archive_metadata(
+    package_path: str, current_packages_list: List[str], resolved_fs: Any = None
+) -> None:
     archive_meta_data = _get_archive_metadata_path(package_path)
     metadata_dict = build_metadata_dict(current_packages_list)
     with tempfile.TemporaryDirectory() as tempdir:
@@ -80,22 +72,24 @@ def build_metadata_dict(current_packages_list: List[str]) -> Dict:
     metadata_dict = {
         PACKAGE_INSTALLED_KEY: current_packages_list,
         PLATFORM_KEY: cur_platform,
-        PYTHON_VERSION_KEY: python_version
+        PYTHON_VERSION_KEY: python_version,
     }
     return metadata_dict
 
 
 def get_platform_and_python_version() -> Tuple[str, str]:
     python_version = sys.version_info
-    python_version_str = f"{python_version.major}.{python_version.minor}.{python_version.micro}"
+    python_version_str = (
+        f"{python_version.major}.{python_version.minor}.{python_version.micro}"
+    )
     return platform.platform(), python_version_str
 
 
 def upload_zip(
-        zip_file: str,
-        package_path: str = None,
-        force_upload: bool = False,
-        fs_args: Dict[str, Any] = {}
+    zip_file: str,
+    package_path: str = None,
+    force_upload: bool = False,
+    fs_args: Dict[str, Any] = {},
 ) -> str:
     packer = packaging.detect_packer_from_file(zip_file)
     package_path, _, _ = packaging.detect_archive_names(packer, package_path)
@@ -115,18 +109,18 @@ def upload_zip(
 
 
 def upload_env(
-        package_path: str = None,
-        packer: packaging.Packer = None,
-        additional_packages: Dict[str, str] = {},
-        ignored_packages: Collection[str] = [],
-        only_packages: Optional[Collection[str]] = None,
-        force_upload: bool = False,
-        include_editable: bool = False,
-        fs_args: Dict[str, Any] = {},
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-        additional_repo: Optional[Union[str, List[str]]] = None,
-        additional_indexes: Optional[List[str]] = None
+    package_path: str = None,
+    packer: packaging.Packer = None,
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = [],
+    only_packages: Optional[Collection[str]] = None,
+    force_upload: bool = False,
+    include_editable: bool = False,
+    fs_args: Dict[str, Any] = {},
+    allow_large_pex: bool = False,
+    include_pex_tools: bool = False,
+    additional_repo: Optional[Union[str, List[str]]] = None,
+    additional_indexes: Optional[List[str]] = None,
 ) -> Tuple[str, str]:
     """Upload current python env.
 
@@ -151,36 +145,40 @@ def upload_env(
     """
     if packer is None:
         packer = packaging.detect_packer_from_env()
-    package_path, env_name, pex_file = \
-        packaging.detect_archive_names(packer, package_path, allow_large_pex)
+    package_path, env_name, pex_file = packaging.detect_archive_names(
+        packer, package_path, allow_large_pex
+    )
 
     resolved_fs, _ = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
     if pex_file == "":
         _upload_env_from_venv(
-            package_path, packer,
-            additional_packages, ignored_packages, only_packages,
+            package_path,
+            packer,
+            additional_packages,
+            ignored_packages,
+            only_packages,
             resolved_fs,
             force_upload,
             include_editable,
             allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
-            additional_indexes=additional_indexes
+            additional_indexes=additional_indexes,
         )
     else:
         _upload_pex_file(packer, pex_file, package_path, resolved_fs, force_upload)
 
-    return (package_path,
-            env_name)
+    return (package_path, env_name)
 
 
 def upload_spec(
-        spec_file: str,
-        package_path: str = None,
-        force_upload: bool = False,
-        fs_args: Dict[str, Any] = {},
-        allow_large_pex: bool = False) -> str:
+    spec_file: str,
+    package_path: str = None,
+    force_upload: bool = False,
+    fs_args: Dict[str, Any] = {},
+    allow_large_pex: bool = False,
+) -> str:
     """Upload an environment from a spec file
 
     :param spec_file: the spec file, must be requirements.txt or conda.yaml
@@ -194,15 +192,19 @@ def upload_spec(
     """
     packer = packaging.detect_packer_from_spec(spec_file)
     if not package_path:
-        package_path = (f"{packaging.get_default_fs()}/user/{getpass.getuser()}"
-                        f"/envs/{_unique_filename(spec_file, packer)}")
+        package_path = (
+            f"{packaging.get_default_fs()}/user/{getpass.getuser()}"
+            f"/envs/{_unique_filename(spec_file, packer)}"
+        )
     elif not package_path.endswith(packer.extension()):
         package_path = os.path.join(package_path, _unique_filename(spec_file, packer))
 
-    if (packer.extension() == packaging.PEX_PACKER.extension()
-            and allow_large_pex
-            and not package_path.endswith('.zip')):
-        package_path += '.zip'
+    if (
+        packer.extension() == packaging.PEX_PACKER.extension()
+        and allow_large_pex
+        and not package_path.endswith(".zip")
+    ):
+        package_path += ".zip"
 
     resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
@@ -212,15 +214,14 @@ def upload_spec(
 
     up_to_date = _is_archive_up_to_date(package_path, reqs, resolved_fs)
     if force_upload or not up_to_date:
-        _logger.info(
-            f"Zipping and uploading your env to {package_path}"
-        )
+        _logger.info(f"Zipping and uploading your env to {package_path}")
 
         with tempfile.TemporaryDirectory() as tempdir:
             archive_local = packer.pack_from_spec(
                 spec_file=spec_file,
                 output=f"{tempdir}/{packer.env_name()}.{packer.extension()}",
-                allow_large_pex=allow_large_pex)
+                allow_large_pex=allow_large_pex,
+            )
 
             dir = os.path.dirname(package_path)
             if not resolved_fs.exists(dir):
@@ -247,9 +248,11 @@ def _get_hash(spec_file: str) -> str:
 
 
 def _upload_pex_file(
-        packer: packaging.Packer,
-        pex_file_or_dir: str, package_path: str,
-        resolved_fs: Any = None, force_upload: bool = False
+    packer: packaging.Packer,
+    pex_file_or_dir: str,
+    package_path: str,
+    resolved_fs: Any = None,
+    force_upload: bool = False,
 ) -> None:
     if packer == packaging.PEX_PACKER and resolved_fs.exists(package_path):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -257,9 +260,14 @@ def _upload_pex_file(
             resolved_fs.get(package_path, local_copy_path)
             info_from_storage = PexInfo.from_pex(local_copy_path)
             info_to_upload = PexInfo.from_pex(pex_file_or_dir)
-            if not force_upload and info_from_storage.code_hash == info_to_upload.code_hash:
-                _logger.info(f"skip upload of current {pex_file_or_dir}"
-                             f" as it is already uploaded on {package_path}")
+            if (
+                not force_upload
+                and info_from_storage.code_hash == info_to_upload.code_hash
+            ):
+                _logger.info(
+                    f"skip upload of current {pex_file_or_dir}"
+                    f" as it is already uploaded on {package_path}"
+                )
                 return
 
     dir = os.path.dirname(package_path)
@@ -267,7 +275,8 @@ def _upload_pex_file(
         resolved_fs.mkdir(dir)
 
     pex_file = (
-        packaging.resolve_zip_from_pex_dir(pex_file_or_dir) if os.path.isdir(pex_file_or_dir)
+        packaging.resolve_zip_from_pex_dir(pex_file_or_dir)
+        if os.path.isdir(pex_file_or_dir)
         else pex_file_or_dir
     )
     _logger.info(f"upload current {pex_file} to {package_path}")
@@ -285,10 +294,10 @@ def _upload_pex_file(
 
 
 def _handle_packages(
-        current_packages: Dict[str, str],
-        additional_packages: Dict[str, str] = {},
-        ignored_packages: Collection[str] = [],
-        only_packages: Optional[Collection[str]] = None,
+    current_packages: Dict[str, str],
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = [],
+    only_packages: Optional[Collection[str]] = None,
 ) -> None:
     if len(additional_packages) > 0:
         additional_package_names = list(additional_packages.keys())
@@ -297,7 +306,9 @@ def _handle_packages(
         for name in current_packages_names:
             for additional_package_name in additional_package_names:
                 if name in additional_package_name:
-                    _logger.debug(f"Replace existing package {name} by {additional_package_name}")
+                    _logger.debug(
+                        f"Replace existing package {name} by {additional_package_name}"
+                    )
                     current_packages.pop(name)
         current_packages.update(additional_packages)
 
@@ -311,30 +322,36 @@ def _handle_packages(
         only_packages = set(only_packages)
         for name in list(current_packages.keys()):
             if name not in only_packages:
-                _logger.debug(f"Remove package {name} as it is not in the only_packages list")
+                _logger.debug(
+                    f"Remove package {name} as it is not in the only_packages list"
+                )
                 current_packages.pop(name)
 
 
 def _upload_env_from_venv(
-        package_path: str,
-        packer: packaging.Packer = packaging.PEX_PACKER,
-        additional_packages: Dict[str, str] = {},
-        ignored_packages: Collection[str] = [],
-        only_packages: Optional[Collection[str]] = None,
-        resolved_fs: Any = None,
-        force_upload: bool = False,
-        include_editable: bool = False,
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-        additional_repo: Optional[Union[str, List[str]]] = None,
-        additional_indexes: Optional[List[str]] = None
+    package_path: str,
+    packer: packaging.Packer = packaging.PEX_PACKER,
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = [],
+    only_packages: Optional[Collection[str]] = None,
+    resolved_fs: Any = None,
+    force_upload: bool = False,
+    include_editable: bool = False,
+    allow_large_pex: bool = False,
+    include_pex_tools: bool = False,
+    additional_repo: Optional[Union[str, List[str]]] = None,
+    additional_indexes: Optional[List[str]] = None,
 ) -> None:
-    executable = packaging.get_current_pex_filepath() \
-        if packaging._running_from_pex() else sys.executable
+    executable = (
+        packaging.get_current_pex_filepath()
+        if packaging._running_from_pex()
+        else sys.executable
+    )
     current_packages = packaging.get_non_editable_requirements(executable)
 
     reqs = _build_reqs_from_venv(
-        additional_packages, current_packages, ignored_packages, only_packages)
+        additional_packages, current_packages, ignored_packages, only_packages
+    )
 
     _logger.debug(f"Packaging current_packages={reqs}")
 
@@ -343,83 +360,95 @@ def _upload_env_from_venv(
         return
 
     with tempfile.TemporaryDirectory() as tempdir:
-        local_package_path = _pack_from_venv(executable, reqs, tempdir, packer, additional_packages,
-                                             ignored_packages, force_upload, include_editable,
-                                             allow_large_pex, include_pex_tools, additional_repo,
-                                             additional_indexes)
+        local_package_path = _pack_from_venv(
+            executable,
+            reqs,
+            tempdir,
+            packer,
+            additional_packages,
+            ignored_packages,
+            force_upload,
+            include_editable,
+            allow_large_pex,
+            include_pex_tools,
+            additional_repo,
+            additional_indexes,
+        )
 
         dir = os.path.dirname(package_path)
         if not resolved_fs.exists(dir):
             resolved_fs.mkdir(dir)
-        _logger.info(f'Uploading env at {local_package_path} to {package_path}')
+        _logger.info(f"Uploading env at {local_package_path} to {package_path}")
         resolved_fs.put(local_package_path, package_path)
 
         _dump_archive_metadata(package_path, reqs, resolved_fs)
 
 
 def _build_reqs_from_venv(
-        additional_packages: Dict[str, str],
-        current_packages: Dict[str, str],
-        ignored_packages: Collection[str],
-        only_packages: Optional[Collection[str]] = None,) -> List[str]:
+    additional_packages: Dict[str, str],
+    current_packages: Dict[str, str],
+    ignored_packages: Collection[str],
+    only_packages: Optional[Collection[str]] = None,
+) -> List[str]:
     _handle_packages(
-        current_packages,
-        additional_packages,
-        ignored_packages,
-        only_packages
+        current_packages, additional_packages, ignored_packages, only_packages
     )
     return packaging.format_requirements(current_packages)
 
 
-def _pack_from_venv(executable: str,
-                    reqs: List[str],
-                    tempdir: str,
-                    packer: packaging.Packer = packaging.PEX_PACKER,
-                    additional_packages: Dict[str, str] = {},
-                    ignored_packages: Collection[str] = [],
-                    force_upload: bool = False,
-                    include_editable: bool = False,
-                    allow_large_pex: bool = False,
-                    include_pex_tools: bool = False,
-                    additional_repo: Optional[Union[str, List[str]]] = None,
-                    additional_indexes: Optional[List[str]] = None) -> str:
+def _pack_from_venv(
+    executable: str,
+    reqs: List[str],
+    tempdir: str,
+    packer: packaging.Packer = packaging.PEX_PACKER,
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = [],
+    force_upload: bool = False,
+    include_editable: bool = False,
+    allow_large_pex: bool = False,
+    include_pex_tools: bool = False,
+    additional_repo: Optional[Union[str, List[str]]] = None,
+    additional_indexes: Optional[List[str]] = None,
+) -> str:
     env_copied_from_fallback_location = False
-    local_package_path = f'{tempdir}/{packer.env_name()}.{packer.extension()}'
-    local_fs, local_package_path = filesystem.resolve_filesystem_and_path(local_package_path)
-    fallback_path = os.environ.get('C_PACK_ENV_FALLBACK_PATH')
-    if not force_upload and fallback_path and packer.extension() == 'pex':
-        _logger.info(f"Copying pre-built env from {fallback_path} to {local_package_path}")
+    local_package_path = f"{tempdir}/{packer.env_name()}.{packer.extension()}"
+    local_fs, local_package_path = filesystem.resolve_filesystem_and_path(
+        local_package_path
+    )
+    fallback_path = os.environ.get("C_PACK_ENV_FALLBACK_PATH")
+    if not force_upload and fallback_path and packer.extension() == "pex":
+        _logger.info(
+            f"Copying pre-built env from {fallback_path} to {local_package_path}"
+        )
         if fallback_path.startswith("http://") or fallback_path.startswith("https://"):
             request.urlretrieve(fallback_path, local_package_path)
         else:
-            fallback_fs, fallback_path = filesystem.resolve_filesystem_and_path(fallback_path)
+            fallback_fs, fallback_path = filesystem.resolve_filesystem_and_path(
+                fallback_path
+            )
             fallback_fs.get(fallback_path, local_package_path)
 
-        _logger.info(f'Checking requirements in {local_package_path}')
+        _logger.info(f"Checking requirements in {local_package_path}")
 
         pex_info = PexInfo.from_pex(local_package_path)
 
         req_from_pex = _filter_out_requirements(
             _sort_requirements(
-                _normalize_requirements(
-                    _format_pex_requirements(pex_info)
-                )
+                _normalize_requirements(_format_pex_requirements(pex_info))
             )
         )
         req_from_venv = _filter_out_requirements(
-            _sort_requirements(
-                _normalize_requirements(reqs)
-            )
+            _sort_requirements(_normalize_requirements(reqs))
         )
 
-        if (req_from_pex == req_from_venv):
+        if req_from_pex == req_from_venv:
             env_copied_from_fallback_location = True
             _dump_archive_metadata(local_package_path, reqs, local_fs)
-            _logger.info('Env copied from fallback location')
+            _logger.info("Env copied from fallback location")
         else:
-            _logger.warning(f'Requirements not met for pre-built {local_package_path}')
-            _logger.info(f'Requirements from pex {req_from_pex}')
-            _logger.info(f'Requirements from venv {req_from_venv}')
+            _logger.warning(f"Requirements not met for pre-built {local_package_path}")
+            _logger.info(f"Requirements from pex {req_from_pex}")
+            _logger.info(f"Requirements from venv {req_from_venv}")
     if not env_copied_from_fallback_location:
         if include_editable:
             editable_requirements = packaging.get_editable_requirements(executable)
@@ -436,7 +465,7 @@ def _pack_from_venv(executable: str,
             allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
-            additional_indexes=additional_indexes
+            additional_indexes=additional_indexes,
         )
     return local_package_path
 
@@ -451,7 +480,7 @@ def _format_pex_requirements(pex_info: PexInfo) -> List[str]:
 
 
 def _normalize_requirements(reqs: List[str]) -> List[str]:
-    return [req.replace('_', '-') for req in reqs]
+    return [req.replace("_", "-") for req in reqs]
 
 
 def _filter_out_requirements(reqs: List[str]) -> List[str]:
