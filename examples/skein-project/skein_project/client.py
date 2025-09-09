@@ -8,7 +8,6 @@ from cluster_pack.skein import skein_config_builder
 
 
 if __name__ == "__main__":
-
     logging.basicConfig(level="INFO")
 
     package_path, _ = cluster_pack.upload_env()
@@ -17,14 +16,14 @@ if __name__ == "__main__":
         skein_config = skein_config_builder.build(
             module_name="skein_project.worker",
             package_path=package_path,
-            tmp_dir=tmp_dir
+            tmp_dir=tmp_dir,
         )
 
         with skein.Client() as client:
             service = skein.Service(
                 resources=skein.model.Resources("1 GiB", 1),
                 files=skein_config.files,
-                script=skein_config.script
+                script=skein_config.script,
             )
             spec = skein.ApplicationSpec(services={"service": service})
             app_id = client.submit(spec)

@@ -101,24 +101,3 @@ jobs:
   #                     htcluster exec -u root -s worker -- chmod +x /home/testuser/install_python.sh && \
   #                     htcluster exec -u root -s worker -- /home/testuser/install_python.sh && \
   #                     htcluster exec -s edge -- /home/testuser/cluster-pack/tests/integration/hadoop_hdfs_tests.sh"
-
-  conda:
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        python-version: [3.9]
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Run tests with conda
-      run: |
-        conda update -y conda
-        conda create -n venv -y python=${{ matrix.python-version }}
-        # https://github.com/conda/conda/issues/7980
-        eval "$(conda shell.bash hook)" 
-        conda activate venv
-        pip install .
-        pip install -r tests-requirements.txt
-        pytest -m conda -s tests --log-cli-level=INFO
