@@ -117,7 +117,6 @@ def upload_env(
     force_upload: bool = False,
     include_editable: bool = False,
     fs_args: Dict[str, Any] = {},
-    allow_large_pex: bool = False,
     include_pex_tools: bool = False,
     additional_repo: Optional[Union[str, List[str]]] = None,
     additional_indexes: Optional[List[str]] = None,
@@ -133,7 +132,6 @@ def upload_env(
     :param force_upload: force the packaging and upload of current env
     :param include_editable: whether to include or not packages installed in editable mode
     :param fs_args: filesystem args
-    :param allow_large_pex: whether to allow or not building a large pex
     :param include_pex_tools: whether to include tools or not when building pex
     :param additional_repo: additional repositories compliant with PEP 503 or local directories
                             laid out in the same format.
@@ -146,7 +144,7 @@ def upload_env(
     if packer is None:
         packer = packaging.detect_packer_from_env()
     package_path, env_name, pex_file = packaging.detect_archive_names(
-        packer, package_path, allow_large_pex
+        packer, package_path
     )
 
     resolved_fs, _ = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
@@ -161,7 +159,6 @@ def upload_env(
             resolved_fs,
             force_upload,
             include_editable,
-            allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
             additional_indexes=additional_indexes,
@@ -177,7 +174,6 @@ def upload_spec(
     package_path: str = None,
     force_upload: bool = False,
     fs_args: Dict[str, Any] = {},
-    allow_large_pex: bool = False,
 ) -> str:
     """Upload an environment from a spec file
 
@@ -185,9 +181,6 @@ def upload_spec(
     :param package_path: the path where to upload the package
     :param force_upload: whether the cache should be cleared
     :param fs_args: specific arguments for special file systems (like S3)
-    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
-                            python's limitation with zips > 2Gb. The file will need to be unzipped
-                            and the entry point will be <output>/__main__.py
     :return: package_path
     """
     packer = packaging.detect_packer_from_spec(spec_file)
@@ -198,13 +191,6 @@ def upload_spec(
         )
     elif not package_path.endswith(packer.extension()):
         package_path = os.path.join(package_path, _unique_filename(spec_file, packer))
-
-    if (
-        packer.extension() == packaging.PEX_PACKER.extension()
-        and allow_large_pex
-        and not package_path.endswith(".zip")
-    ):
-        package_path += ".zip"
 
     resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
 
@@ -220,7 +206,6 @@ def upload_spec(
             archive_local = packer.pack_from_spec(
                 spec_file=spec_file,
                 output=f"{tempdir}/{packer.env_name()}.{packer.extension()}",
-                allow_large_pex=allow_large_pex,
             )
 
             dir = os.path.dirname(package_path)
@@ -337,7 +322,6 @@ def _upload_env_from_venv(
     resolved_fs: Any = None,
     force_upload: bool = False,
     include_editable: bool = False,
-    allow_large_pex: bool = False,
     include_pex_tools: bool = False,
     additional_repo: Optional[Union[str, List[str]]] = None,
     additional_indexes: Optional[List[str]] = None,
@@ -369,7 +353,6 @@ def _upload_env_from_venv(
             ignored_packages,
             force_upload,
             include_editable,
-            allow_large_pex,
             include_pex_tools,
             additional_repo,
             additional_indexes,
@@ -405,7 +388,6 @@ def _pack_from_venv(
     ignored_packages: Collection[str] = [],
     force_upload: bool = False,
     include_editable: bool = False,
-    allow_large_pex: bool = False,
     include_pex_tools: bool = False,
     additional_repo: Optional[Union[str, List[str]]] = None,
     additional_indexes: Optional[List[str]] = None,
@@ -462,7 +444,6 @@ def _pack_from_venv(
             additional_packages=additional_packages,
             ignored_packages=ignored_packages,
             editable_requirements=editable_requirements,
-            allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
             additional_indexes=additional_indexes,

@@ -1,5 +1,5 @@
 cloudpickle
-pex>=2.1.137
+pex>=2.50
 pip>=22.0
 pyarrow
 fire

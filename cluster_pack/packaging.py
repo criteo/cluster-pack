@@ -26,10 +26,6 @@ _logger = logging.getLogger(__name__)
 JsonDictType = Dict[str, Any]
 
 
-class PexTooLargeError(RuntimeError):
-    pass
-
-
 class PexCreationError(RuntimeError):
     pass
 
@@ -42,7 +38,6 @@ class PythonEnvDescription(NamedTuple):
 
 
 UNPACKED_ENV_NAME = "pyenv"
-LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 
 def _get_tmp_dir() -> str:
@@ -101,7 +96,6 @@ def pack_spec_in_pex(
     spec_file: str,
     output: str,
     pex_inherit_path: str = "fallback",
-    allow_large_pex: bool = False,
     include_pex_tools: bool = False,
     additional_repo: Optional[Union[List[str], str]] = None,
     additional_indexes: Optional[List[str]] = None,
@@ -115,7 +109,6 @@ def pack_spec_in_pex(
             lines,
             output,
             pex_inherit_path=pex_inherit_path,
-            allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
             additional_indexes=additional_indexes,
@@ -128,7 +121,6 @@ def pack_in_pex(
     ignored_packages: Collection[str] = [],
     pex_inherit_path: str = "fallback",
     editable_requirements: Dict[str, str] = {},
-    allow_large_pex: bool = False,
     include_pex_tools: bool = False,
     additional_repo: Optional[Union[str, List[str]]] = None,
     additional_indexes: Optional[List[str]] = None,
@@ -141,20 +133,13 @@ def pack_in_pex(
     :param ignored_packages: packages to be exluded from pex
     :param pex_inherit_path: see https://github.com/pantsbuild/pex/blob/master/pex/bin/pex.py#L264,
                              possible values ['false', 'fallback', 'prefer']
-    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
-                            python's limitation with zips > 2Gb. The file will need to be unzipped
-                            and the entry point will be <output>/__main__.py
     :return: destination of the archive, name of the pex
     """
 
     with tempfile.TemporaryDirectory() as tempdir:
         cmd = ["pex", f"--inherit-path={pex_inherit_path}"]
 
-        if allow_large_pex:
-            cmd.extend(["--layout", "packed"])
-            tmp_ext = ".tmp"
-        else:
-            tmp_ext = ""
+        tmp_ext = ""
         if include_pex_tools:
             cmd.extend(["--include-tools"])
 
@@ -202,20 +187,7 @@ def pack_in_pex(
             _logger.exception(err.stderr.decode("ascii"))
             raise PexCreationError(err.stderr.decode("ascii"))
 
-        if (
-            not allow_large_pex
-            and os.path.getsize(output + tmp_ext) > 2 * 1024 * 1024 * 1024
-        ):
-            raise PexTooLargeError(
-                "The generate pex is larger than 2Gb and won't be executable"
-                " by python; Please set the 'allow_large_pex' "
-                "flag in upload_env"
-            )
-
-        if allow_large_pex:
-            shutil.make_archive(output, "zip", output + tmp_ext)
-
-    return output + ".zip" if allow_large_pex else output
+    return output
 
 
 def _get_packages(
@@ -267,7 +239,6 @@ class Packer(object):
         additional_packages: Dict[str, str],
         ignored_packages: Collection[str],
         editable_requirements: Dict[str, str],
-        allow_large_pex: bool = False,
         include_pex_tools: bool = False,
         additional_repo: Optional[Union[str, List[str]]] = None,
         additional_indexes: Optional[List[str]] = None,
@@ -278,7 +249,6 @@ class Packer(object):
         self,
         spec_file: str,
         output: str,
-        allow_large_pex: bool = False,
         include_pex_tools: bool = False,
     ) -> str:
         raise NotImplementedError
@@ -309,7 +279,6 @@ class PexPacker(Packer):
         additional_packages: Dict[str, str],
         ignored_packages: Collection[str],
         editable_requirements: Dict[str, str],
-        allow_large_pex: bool = False,
         include_pex_tools: bool = False,
         additional_repo: Optional[Union[str, List[str]]] = None,
         additional_indexes: Optional[List[str]] = None,
@@ -319,7 +288,6 @@ class PexPacker(Packer):
             output,
             ignored_packages,
             editable_requirements=editable_requirements,
-            allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
             additional_indexes=additional_indexes,
@@ -329,13 +297,11 @@ class PexPacker(Packer):
         self,
         spec_file: str,
         output: str,
-        allow_large_pex: bool = False,
         include_pex_tools: bool = False,
     ) -> str:
         return pack_spec_in_pex(
             spec_file=spec_file,
             output=output,
-            allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
         )
 
@@ -375,7 +341,7 @@ def _build_package_path(name: str, extension: Optional[str]) -> str:
 
 
 def detect_archive_names(
-    packer: Packer, package_path: str = None, allow_large_pex: bool = None
+    packer: Packer, package_path: str = None
 ) -> Tuple[str, str, str]:
     if _running_from_pex():
         pex_file = get_current_pex_filepath()
@@ -393,15 +359,6 @@ def detect_archive_names(
                 f"{package_path} has the wrong extension"
                 f", .{packer.extension()} is expected"
             )
-
-    # we are actually building or reusing a large pex and we have the information from the
-    # allow_large_pex flag
-    if (
-        extension == PEX_PACKER.extension()
-        and allow_large_pex
-        and not package_path.endswith(".zip")
-    ):
-        package_path += ".zip"
 
     # We are running from an unzipped large pex and we have the information because `pex_file` is
     # not empty, and it is a directory instead of a zipapp
@@ -504,11 +461,7 @@ def get_editable_requirements(
 def get_pyenv_usage_from_archive(path_to_archive: str) -> PythonEnvDescription:
     archive_filename = os.path.basename(path_to_archive)
 
-    if archive_filename.endswith(".pex.zip"):
-        return PythonEnvDescription(
-            path_to_archive, LARGE_PEX_CMD, UNPACKED_ENV_NAME, True
-        )
-    elif archive_filename.endswith(".pex"):
+    if archive_filename.endswith(".pex"):
         return PythonEnvDescription(
             path_to_archive, f"./{archive_filename}", archive_filename, False
         )
