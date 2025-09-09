@@ -14,7 +14,6 @@ import pytest
 from cluster_pack import packaging, get_pyenv_usage_from_archive, uploader
 from cluster_pack.packaging import (
     UNPACKED_ENV_NAME,
-    LARGE_PEX_CMD,
     resolve_zip_from_pex_dir,
 )
 
@@ -275,42 +274,6 @@ def test_pack_in_pex(pyarrow_version, expectation):
             )
 
 
-def test_pack_in_pex_with_allow_large():
-    with tempfile.TemporaryDirectory() as tempdir:
-        requirements = [
-            PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE["numpy"],
-            "pyarrow==6.0.1",
-        ]
-        packaging.pack_in_pex(
-            requirements,
-            f"{tempdir}/out.pex",
-            # make isolated pex from current pytest virtual env
-            pex_inherit_path="false",
-            allow_large_pex=True,
-        )
-        assert os.path.exists(f"{tempdir}/out.pex.zip")
-
-        with tempfile.TemporaryDirectory() as temp_pex_dir:
-            shutil.unpack_archive(f"{tempdir}/out.pex.zip", temp_pex_dir)
-            st = os.stat(f"{temp_pex_dir}/__main__.py")
-            os.chmod(f"{temp_pex_dir}/__main__.py", st.st_mode | stat.S_IEXEC)
-
-            with does_not_raise():
-                print(
-                    subprocess.check_output(
-                        [
-                            f"{temp_pex_dir}/__main__.py",
-                            "-c",
-                            (
-                                """print("Start importing pyarrow..");"""
-                                """import pyarrow;"""
-                                """print("Successfully imported pyarrow!")"""
-                            ),
-                        ]
-                    )
-                )
-
-
 def test_pack_in_pex_with_include_tools():
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
@@ -340,64 +303,6 @@ def test_pack_in_pex_with_include_tools():
                         f"&& python -c '{cmd}'"
                     ),
                     shell=True,
-                )
-            )
-
-
-@pytest.mark.parametrize(
-    "is_large_pex,package_path",
-    [
-        (True, "hdfs://dummy/path/env.pex"),
-        (None, "hdfs://dummy/path/env.pex"),
-        (None, None),
-    ],
-)
-def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(
-    is_large_pex, package_path
-):
-    with tempfile.TemporaryDirectory() as tempdir:
-        current_packages = packaging.get_non_editable_requirements(sys.executable)
-        reqs = uploader._build_reqs_from_venv({}, current_packages, [])
-        local_package_path = uploader._pack_from_venv(
-            sys.executable, reqs, tempdir, include_editable=True, allow_large_pex=True
-        )
-        assert os.path.exists(local_package_path)
-
-        unzipped_pex_path = local_package_path.replace(".zip", "")
-        os.mkdir(unzipped_pex_path)
-        shutil.unpack_archive(local_package_path, unzipped_pex_path)
-        st = os.stat(f"{unzipped_pex_path}/__main__.py")
-        os.chmod(f"{unzipped_pex_path}/__main__.py", st.st_mode | stat.S_IEXEC)
-        package_argument_as_string = (
-            "None" if package_path is None else f"'{package_path}'"
-        )
-        expected_package_path = (
-            f"hdfs:///user/{getpass.getuser()}/envs/{os.path.basename(unzipped_pex_path)}.zip"
-            if is_large_pex is None
-            else f"{package_path}.zip"
-        )
-        with does_not_raise():
-            print(
-                subprocess.check_output(
-                    [
-                        f"{unzipped_pex_path}/__main__.py",
-                        "-c",
-                        (
-                            """print("Start importing cluster-pack..");"""
-                            """from cluster_pack import packaging;"""
-                            """from unittest import mock;"""
-                            """packer = packaging.detect_packer_from_env();"""
-                            """packaging.get_default_fs = mock.Mock(return_value='hdfs://');"""
-                            f"""package_path={package_argument_as_string};"""
-                            f"""allow_large_pex={is_large_pex};"""
-                            """package_path, env_name, pex_file = \
-                    packaging.detect_archive_names(packer, package_path, allow_large_pex);"""
-                            """print(f'package_path: {package_path}');"""
-                            """print(f'pex_file: {pex_file}');"""
-                            f"""assert(package_path == "{expected_package_path}");"""
-                            """assert(pex_file.endswith('.pex'));"""
-                        ),
-                    ]
                 )
             )
 
@@ -506,7 +411,6 @@ def test_get_packages_with_warning():
 
 test_data = [
     ("/path/to/myenv.pex", "./myenv.pex", "myenv.pex"),
-    ("/path/to/myenv.pex.zip", f"{LARGE_PEX_CMD}", UNPACKED_ENV_NAME),
 ]
 
 
@@ -547,12 +451,10 @@ archive_test_data = [
 
 
 @pytest.mark.parametrize(
-    "running_from_pex, package_path, allow_large_pex, is_dir, expected",
+    "running_from_pex, package_path, is_dir, expected",
     archive_test_data,
 )
-def test_detect_archive_names(
-    running_from_pex, package_path, allow_large_pex, is_dir, expected
-):
+def test_detect_archive_names(running_from_pex, package_path, is_dir, expected):
     with contextlib.ExitStack() as stack:
         mock_running_from_pex = stack.enter_context(
             mock.patch(f"{MODULE_TO_TEST}._running_from_pex")
@@ -572,7 +474,7 @@ def test_detect_archive_names(
         mock_is_dir.return_value = is_dir
         mock_glob.return_value = ["pex_exe.pex.zip"]
         actual, _, _ = packaging.detect_archive_names(
-            packaging.PEX_PACKER, package_path, allow_large_pex
+            packaging.PEX_PACKER, package_path
         )
         assert actual == expected
 
