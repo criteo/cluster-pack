@@ -1,6 +1,5 @@
 cloudpickle
-pex==2.1.137
-conda-pack
+pex>=2.50
 pip>=22.0
 pyarrow
 fire
@@ -8,3 +7,4 @@ types-setuptools
 wheel-filename
 fsspec
 skein
+versioneer
