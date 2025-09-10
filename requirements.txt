@@ -1,6 +1,5 @@
 cloudpickle
 pex==2.1.137
-conda-pack
 pip>=22.0
 pyarrow
 fire

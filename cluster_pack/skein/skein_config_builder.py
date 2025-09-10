@@ -29,8 +29,7 @@ def build_with_func(
 
     :param func: the function to execute remotely
     :param args: the function's arguments
-    :param package_path: the path on distributed storage where to find the application package
-                         (pex, conda zip)
+    :param package_path: the path on distributed storage where to find the application package (pex)
     :param additional_files: additional files to ship to the cluster
     :param tmp_dir: a temp dir for local files
     :param log_level: default remote log level
@@ -76,8 +75,7 @@ def build(
 
     :param module_name: the module to execute remotely
     :param args: the module's cli arguments
-    :param package_path: the path on distributed storage where to find the application package
-                         (pex, conda zip)
+    :param package_path: the path on distributed storage where to find the application package (pex)
     :param additional_files: additional files to ship to the cluster
     :param tmp_dir: a temp dir for local files
     :param process_logs: hook with the local log path as a parameter,

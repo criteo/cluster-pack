@@ -13,7 +13,6 @@ import pytest
 
 from cluster_pack import packaging, get_pyenv_usage_from_archive, uploader
 from cluster_pack.packaging import (
-    CONDA_CMD,
     UNPACKED_ENV_NAME,
     LARGE_PEX_CMD,
     resolve_zip_from_pex_dir,
@@ -507,7 +506,6 @@ def test_get_packages_with_warning():
 
 test_data = [
     ("/path/to/myenv.pex", "./myenv.pex", "myenv.pex"),
-    ("/path/to/myenv.zip", f"{CONDA_CMD}", UNPACKED_ENV_NAME),
     ("/path/to/myenv.pex.zip", f"{LARGE_PEX_CMD}", UNPACKED_ENV_NAME),
 ]
 
