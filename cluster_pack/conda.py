@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+
 try:
     import conda_pack
 except NotImplementedError:
@@ -16,14 +17,18 @@ from cluster_pack import process
 _logger = logging.getLogger(__name__)
 
 
-def get_conda_env_name(spec_file: str = None, reqs: List[str] = None, env_id: str = None) -> str:
+def get_conda_env_name(
+    spec_file: str = None, reqs: List[str] = None, env_id: str = None
+) -> str:
     conda_env_contents = open(spec_file).read() if spec_file else ""
     if reqs:
         for req in reqs:
             conda_env_contents += req
     if env_id:
         conda_env_contents += env_id
-    return "cluster-pack-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    return (
+        "cluster-pack-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    )
 
 
 def get_conda_bin_executable(executable_name: str) -> str:
@@ -51,32 +56,43 @@ def get_or_create_conda_env(project_env_name: str = None, spec_file: str = None)
     if project_env_name not in env_names:
         _logger.info(f"Creating conda environment {project_env_name}")
         if spec_file:
-            process.call([conda_path, "env", "create", "-n", project_env_name, "--file",
-                          spec_file])
-        else:
             process.call(
-                [conda_path, "create", "-n", project_env_name, "python=3.9"])
+                [
+                    conda_path,
+                    "env",
+                    "create",
+                    "-n",
+                    project_env_name,
+                    "--file",
+                    spec_file,
+                ]
+            )
+        else:
+            process.call([conda_path, "create", "-n", project_env_name, "python=3.9"])
 
-    project_env_path = [env for env in _list_envs(conda_path)
-                        if os.path.basename(env) == project_env_name][0]
+    project_env_path = [
+        env
+        for env in _list_envs(conda_path)
+        if os.path.basename(env) == project_env_name
+    ][0]
 
-    _logger.info(f'project env path is {project_env_path}')
+    _logger.info(f"project env path is {project_env_path}")
 
     return project_env_path
 
 
 def _list_envs(conda_path: str) -> List[str]:
     _, stdout, _ = process.call([conda_path, "env", "list", "--json"])
-    return [env for env in json.loads(stdout)['envs']]
+    return [env for env in json.loads(stdout)["envs"]]
 
 
 def pack_venv_in_conda(
-        name: str,
-        reqs: List[str],
-        changed_reqs: bool = False,
-        output: str = None,
-        additional_repo: Optional[Union[List[str], str]] = None,
-        additional_indexes: Optional[List[str]] = None
+    name: str,
+    reqs: List[str],
+    changed_reqs: bool = False,
+    output: str = None,
+    additional_repo: Optional[Union[List[str], str]] = None,
+    additional_indexes: Optional[List[str]] = None,
 ) -> str:
     """
     Pack the current virtual environment
@@ -94,8 +110,10 @@ def pack_venv_in_conda(
         return conda_pack.pack(name=name, output=output)
     else:
         return create_and_pack_conda_env(
-            reqs=reqs, output=output, additional_repo=additional_repo,
-            additional_indexes=additional_indexes
+            reqs=reqs,
+            output=output,
+            additional_repo=additional_repo,
+            additional_indexes=additional_indexes,
         )
 
 
@@ -104,7 +122,7 @@ def create_and_pack_conda_env(
     reqs: List[str] = None,
     output: str = None,
     additional_repo: Optional[Union[List[str], str]] = None,
-    additional_indexes: Optional[List[str]] = None
+    additional_indexes: Optional[List[str]] = None,
 ) -> str:
     """
     Create a new conda virtual environment and zip it
@@ -123,17 +141,19 @@ def create_and_pack_conda_env(
     if reqs:
         env_python_bin = os.path.join(env_path, "bin", "python")
         if not os.path.exists(env_python_bin):
-            raise RuntimeError(
-                "Failed to create Python binary at " + env_python_bin)
+            raise RuntimeError("Failed to create Python binary at " + env_python_bin)
 
         _logger.info("Installing packages into " + env_path)
 
         cmd = [env_python_bin, "-m", "pip", "install"]
         if additional_repo is not None:
-            additional_repo = additional_repo if isinstance(additional_repo, list) \
+            additional_repo = (
+                additional_repo
+                if isinstance(additional_repo, list)
                 else [additional_repo]
+            )
             for repo in additional_repo:
-                cmd.extend(['--extra-index-url', repo])
+                cmd.extend(["--extra-index-url", repo])
 
         if additional_indexes:
             for index in additional_indexes:

@@ -12,45 +12,70 @@ import zipfile
 import pytest
 
 from cluster_pack import packaging, get_pyenv_usage_from_archive, uploader
-from cluster_pack.packaging import CONDA_CMD, UNPACKED_ENV_NAME, LARGE_PEX_CMD, \
-    resolve_zip_from_pex_dir
+from cluster_pack.packaging import (
+    CONDA_CMD,
+    UNPACKED_ENV_NAME,
+    LARGE_PEX_CMD,
+    resolve_zip_from_pex_dir,
+)
 
 MODULE_TO_TEST = "cluster_pack.packaging"
 MYARCHIVE_FILENAME = "myarchive.pex"
 MYARCHIVE_METADATA = "myarchive.json"
-VARNAME = 'VARNAME'
+VARNAME = "VARNAME"
 PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE = {"numpy": "numpy<2"}
 
 
 def test_get_virtualenv_name():
-    with mock.patch.dict('os.environ'):
-        os.environ[VARNAME] = '/path/to/my_venv'
-        assert 'my_venv' == packaging.get_env_name(VARNAME)
+    with mock.patch.dict("os.environ"):
+        os.environ[VARNAME] = "/path/to/my_venv"
+        assert "my_venv" == packaging.get_env_name(VARNAME)
 
 
 def test_get_virtualenv_empty_returns_default():
-    with mock.patch.dict('os.environ'):
+    with mock.patch.dict("os.environ"):
         if VARNAME in os.environ:
             del os.environ[VARNAME]
-        assert 'default' == packaging.get_env_name(VARNAME)
+        assert "default" == packaging.get_env_name(VARNAME)
 
 
 def test_get_empty_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
-                               "cloudpickle", _get_editable_package_name(), "pip==22.0"])
-        editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
+        subprocess.check_call(
+            [
+                f"{tempdir}/bin/python",
+                "-m",
+                "pip",
+                "install",
+                "cloudpickle",
+                _get_editable_package_name(),
+                "pip==22.0",
+            ]
+        )
+        editable_requirements = packaging._get_editable_requirements(
+            f"{tempdir}/bin/python"
+        )
         assert len(editable_requirements) == 0
 
 
 def test_get_empty_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
-                               "-e", _get_editable_package_name(), "pip==22.0"])
+        subprocess.check_call(
+            [
+                f"{tempdir}/bin/python",
+                "-m",
+                "pip",
+                "install",
+                "-e",
+                _get_editable_package_name(),
+                "pip==22.0",
+            ]
+        )
         non_editable_requirements = packaging.get_non_editable_requirements(
-            f"{tempdir}/bin/python")
+            f"{tempdir}/bin/python"
+        )
         assert len(non_editable_requirements) == 2
         assert list(non_editable_requirements.keys()) == ["pip", "setuptools"]
 
@@ -59,7 +84,9 @@ def test__get_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
         _pip_install(tempdir)
-        editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
+        editable_requirements = packaging._get_editable_requirements(
+            f"{tempdir}/bin/python"
+        )
         assert len(editable_requirements) == 2
         pkg_names = [os.path.basename(req) for req in editable_requirements]
         assert "user_lib" in pkg_names
@@ -70,7 +97,9 @@ def test__get_editable_requirements_for_src_layout():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
         _pip_install(tempdir, use_src_layout=True)
-        editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
+        editable_requirements = packaging._get_editable_requirements(
+            f"{tempdir}/bin/python"
+        )
         assert len(editable_requirements) == 2
         pkg_names = [os.path.basename(req) for req in editable_requirements]
         assert "user_lib" in pkg_names
@@ -81,7 +110,9 @@ def test__get_editable_requirements_withpip23():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
         _pip_install(tempdir, "23.1")
-        editable_requirements = packaging._get_editable_requirements(f"{tempdir}/bin/python")
+        editable_requirements = packaging._get_editable_requirements(
+            f"{tempdir}/bin/python"
+        )
         assert len(editable_requirements) == 2
         pkg_names = [os.path.basename(req) for req in editable_requirements]
         assert "user_lib" in pkg_names
@@ -93,9 +124,14 @@ def test_get_non_editable_requirements():
         _create_venv(tempdir)
         _pip_install(tempdir)
         non_editable_requirements = packaging.get_non_editable_requirements(
-            f"{tempdir}/bin/python")
+            f"{tempdir}/bin/python"
+        )
         assert len(non_editable_requirements) == 3
-        assert list(non_editable_requirements.keys()) == ["cloudpickle", "pip", "setuptools"]
+        assert list(non_editable_requirements.keys()) == [
+            "cloudpickle",
+            "pip",
+            "setuptools",
+        ]
 
 
 def _create_venv(tempdir: str):
@@ -103,10 +139,21 @@ def _create_venv(tempdir: str):
 
 
 def _pip_install(tempdir: str, pip_version: str = "22.0", use_src_layout: bool = False):
-    subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install",
-                           "cloudpickle", f"pip=={pip_version}"])
-    pkg = (_get_editable_package_name_src_layout() if use_src_layout
-           else _get_editable_package_name())
+    subprocess.check_call(
+        [
+            f"{tempdir}/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "cloudpickle",
+            f"pip=={pip_version}",
+        ]
+    )
+    pkg = (
+        _get_editable_package_name_src_layout()
+        if use_src_layout
+        else _get_editable_package_name()
+    )
     subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install", "-e", pkg])
     if pkg not in sys.path:
         sys.path.append(pkg)
@@ -124,16 +171,21 @@ def test_get_current_pex_filepath():
     with tempfile.TemporaryDirectory() as tempdir:
         path_to_pex = f"{tempdir}/out.pex"
         packaging.pack_in_pex(
-            [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE['numpy']],
+            [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE["numpy"]],
             path_to_pex,
             # make isolated pex from current pytest virtual env
-            pex_inherit_path="false")
+            pex_inherit_path="false",
+        )
         assert os.path.exists(path_to_pex)
-        subprocess.check_output([
-            path_to_pex,
-            "-c",
-            ("""import os;"""
-             """assert "PEX" in os.environ;""")]
+        subprocess.check_output(
+            [
+                path_to_pex,
+                "-c",
+                (
+                    """import os;"""
+                    """assert "PEX" in os.environ;"""
+                ),
+            ]
         )
 
 
@@ -155,7 +207,7 @@ def test_zip_path(tmpdir):
     s = "Hello, world!"
     tmpdir.mkdir("foo").join("bar.txt").write_text(s, encoding="utf-8")
     tmpdir.mkdir("py-lib").join("bar.py").write_text(s, encoding="utf-8")
-    b = 0xffff.to_bytes(4, "little")
+    b = 0xFFFF.to_bytes(4, "little")
     tmpdir.join("boo.bin").write_binary(b)
 
     with tempfile.TemporaryDirectory() as tempdirpath:
@@ -192,37 +244,51 @@ def does_not_raise():
     [
         ("6.0.1", does_not_raise()),
         ("0.13.0", pytest.raises(subprocess.CalledProcessError)),
-    ]
+    ],
 )
 def test_pack_in_pex(pyarrow_version, expectation):
     if sys.version_info.minor in {8, 9} and pyarrow_version == "0.13.0":
         return
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
-            "protobuf==3.19.6", "tensorflow==2.5.2",
-            "tensorboard==2.10.1", f"pyarrow=={pyarrow_version}"
+            "protobuf==3.19.6",
+            "tensorflow==2.5.2",
+            "tensorboard==2.10.1",
+            f"pyarrow=={pyarrow_version}",
         ]
-        packaging.pack_in_pex(requirements, f"{tempdir}/out.pex", pex_inherit_path="false")
+        packaging.pack_in_pex(
+            requirements, f"{tempdir}/out.pex", pex_inherit_path="false"
+        )
         assert os.path.exists(f"{tempdir}/out.pex")
         with expectation:
-            print(subprocess.check_output([
-                f"{tempdir}/out.pex",
-                "-c",
-                ("""print("Start importing pyarrow and tensorflow..");"""
-                 """import pyarrow; import tensorflow;"""
-                 """print("Successfully imported pyarrow and tensorflow!")""")]
-            ))
+            print(
+                subprocess.check_output(
+                    [
+                        f"{tempdir}/out.pex",
+                        "-c",
+                        (
+                            """print("Start importing pyarrow and tensorflow..");"""
+                            """import pyarrow; import tensorflow;"""
+                            """print("Successfully imported pyarrow and tensorflow!")"""
+                        ),
+                    ]
+                )
+            )
 
 
 def test_pack_in_pex_with_allow_large():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE['numpy'], "pyarrow==6.0.1"]
+        requirements = [
+            PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE["numpy"],
+            "pyarrow==6.0.1",
+        ]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false",
-            allow_large_pex=True)
+            allow_large_pex=True,
+        )
         assert os.path.exists(f"{tempdir}/out.pex.zip")
 
         with tempfile.TemporaryDirectory() as temp_pex_dir:
@@ -231,36 +297,52 @@ def test_pack_in_pex_with_allow_large():
             os.chmod(f"{temp_pex_dir}/__main__.py", st.st_mode | stat.S_IEXEC)
 
             with does_not_raise():
-                print(subprocess.check_output([
-                    f"{temp_pex_dir}/__main__.py",
-                    "-c",
-                    ("""print("Start importing pyarrow..");"""
-                     """import pyarrow;"""
-                     """print("Successfully imported pyarrow!")""")]
-                ))
+                print(
+                    subprocess.check_output(
+                        [
+                            f"{temp_pex_dir}/__main__.py",
+                            "-c",
+                            (
+                                """print("Start importing pyarrow..");"""
+                                """import pyarrow;"""
+                                """print("Successfully imported pyarrow!")"""
+                            ),
+                        ]
+                    )
+                )
 
 
 def test_pack_in_pex_with_include_tools():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE['numpy'], "pyarrow==6.0.1"]
+        requirements = [
+            PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE["numpy"],
+            "pyarrow==6.0.1",
+        ]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false",
-            include_pex_tools=True)
+            include_pex_tools=True,
+        )
         assert os.path.exists(f"{tempdir}/out.pex")
-        cmd = ('print("Start importing pyarrow.."); '
-               'import pyarrow; '
-               'print("Successfully imported pyarrow!")')
+        cmd = (
+            'print("Start importing pyarrow.."); '
+            "import pyarrow; "
+            'print("Successfully imported pyarrow!")'
+        )
 
         with does_not_raise():
-            print(subprocess.check_output(
-                (f"PEX_TOOLS=1 {tempdir}/out.pex venv {tempdir}/pex_venv "
-                 f"&& . {tempdir}/pex_venv/bin/activate "
-                 f"&& python -c '{cmd}'"),
-                shell=True
-            ))
+            print(
+                subprocess.check_output(
+                    (
+                        f"PEX_TOOLS=1 {tempdir}/out.pex venv {tempdir}/pex_venv "
+                        f"&& . {tempdir}/pex_venv/bin/activate "
+                        f"&& python -c '{cmd}'"
+                    ),
+                    shell=True,
+                )
+            )
 
 
 @pytest.mark.parametrize(
@@ -268,69 +350,89 @@ def test_pack_in_pex_with_include_tools():
     [
         (True, "hdfs://dummy/path/env.pex"),
         (None, "hdfs://dummy/path/env.pex"),
-        (None, None)
-    ]
+        (None, None),
+    ],
 )
-def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(is_large_pex, package_path):
+def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(
+    is_large_pex, package_path
+):
     with tempfile.TemporaryDirectory() as tempdir:
         current_packages = packaging.get_non_editable_requirements(sys.executable)
         reqs = uploader._build_reqs_from_venv({}, current_packages, [])
-        local_package_path = uploader._pack_from_venv(sys.executable, reqs, tempdir,
-                                                      include_editable=True, allow_large_pex=True)
+        local_package_path = uploader._pack_from_venv(
+            sys.executable, reqs, tempdir, include_editable=True, allow_large_pex=True
+        )
         assert os.path.exists(local_package_path)
 
-        unzipped_pex_path = local_package_path.replace('.zip', '')
+        unzipped_pex_path = local_package_path.replace(".zip", "")
         os.mkdir(unzipped_pex_path)
         shutil.unpack_archive(local_package_path, unzipped_pex_path)
         st = os.stat(f"{unzipped_pex_path}/__main__.py")
         os.chmod(f"{unzipped_pex_path}/__main__.py", st.st_mode | stat.S_IEXEC)
-        package_argument_as_string = "None" if package_path is None else f"'{package_path}'"
+        package_argument_as_string = (
+            "None" if package_path is None else f"'{package_path}'"
+        )
         expected_package_path = (
             f"hdfs:///user/{getpass.getuser()}/envs/{os.path.basename(unzipped_pex_path)}.zip"
-            if is_large_pex is None else f"{package_path}.zip"
+            if is_large_pex is None
+            else f"{package_path}.zip"
         )
         with does_not_raise():
-            print(subprocess.check_output([
-                f"{unzipped_pex_path}/__main__.py",
-                "-c",
-                ("""print("Start importing cluster-pack..");"""
-                 """from cluster_pack import packaging;"""
-                 """from unittest import mock;"""
-                 """packer = packaging.detect_packer_from_env();"""
-                 """packaging.get_default_fs = mock.Mock(return_value='hdfs://');"""
-                 f"""package_path={package_argument_as_string};"""
-                 f"""allow_large_pex={is_large_pex};"""
-                 """package_path, env_name, pex_file = \
+            print(
+                subprocess.check_output(
+                    [
+                        f"{unzipped_pex_path}/__main__.py",
+                        "-c",
+                        (
+                            """print("Start importing cluster-pack..");"""
+                            """from cluster_pack import packaging;"""
+                            """from unittest import mock;"""
+                            """packer = packaging.detect_packer_from_env();"""
+                            """packaging.get_default_fs = mock.Mock(return_value='hdfs://');"""
+                            f"""package_path={package_argument_as_string};"""
+                            f"""allow_large_pex={is_large_pex};"""
+                            """package_path, env_name, pex_file = \
                     packaging.detect_archive_names(packer, package_path, allow_large_pex);"""
-                 """print(f'package_path: {package_path}');"""
-                 """print(f'pex_file: {pex_file}');"""
-                 f"""assert(package_path == "{expected_package_path}");"""
-                 """assert(pex_file.endswith('.pex'));"""
-                 )]
-            ))
+                            """print(f'package_path: {package_path}');"""
+                            """print(f'pex_file: {pex_file}');"""
+                            f"""assert(package_path == "{expected_package_path}");"""
+                            """assert(pex_file.endswith('.pex'));"""
+                        ),
+                    ]
+                )
+            )
 
 
 def test_pack_in_pex_with_additional_repo():
     with tempfile.TemporaryDirectory() as tempdir:
-        requirements = ["torch",
-                        "typing-extensions<=3.7.4.3; python_version<'3.8'",
-                        "networkx<2.6; python_version<'3.9'"]
+        requirements = [
+            "torch",
+            "typing-extensions<=3.7.4.3; python_version<'3.8'",
+            "networkx<2.6; python_version<'3.9'",
+        ]
         packaging.pack_in_pex(
             requirements,
             f"{tempdir}/out.pex",
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false",
-            additional_repo="https://download.pytorch.org/whl/cpu")
+            additional_repo="https://download.pytorch.org/whl/cpu",
+        )
 
         assert os.path.exists(f"{tempdir}/out.pex")
         with does_not_raise():
-            print(subprocess.check_output([
-                f"{tempdir}/out.pex",
-                "-c",
-                ("""print("Start importing torch..");"""
-                 """import torch;"""
-                 """print("Successfully imported torch!")""")]
-            ))
+            print(
+                subprocess.check_output(
+                    [
+                        f"{tempdir}/out.pex",
+                        "-c",
+                        (
+                            """print("Start importing torch..");"""
+                            """import torch;"""
+                            """print("Successfully imported torch!")"""
+                        ),
+                    ]
+                )
+            )
 
 
 def test_pack_in_pex_include_editable_requirements():
@@ -342,33 +444,49 @@ def test_pack_in_pex_include_editable_requirements():
             f"{tempdir}/out.pex",
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false",
-            editable_requirements={os.path.basename(requirement_dir): requirement_dir})
+            editable_requirements={os.path.basename(requirement_dir): requirement_dir},
+        )
         assert os.path.exists(f"{tempdir}/out.pex")
         with does_not_raise():
-            print(subprocess.check_output([
-                f"{tempdir}/out.pex",
-                "-c",
-                ("""print("Start importing user-lib..");import user_lib;"""
-                 """print("Successfully imported user-lib!")""")]
-            ))
+            print(
+                subprocess.check_output(
+                    [
+                        f"{tempdir}/out.pex",
+                        "-c",
+                        (
+                            """print("Start importing user-lib..");import user_lib;"""
+                            """print("Successfully imported user-lib!")"""
+                        ),
+                    ]
+                )
+            )
 
 
 def test_pack_in_pex_from_spec():
     with tempfile.TemporaryDirectory() as tempdir:
-        spec_file = os.path.join(os.path.dirname(__file__), "resources", "requirements.txt")
+        spec_file = os.path.join(
+            os.path.dirname(__file__), "resources", "requirements.txt"
+        )
         packaging.pack_spec_in_pex(
             spec_file,
             f"{tempdir}/out.pex",
             # make isolated pex from current pytest virtual env
-            pex_inherit_path="false")
+            pex_inherit_path="false",
+        )
         assert os.path.exists(f"{tempdir}/out.pex")
         with does_not_raise():
-            print(subprocess.check_output([
-                f"{tempdir}/out.pex",
-                "-c",
-                ("print('Start importing cloudpickle..');import cloudpickle;"
-                 "assert cloudpickle.__version__ == '1.4.1'")]
-            ))
+            print(
+                subprocess.check_output(
+                    [
+                        f"{tempdir}/out.pex",
+                        "-c",
+                        (
+                            "print('Start importing cloudpickle..');import cloudpickle;"
+                            "assert cloudpickle.__version__ == '1.4.1'"
+                        ),
+                    ]
+                )
+            )
 
 
 def test_get_packages():
@@ -379,30 +497,25 @@ def test_get_packages():
 
 
 def test_get_packages_with_warning():
-    subprocess.check_output = mock.Mock(return_value='{"key": "value"}\nwarning'.encode())
+    subprocess.check_output = mock.Mock(
+        return_value='{"key": "value"}\nwarning'.encode()
+    )
     packages = packaging._get_packages(False)
     expected_packages = {"key": "value"}
     assert packages == expected_packages
 
 
 test_data = [
-    ("/path/to/myenv.pex",
-     "./myenv.pex",
-     "myenv.pex"),
-    ("/path/to/myenv.zip",
-     f"{CONDA_CMD}",
-     UNPACKED_ENV_NAME),
-    ("/path/to/myenv.pex.zip",
-     f"{LARGE_PEX_CMD}",
-     UNPACKED_ENV_NAME)
+    ("/path/to/myenv.pex", "./myenv.pex", "myenv.pex"),
+    ("/path/to/myenv.zip", f"{CONDA_CMD}", UNPACKED_ENV_NAME),
+    ("/path/to/myenv.pex.zip", f"{LARGE_PEX_CMD}", UNPACKED_ENV_NAME),
 ]
 
 
-@pytest.mark.parametrize(
-    "path_to_archive, expected_cmd, expected_dest_path",
-    test_data)
-def test_gen_pyenvs_from_existing_env(path_to_archive, expected_cmd,
-                                      expected_dest_path):
+@pytest.mark.parametrize("path_to_archive, expected_cmd, expected_dest_path", test_data)
+def test_gen_pyenvs_from_existing_env(
+    path_to_archive, expected_cmd, expected_dest_path
+):
     result = get_pyenv_usage_from_archive(path_to_archive)
     assert result.path_to_archive == path_to_archive
     assert result.interpreter_cmd == expected_cmd
@@ -421,7 +534,13 @@ archive_test_data = [
     (True, "dummy/path/exe.pex", True, False, "dummy/path/exe.pex.zip"),
     (False, None, False, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
     (False, None, None, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
-    (False, None, True, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex.zip"),
+    (
+        False,
+        None,
+        True,
+        False,
+        f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex.zip",
+    ),
     (True, None, False, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex"),
     (True, None, True, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex.zip"),
     (True, None, None, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex"),
@@ -430,21 +549,23 @@ archive_test_data = [
 
 
 @pytest.mark.parametrize(
-    "running_from_pex, package_path, allow_large_pex, is_dir, expected", archive_test_data)
-def test_detect_archive_names(running_from_pex, package_path, allow_large_pex, is_dir, expected):
+    "running_from_pex, package_path, allow_large_pex, is_dir, expected",
+    archive_test_data,
+)
+def test_detect_archive_names(
+    running_from_pex, package_path, allow_large_pex, is_dir, expected
+):
     with contextlib.ExitStack() as stack:
         mock_running_from_pex = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}._running_from_pex"))
+            mock.patch(f"{MODULE_TO_TEST}._running_from_pex")
+        )
         mock_current_filepath = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.get_current_pex_filepath"))
-        mock_fs = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.get_default_fs"))
-        mock_venv = stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.get_env_name"))
-        mock_is_dir = stack.enter_context(
-            mock.patch("os.path.isdir"))
-        mock_glob = stack.enter_context(
-            mock.patch("glob.glob"))
+            mock.patch(f"{MODULE_TO_TEST}.get_current_pex_filepath")
+        )
+        mock_fs = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.get_default_fs"))
+        mock_venv = stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.get_env_name"))
+        mock_is_dir = stack.enter_context(mock.patch("os.path.isdir"))
+        mock_glob = stack.enter_context(mock.patch("glob.glob"))
 
         mock_running_from_pex.return_value = running_from_pex
         mock_current_filepath.return_value = "pex_exe.pex"
@@ -453,57 +574,66 @@ def test_detect_archive_names(running_from_pex, package_path, allow_large_pex, i
         mock_is_dir.return_value = is_dir
         mock_glob.return_value = ["pex_exe.pex.zip"]
         actual, _, _ = packaging.detect_archive_names(
-            packaging.PEX_PACKER, package_path, allow_large_pex)
+            packaging.PEX_PACKER, package_path, allow_large_pex
+        )
         assert actual == expected
 
 
 def test_resolve_zip_from_pex_dir_with_1_pex():
     # the function should work even if file and dir names are different if we handle only 1 pex
     with tempfile.TemporaryDirectory() as tempdir:
-        open(os.path.join(tempdir, "pex1.pex.zip"), 'a').close()
+        open(os.path.join(tempdir, "pex1.pex.zip"), "a").close()
         pex_dir = os.path.join(tempdir, "pex_dir")
         os.mkdir(pex_dir)
 
         resolved = resolve_zip_from_pex_dir(pex_dir)
 
-    assert resolved == os.path.join(tempdir, 'pex1.pex.zip')
+    assert resolved == os.path.join(tempdir, "pex1.pex.zip")
 
 
 def test_resolve_zip_from_pex_dir_with_2_pexes_with_correct_names():
     with tempfile.TemporaryDirectory() as tempdir:
-        open(os.path.join(tempdir, "pex1.pex.zip"), 'a').close()
+        open(os.path.join(tempdir, "pex1.pex.zip"), "a").close()
         pex1_dir = os.path.join(tempdir, "pex1.pex")
         os.mkdir(pex1_dir)
 
-        open(os.path.join(tempdir, "pex2.pex.zip"), 'a').close()
+        open(os.path.join(tempdir, "pex2.pex.zip"), "a").close()
         pex2_dir = os.path.join(tempdir, "pex2.pex")
         os.mkdir(pex2_dir)
 
-        assert resolve_zip_from_pex_dir(pex1_dir) == os.path.join(tempdir, 'pex1.pex.zip')
-        assert resolve_zip_from_pex_dir(pex2_dir) == os.path.join(tempdir, 'pex2.pex.zip')
+        assert resolve_zip_from_pex_dir(pex1_dir) == os.path.join(
+            tempdir, "pex1.pex.zip"
+        )
+        assert resolve_zip_from_pex_dir(pex2_dir) == os.path.join(
+            tempdir, "pex2.pex.zip"
+        )
 
 
 def test_resolve_zip_from_pex_dir_with_2_pexes_with_overlapping_names():
     with tempfile.TemporaryDirectory() as tempdir:
-        open(os.path.join(tempdir, "pex1.pex.zip"), 'a').close()
+        open(os.path.join(tempdir, "pex1.pex.zip"), "a").close()
         pex1_dir = os.path.join(tempdir, "pex1.pex")
         os.mkdir(pex1_dir)
 
-        open(os.path.join(tempdir, "other_pex1.pex.zip"), 'a').close()
+        open(os.path.join(tempdir, "other_pex1.pex.zip"), "a").close()
         pex2_dir = os.path.join(tempdir, "other_pex1.pex")
         os.mkdir(pex2_dir)
 
-        assert resolve_zip_from_pex_dir(pex1_dir) == os.path.join(tempdir, 'pex1.pex.zip')
-        assert resolve_zip_from_pex_dir(pex2_dir) == os.path.join(tempdir, 'other_pex1.pex.zip')
+        assert resolve_zip_from_pex_dir(pex1_dir) == os.path.join(
+            tempdir, "pex1.pex.zip"
+        )
+        assert resolve_zip_from_pex_dir(pex2_dir) == os.path.join(
+            tempdir, "other_pex1.pex.zip"
+        )
 
 
 def test_resolve_zip_from_pex_dir_with_2_pexes_with_wrong_names():
     with tempfile.TemporaryDirectory() as tempdir:
-        open(os.path.join(tempdir, "pex1.pex.zip"), 'a').close()
+        open(os.path.join(tempdir, "pex1.pex.zip"), "a").close()
         pex1_dir = os.path.join(tempdir, "pex_dir.pex")
         os.mkdir(pex1_dir)
 
-        open(os.path.join(tempdir, "pex2.pex.zip"), 'a').close()
+        open(os.path.join(tempdir, "pex2.pex.zip"), "a").close()
 
         with pytest.raises(ValueError, match=r".zip not found"):
             resolve_zip_from_pex_dir(pex1_dir)
