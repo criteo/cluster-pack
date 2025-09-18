@@ -1,6 +1,6 @@
 # cluster-pack
 
-cluster-pack is a library on top of either [pex][pex] or [conda-pack][conda-pack] to make your Python code easily available on a cluster.
+cluster-pack is a library on top of either [pex][pex] to make your Python code easily available on a cluster.
 
 Its goal is to make your prod/dev Python code & libraries easiliy available on any cluster. cluster-pack supports HDFS/S3 as a distributed storage.
 
@@ -32,7 +32,7 @@ cluster-pack supports Python ≥3.7.
 
 ## Features
 
-- Ships a package with all the dependencies from your current virtual environment or your conda environment
+- Ships a package with all the dependencies from your current virtual environment
 
 - Stores metadata for an environment
 
@@ -59,6 +59,5 @@ cluster-pack supports Python ≥3.7.
 2) [Docker with PySpark on S3](https://github.com/criteo/cluster-pack/blob/master/examples/spark-with-S3/README.md)
 
 [pex]: https://github.com/pantsbuild/pex
-[conda-pack]: https://github.com/conda/conda-pack
 [editable_installs_mode]: https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs
 [skein]: https://jcrist.github.io/skein/

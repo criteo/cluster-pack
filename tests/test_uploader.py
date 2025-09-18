@@ -166,7 +166,6 @@ def pack_spec_in_pex_mock(
     spec_file,
     output,
     pex_inherit_path="fallback",
-    allow_large_pex=False,
     include_pex_tools=False,
     additional_repo=None,
     additional_indexes=None,
@@ -236,7 +235,6 @@ def test_upload_env():
             [],
             additional_indexes=None,
             additional_repo=None,
-            allow_large_pex=False,
             editable_requirements={},
             include_pex_tools=False,
         )
@@ -255,7 +253,6 @@ def test_upload_env():
             ["a"],
             additional_indexes=None,
             additional_repo=None,
-            allow_large_pex=False,
             editable_requirements={},
             include_pex_tools=False,
         )

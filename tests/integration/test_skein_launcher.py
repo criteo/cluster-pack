@@ -90,10 +90,10 @@ def test_skein(path_to_hdfs):
 
 
 @pytest.mark.parametrize(
-    "large_pex, submit_mode",
-    [(True, "client"), (True, "cluster"), (False, "client"), (False, "cluster")],
+    "submit_mode",
+    [True, False],
 )
-def test_pyspark(path_to_hdfs, large_pex, submit_mode):
+def test_pyspark(path_to_hdfs, submit_mode):
     filepath_on_hdfs, file_content = path_to_hdfs
 
     def env(x):
@@ -106,7 +106,7 @@ def test_pyspark(path_to_hdfs, large_pex, submit_mode):
         import cluster_pack
         from cluster_pack.spark import spark_config_builder
 
-        archive, _ = cluster_pack.upload_env(allow_large_pex=large_pex)
+        archive, _ = cluster_pack.upload_env()
         ssb = SparkSession.builder.master("yarn").config(
             "spark.submit.deployMode", submit_mode
         )
