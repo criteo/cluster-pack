@@ -21,7 +21,6 @@ def build_with_func(
     tmp_dir: str = packaging._get_tmp_dir(),
     log_level: str = "INFO",
     process_logs: Callable[[str], Any] = None,
-    allow_large_pex: bool = False,
 ) -> SkeinConfig:
     """Build the skein config from provided a function
 
@@ -35,9 +34,6 @@ def build_with_func(
     :param log_level: default remote log level
     :param process_logs: hook with the local log path as a parameter,
                          can be used to uplaod the logs somewhere
-    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
-                            python's limitation with zips > 2Gb. The file will need to be unzipped
-                            and the entry point will be <output>/__main__.py
     :return: SkeinConfig
     """
     function_name = f"function_{uuid.uuid4()}.dat"
@@ -58,7 +54,6 @@ def build_with_func(
         additional_files,
         tmp_dir,
         process_logs,
-        allow_large_pex=allow_large_pex,
     )
 
 
@@ -69,7 +64,6 @@ def build(
     additional_files: Optional[List[str]] = None,
     tmp_dir: str = packaging._get_tmp_dir(),
     process_logs: Callable[[str], Any] = None,
-    allow_large_pex: bool = False,
 ) -> SkeinConfig:
     """Build the skein config for a module to execute
 
@@ -80,13 +74,10 @@ def build(
     :param tmp_dir: a temp dir for local files
     :param process_logs: hook with the local log path as a parameter,
                          can be used to uplaod the logs somewhere
-    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
-                            python's limitation with zips > 2Gb. The file will need to be unzipped
-                            and the entry point will be <output>/__main__.py
     :return: SkeinConfig
     """
     if not package_path:
-        package_path, _ = uploader.upload_env(allow_large_pex=allow_large_pex)
+        package_path, _ = uploader.upload_env()
 
     python_env_descriptor = packaging.get_pyenv_usage_from_archive(package_path)
 
