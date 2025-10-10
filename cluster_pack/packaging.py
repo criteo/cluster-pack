@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import glob
-import pathlib
 import shutil
 import subprocess
 from subprocess import CalledProcessError
@@ -14,6 +13,8 @@ from typing import Tuple, Dict, Collection, List, Any, Optional, NamedTuple, Uni
 import uuid
 import zipfile
 import setuptools
+from packaging.version import Version
+from importlib.metadata import version as pkg_version
 
 CRITEO_PYPI_URL = (
     "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
@@ -95,6 +96,19 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
             name + "==" + version if version else name
             for name, version in requirements.items()
         ]
+
+
+def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
+    if (
+            not allow_large_pex
+            and Version(pkg_version('pex')) < Version("2.41.1")
+            and os.path.getsize(pex_file) > 2 * 1024 * 1024 * 1024
+    ):
+        raise PexTooLargeError(
+            "The generate pex is larger than 2Gb and won't be executable"
+            " by python; Please set the 'allow_large_pex' "
+            "flag in upload_env, or update pex to >=2.41.1"
+        )
 
 
 def pack_spec_in_pex(
@@ -202,15 +216,7 @@ def pack_in_pex(
             _logger.exception(err.stderr.decode("ascii"))
             raise PexCreationError(err.stderr.decode("ascii"))
 
-        if (
-            not allow_large_pex
-            and os.path.getsize(output + tmp_ext) > 2 * 1024 * 1024 * 1024
-        ):
-            raise PexTooLargeError(
-                "The generate pex is larger than 2Gb and won't be executable"
-                " by python; Please set the 'allow_large_pex' "
-                "flag in upload_env"
-            )
+        check_large_pex(allow_large_pex, output + tmp_ext)
 
         if allow_large_pex:
             shutil.make_archive(output, "zip", output + tmp_ext)
