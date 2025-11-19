@@ -413,8 +413,7 @@ def test_pack_in_pex_with_additional_repo():
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "torch",
-            "typing-extensions<=3.7.4.3; python_version<'3.8'",
-            "networkx<2.6; python_version<'3.9'",
+            "networkx<3.2.2; python_version<='3.9'",
         ]
         packaging.pack_in_pex(
             requirements,

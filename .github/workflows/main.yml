@@ -67,7 +67,7 @@ jobs:
       run: docker ps -a
 
     - name: Run spark Job
-      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh $SPARK_INPUT_VERSION
+      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh 3.3.1
 
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest
