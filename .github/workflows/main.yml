@@ -61,14 +61,13 @@ jobs:
     
     - name: Build the docker-compose stack
       run: |
-        export PYTHON_VERSION=3.9
         docker compose -f ./examples/spark-with-S3/docker-compose.yml up -d
       
     - name: Check running containers
       run: docker ps -a
 
     - name: Run spark Job
-      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh python3.9 3.3.1
+      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh $SPARK_INPUT_VERSION
 
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest
