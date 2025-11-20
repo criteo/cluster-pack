@@ -57,7 +57,7 @@ jobs:
     - uses: actions/checkout@v2
     
     - name: Build spark-docker
-      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=3.3.1 --build-arg PYTHON_VERSION=3.9.15
+      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=3.5.7 --build-arg PYTHON_VERSION=3.9.15
     
     - name: Build the docker-compose stack
       run: |
@@ -66,8 +66,11 @@ jobs:
     - name: Check running containers
       run: docker ps -a
 
-    - name: Run spark Job
-      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh 3.3.1
+    - name: Install pyspark
+      run: docker exec spark-master ./examples/spark-with-S3/scripts/install_pyspark.sh 3.5.7
+
+    - name: Run spark Job with implicitly created pex
+      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
 
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest
