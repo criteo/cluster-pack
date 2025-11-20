@@ -512,17 +512,17 @@ def test__handle_packages_use_local_wheel():
 
 
 def test__handle_packages_use_other_package():
-    current_packages = {"tensorflow": "2.5.2"}
+    current_packages = {"tensorflow": "2.12.0"}
     uploader._handle_packages(
         current_packages,
-        additional_packages={"tensorflow_gpu": "2.5.2"},
+        additional_packages={"tensorflow_gpu": "2.12.0"},
         ignored_packages="tensorflow",
     )
 
     print(current_packages)
     assert len(current_packages) == 1
     assert next(iter(current_packages.keys())) == "tensorflow_gpu"
-    assert next(iter(current_packages.values())) == "2.5.2"
+    assert next(iter(current_packages.values())) == "2.12.0"
 
 
 @pytest.mark.parametrize(

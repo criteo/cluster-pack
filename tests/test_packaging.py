@@ -258,7 +258,7 @@ def test_pack_in_pex(pyarrow_version, expectation):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "protobuf==3.19.6",
-            "tensorflow==2.5.2",
+            "tensorflow==2.12.0",
             "tensorboard==2.10.1",
             f"pyarrow=={pyarrow_version}",
         ]
