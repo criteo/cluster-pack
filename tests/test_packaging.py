@@ -29,7 +29,6 @@ MODULE_TO_TEST = "cluster_pack.packaging"
 MYARCHIVE_FILENAME = "myarchive.pex"
 MYARCHIVE_METADATA = "myarchive.json"
 VARNAME = "VARNAME"
-PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE = {"numpy": "numpy<2"}
 
 
 def test_get_virtualenv_name():
@@ -177,7 +176,7 @@ def test_get_current_pex_filepath():
     with tempfile.TemporaryDirectory() as tempdir:
         path_to_pex = f"{tempdir}/out.pex"
         packaging.pack_in_pex(
-            [PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE["numpy"]],
+            ["numpy"],
             path_to_pex,
             # make isolated pex from current pytest virtual env
             pex_inherit_path="false",
@@ -243,30 +242,25 @@ def does_not_raise():
     yield
 
 
-# check fix of https://issues.apache.org/jira/browse/ARROW-5130
-# which only works with pulled manylinux2010 wheel
-@pytest.mark.parametrize(
-    "pyarrow_version,expectation",
-    [
-        ("6.0.1", does_not_raise()),
-        ("0.13.0", pytest.raises(subprocess.CalledProcessError)),
-    ],
-)
-def test_pack_in_pex(pyarrow_version, expectation):
-    if sys.version_info.minor in {8, 9} and pyarrow_version == "0.13.0":
-        return
-    with tempfile.TemporaryDirectory() as tempdir:
+def test_pack_in_pex():
+    if sys.version_info.minor == 9:
         requirements = [
             "protobuf==3.19.6",
-            "tensorflow==2.12.0",
+            "tensorflow==2.5.2",
             "tensorboard==2.10.1",
-            f"pyarrow=={pyarrow_version}",
+            "pyarrow==6.0.1",
         ]
+    else:
+        requirements = [
+            "tensorflow",
+            "pyarrow"
+        ]
+    with tempfile.TemporaryDirectory() as tempdir:
         packaging.pack_in_pex(
             requirements, f"{tempdir}/out.pex", pex_inherit_path="false"
         )
         assert os.path.exists(f"{tempdir}/out.pex")
-        with expectation:
+        with does_not_raise():
             print(
                 subprocess.check_output(
                     [
@@ -285,8 +279,8 @@ def test_pack_in_pex(pyarrow_version, expectation):
 def test_pack_in_pex_with_allow_large():
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
-            PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE["numpy"],
-            "pyarrow==6.0.1",
+            "numpy",
+            "pyarrow",
         ]
         packaging.pack_in_pex(
             requirements,
@@ -321,8 +315,8 @@ def test_pack_in_pex_with_allow_large():
 def test_pack_in_pex_with_include_tools():
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
-            PINNED_VERSIONS_FOR_COMPATIBILITY_ISSUE["numpy"],
-            "pyarrow==6.0.1",
+            "numpy",
+            "pyarrow",
         ]
         packaging.pack_in_pex(
             requirements,

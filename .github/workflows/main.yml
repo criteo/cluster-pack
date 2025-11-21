@@ -75,10 +75,6 @@ jobs:
     - name: Run spark Job with implicitly created pex
       run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
 
-#    - name: Run spark Job with implicitly created pex
-#      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
-
-
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest
 
