@@ -33,7 +33,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.9]
+        python-version: [3.9, 3.11]
 
     steps:
     - uses: actions/checkout@v2
@@ -52,23 +52,28 @@ jobs:
 
   standalone_spark3_with_S3:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: [ { python: 3.9.15, spark: 3.5.7 }, { python: 3.11.8, spark: 3.5.7 } ]
 
     steps:
     - uses: actions/checkout@v2
     
     - name: Build spark-docker
-      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=3.3.1 --build-arg PYTHON_VERSION=3.9.15
+      run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=${{ matrix.version.spark }} --build-arg PYTHON_VERSION=${{ matrix.version.python }}
     
     - name: Build the docker-compose stack
       run: |
-        export PYTHON_VERSION=3.9
         docker compose -f ./examples/spark-with-S3/docker-compose.yml up -d
       
     - name: Check running containers
       run: docker ps -a
 
-    - name: Run spark Job
-      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh python3.9 3.3.1
+    - name: Install pyspark
+      run: docker exec spark-master ./examples/spark-with-S3/scripts/install_pyspark.sh ${{ matrix.version.spark }}
+
+    - name: Run spark Job with implicitly created pex
+      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
 
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest
