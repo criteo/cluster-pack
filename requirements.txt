@@ -5,6 +5,6 @@ pyarrow
 fire
 types-setuptools
 wheel-filename
-fsspec
+fsspec<=2025.10.0
 skein
 packaging
