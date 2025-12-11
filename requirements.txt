@@ -6,5 +6,6 @@ fire
 types-setuptools
 wheel-filename
 fsspec<=2025.10.0
+s3fs<=2025.5.0
 skein
 packaging
