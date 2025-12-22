@@ -1,5 +1,6 @@
 import getpass
 import hashlib
+import importlib.metadata
 import json
 import logging
 import os
@@ -7,11 +8,19 @@ import sys
 import pathlib
 import platform
 import tempfile
+from packaging import version
 from typing import Tuple, Dict, Collection, List, Any, Optional, Union
 from urllib import parse, request
 
 from pex.pex_info import PexInfo
-from wheel_filename import parse_wheel_filename
+
+# wheel_filename introduce breaking change in 2.0.0
+wheel_filename_version = version.parse(importlib.metadata.version("wheel_filename"))
+if wheel_filename_version >= version.parse("2.0.0"):
+    from wheel_filename import WheelFilename as _WF  # type: ignore[no-redef, attr-defined]
+    parse_wheel = _WF.parse
+else:
+    from wheel_filename import parse_wheel_filename as parse_wheel  # noqa: E501 # type: ignore[no-redef, attr-defined]
 
 from cluster_pack import filesystem, packaging
 
@@ -475,7 +484,7 @@ def _sort_requirements(a: List[str]) -> List[str]:
 
 
 def _format_pex_requirements(pex_info: PexInfo) -> List[str]:
-    reqs = [parse_wheel_filename(req) for req in pex_info.distributions.keys()]
+    reqs = [parse_wheel(req) for req in pex_info.distributions.keys()]
     return [f"{req.project}=={req.version}" for req in reqs]
 
 
