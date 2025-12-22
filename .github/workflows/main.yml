@@ -12,10 +12,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.9
+    - name: Set up Python 3.11
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: 3.11
     - name: Install dependencies
       run: |
         pip install --upgrade pip
@@ -33,7 +33,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.9, 3.11]
+        python-version: [3.11]
 
     steps:
     - uses: actions/checkout@v2
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [ { python: 3.9.15, spark: 3.5.7 }, { python: 3.11.8, spark: 3.5.7 } ]
+        version: [ { python: 3.11.8, spark: 3.5.7 } ]
 
     steps:
     - uses: actions/checkout@v2
