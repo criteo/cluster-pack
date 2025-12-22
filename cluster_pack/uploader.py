@@ -11,7 +11,7 @@ from typing import Tuple, Dict, Collection, List, Any, Optional, Union
 from urllib import parse, request
 
 from pex.pex_info import PexInfo
-from wheel_filename import parse_wheel_filename
+from wheel_filename import WheelFilename
 
 from cluster_pack import filesystem, packaging
 
@@ -475,7 +475,7 @@ def _sort_requirements(a: List[str]) -> List[str]:
 
 
 def _format_pex_requirements(pex_info: PexInfo) -> List[str]:
-    reqs = [parse_wheel_filename(req) for req in pex_info.distributions.keys()]
+    reqs = [WheelFilename.parse(req) for req in pex_info.distributions.keys()]
     return [f"{req.project}=={req.version}" for req in reqs]
 
 
