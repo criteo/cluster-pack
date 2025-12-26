@@ -99,15 +99,14 @@ def format_requirements(requirements: Dict[str, str]) -> List[str]:
 
 
 def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
-    if (
-            not allow_large_pex
-            and Version(pkg_version('pex')) < Version("2.41.1")
-            and os.path.getsize(pex_file) > 2 * 1024 * 1024 * 1024
-    ):
+    if allow_large_pex:
+        return
+
+    max_pex_size_gb = 2 if Version(pkg_version('pex')) < Version("2.41.1") else 4
+    if os.path.getsize(pex_file) > max_pex_size_gb * 1024 * 1024 * 1024:
         raise PexTooLargeError(
-            "The generate pex is larger than 2Gb and won't be executable"
-            " by python; Please set the 'allow_large_pex' "
-            "flag in upload_env, or update pex to >=2.41.1"
+            f"The generate pex is larger than {max_pex_size_gb}Gb and won't be executable"
+            " by python; Please set the 'allow_large_pex' flag in upload_env"
         )
 
 
