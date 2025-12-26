@@ -649,10 +649,18 @@ def test_resolve_zip_from_pex_dir_with_no_zip_found():
 @pytest.mark.parametrize(
     "pex_size,pex_version,allow_large_pex,should_raise",
     [
-        (2 * 1024 * 1024 * 1024 + 1, "2.40.0", False, True),   # Large pex, old, no allow
-        (2 * 1024 * 1024 * 1024 + 1, "2.40.0", True, False),   # Large pex, old, allow
-        (1024, "2.40.0", False, False),                        # Small pex, old, no allow
-        (2 * 1024 * 1024 * 1024 + 1, "2.41.1", False, False),  # Large pex, new, no allow
+        # Old large pex >2GB, disallow large pex => failure
+        (2 * 1024 * 1024 * 1024 + 1, "2.40.0", False, True),
+        # Old large pex >2GB, allow large pex => success
+        (2 * 1024 * 1024 * 1024 + 1, "2.40.0", True, False),
+        # Old small pex <=2GB, disallow large pex => success
+        (2 * 1024 * 1024 * 1024, "2.40.0", False, False),
+        # New small pex <=4GB, disallow large pex => success
+        (4 * 1024 * 1024 * 1024, "2.41.1", False, False),
+        # New large pex >4GB, disallow large pex => failure
+        (4 * 1024 * 1024 * 1024 + 1, "2.41.1", False, True),
+        # New large pex >4GB, allow large pex => success
+        (4 * 1024 * 1024 * 1024 + 1, "2.41.1", True, False),
     ]
 )
 @mock.patch("cluster_pack.packaging.Version")
