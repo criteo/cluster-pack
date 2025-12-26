@@ -1,13 +1,14 @@
 import contextlib
+import getpass
 import os
+import shutil
 import stat
 import subprocess
 import sys
-import shutil
 import tempfile
-import getpass
-from unittest import mock
 import zipfile
+from importlib.metadata import version as pkg_version
+from unittest import mock
 
 import pytest
 
@@ -16,7 +17,6 @@ from cluster_pack import (
     get_pyenv_usage_from_archive,
     uploader,
 )
-
 from cluster_pack.packaging import (
     UNPACKED_ENV_NAME,
     LARGE_PEX_CMD,
@@ -645,27 +645,28 @@ def test_resolve_zip_from_pex_dir_with_no_zip_found():
         with pytest.raises(ValueError, match=r".zip not found"):
             resolve_zip_from_pex_dir(pex1_dir)
 
-    @pytest.mark.parametrize(
-        "pex_size,pex_version,allow_large_pex,should_raise",
-        [
-            (2 * 1024 * 1024 * 1024 + 1, "2.40.0", False, True),   # Large pex, old, no allow
-            (2 * 1024 * 1024 * 1024 + 1, "2.40.0", True, False),   # Large pex, old, allow
-            (1024, "2.40.0", False, False),                        # Small pex, old, no allow
-            (2 * 1024 * 1024 * 1024 + 1, "2.41.1", False, False),  # Large pex, new, no allow
-        ]
-    )
-    @mock.patch("cluster_pack.packaging.Version")
-    @mock.patch("cluster_pack.packaging.pex")
-    @mock.patch("os.path.getsize")
-    def test_check_large_pex(
-            mock_getsize, mock_pex, mock_version,
-            pex_size, pex_version, allow_large_pex, should_raise
-    ):
-        mock_getsize.return_value = pex_size
-        mock_pex.__version__ = pex_version
-        mock_version.side_effect = lambda v: v
-        if should_raise:
-            with pytest.raises(PexTooLargeError):
-                check_large_pex(allow_large_pex, "dummy.pex")
-        else:
+
+@pytest.mark.parametrize(
+    "pex_size,pex_version,allow_large_pex,should_raise",
+    [
+        (2 * 1024 * 1024 * 1024 + 1, "2.40.0", False, True),   # Large pex, old, no allow
+        (2 * 1024 * 1024 * 1024 + 1, "2.40.0", True, False),   # Large pex, old, allow
+        (1024, "2.40.0", False, False),                        # Small pex, old, no allow
+        (2 * 1024 * 1024 * 1024 + 1, "2.41.1", False, False),  # Large pex, new, no allow
+    ]
+)
+@mock.patch("cluster_pack.packaging.Version")
+@mock.patch("cluster_pack.packaging.pkg_version")
+@mock.patch("os.path.getsize")
+def test_check_large_pex(
+        mock_getsize, mock_pkg_version, mock_version,
+        pex_size, pex_version, allow_large_pex, should_raise
+):
+    mock_getsize.return_value = pex_size
+    mock_pkg_version.side_effect = lambda pkg: pex_version if pkg == "pex" else pkg_version(pkg)
+    mock_version.side_effect = lambda v: v
+    if should_raise:
+        with pytest.raises(PexTooLargeError):
             check_large_pex(allow_large_pex, "dummy.pex")
+    else:
+        check_large_pex(allow_large_pex, "dummy.pex")
