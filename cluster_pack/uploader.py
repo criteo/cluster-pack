@@ -181,80 +181,11 @@ def upload_env(
     return (package_path, env_name)
 
 
-def upload_spec(
-    spec_file: str,
-    package_path: str = None,
-    force_upload: bool = False,
-    fs_args: Dict[str, Any] = {},
-    allow_large_pex: bool = False,
-) -> str:
-    """Upload an environment from a spec file
-
-    :param spec_file: the spec file, must be requirements.txt
-    :param package_path: the path where to upload the package
-    :param force_upload: whether the cache should be cleared
-    :param fs_args: specific arguments for special file systems (like S3)
-    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
-                            python's limitation with zips > 2Gb. The file will need to be unzipped
-                            and the entry point will be <output>/__main__.py
-    :return: package_path
-    """
-    packer = packaging.detect_packer_from_spec(spec_file)
-    if not package_path:
-        package_path = (
-            f"{packaging.get_default_fs()}/user/{getpass.getuser()}"
-            f"/envs/{_unique_filename(spec_file, packer)}"
-        )
-    elif not package_path.endswith(packer.extension()):
-        package_path = os.path.join(package_path, _unique_filename(spec_file, packer))
-
-    if (
-        packer.extension() == packaging.PEX_PACKER.extension()
-        and allow_large_pex
-        and not package_path.endswith(".zip")
-    ):
-        package_path += ".zip"
-
-    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
-
-    hash = _get_hash(spec_file)
-    _logger.info(f"Packaging from {spec_file} with hash={hash}")
-    reqs = [hash]
-
-    up_to_date = _is_archive_up_to_date(package_path, reqs, resolved_fs)
-    if force_upload or not up_to_date:
-        _logger.info(f"Zipping and uploading your env to {package_path}")
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            archive_local = packer.pack_from_spec(
-                spec_file=spec_file,
-                output=f"{tempdir}/{packer.env_name()}.{packer.extension()}",
-                allow_large_pex=allow_large_pex,
-            )
-
-            dir = os.path.dirname(package_path)
-            if not resolved_fs.exists(dir):
-                resolved_fs.mkdir(dir)
-            resolved_fs.put(archive_local, package_path)
-
-            _dump_archive_metadata(package_path, reqs, resolved_fs)
-    else:
-        _logger.info(f"{package_path} already exists")
-
-    return package_path
-
-
 def _unique_filename(spec_file: str, packer: packaging.Packer) -> str:
     repo = os.path.basename(os.path.dirname(spec_file))
     if repo:
         repo = "_" + repo
     return f"cluster_pack{repo}.{packer.extension()}"
-
-
-def _get_hash(spec_file: str) -> str:
-    with open(spec_file) as f:
-        return hashlib.sha1(f.read().encode()).hexdigest()
-
 
 def _upload_pex_file(
     packer: packaging.Packer,
