@@ -375,8 +375,6 @@ def test__handle_packages_use_other_package():
         pytest.param("requirements.txt", "cluster_pack.pex"),
     ],
 )
-
-
 def get_latest_pip_version() -> str:
     p = subprocess.Popen(
         "pip index versions pip",

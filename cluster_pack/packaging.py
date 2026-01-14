@@ -109,6 +109,7 @@ def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
             " by python; Please set the 'allow_large_pex' flag in upload_env"
         )
 
+
 def pack_in_pex(
     requirements: List[str],
     output: str,
@@ -252,6 +253,7 @@ class Packer(object):
         additional_indexes: Optional[List[str]] = None,
     ) -> str:
         raise NotImplementedError
+
 
 def get_env_name(env_var_name: str) -> str:
     """

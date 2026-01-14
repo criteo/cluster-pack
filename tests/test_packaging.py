@@ -281,9 +281,9 @@ def test_pack_in_pex():
                         f"{tempdir}/out.pex",
                         "-c",
                         (
-                            """print("Start importing pyarrow and tensorflow..");"""
-                            """import pyarrow; import tensorflow;"""
-                            """print("Successfully imported pyarrow and tensorflow!")"""
+                            """print("Start importing pyarrow and numpy..");"""
+                            """import pyarrow; import numpy;"""
+                            """print("Successfully imported pyarrow and numpy!")"""
                         ),
                     ]
                 )
