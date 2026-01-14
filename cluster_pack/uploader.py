@@ -1,5 +1,3 @@
-import getpass
-import hashlib
 import importlib.metadata
 import json
 import logging
@@ -180,12 +178,6 @@ def upload_env(
 
     return (package_path, env_name)
 
-
-def _unique_filename(spec_file: str, packer: packaging.Packer) -> str:
-    repo = os.path.basename(os.path.dirname(spec_file))
-    if repo:
-        repo = "_" + repo
-    return f"cluster_pack{repo}.{packer.extension()}"
 
 def _upload_pex_file(
     packer: packaging.Packer,

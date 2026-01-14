@@ -375,8 +375,6 @@ def test__handle_packages_use_other_package():
         pytest.param("requirements.txt", "cluster_pack.pex"),
     ],
 )
-def test__unique_filename(spec_file, expected):
-    assert expected == uploader._unique_filename(spec_file, packaging.PEX_PACKER)
 
 
 def get_latest_pip_version() -> str:

@@ -265,18 +265,10 @@ def does_not_raise():
 
 
 def test_pack_in_pex():
-    if sys.version_info.minor == 9:
-        requirements = [
-            "protobuf==3.19.6",
-            "tensorflow==2.5.2",
-            "tensorboard==2.10.1",
-            "pyarrow==6.0.1",
-        ]
-    else:
-        requirements = [
-            "tensorflow",
-            "pyarrow"
-        ]
+    requirements = [
+        "numpy",
+        "pyarrow"
+    ]
     with tempfile.TemporaryDirectory() as tempdir:
         packaging.pack_in_pex(
             requirements, f"{tempdir}/out.pex", pex_inherit_path="false"
