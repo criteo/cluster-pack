@@ -9,6 +9,8 @@ from cluster_pack.packaging import (
     Packer,
     PEX_PACKER,
     get_pyenv_usage_from_archive,
+    set_venv_optimization_level,
+    VENV_OPTIMIZATION_LEVEL,
 )
 
 from cluster_pack.skein import skein_launcher as yarn_launcher

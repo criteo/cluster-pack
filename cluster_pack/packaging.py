@@ -47,6 +47,17 @@ LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 UV_AVAILABLE: bool = False
 
+VENV_OPTIMIZATION_LEVEL: int = 1
+
+
+def set_venv_optimization_level(level: int) -> None:
+    """Set the venv optimization level for pex builds.
+
+    :param level: optimization level (0=disabled, 1=default optimizations, 2=aggressive)
+    """
+    global VENV_OPTIMIZATION_LEVEL
+    VENV_OPTIMIZATION_LEVEL = level
+
 
 def _detect_uv() -> bool:
     """Detect if uv is installed and available in PATH."""
@@ -124,6 +135,75 @@ def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
         )
 
 
+def _create_uv_venv_with_deps(
+    venv_path: str,
+    requirements: List[str],
+    additional_repo: Optional[Union[str, List[str]]] = None,
+    additional_indexes: Optional[List[str]] = None,
+) -> None:
+    """Create a uv venv and install all dependencies."""
+    subprocess.check_call(["uv", "venv", venv_path, "--python", sys.executable, "--seed"])
+
+    pip_cmd = ["uv", "pip", "install", "--python", f"{venv_path}/bin/python"]
+
+    if additional_repo is not None:
+        repos = additional_repo if isinstance(additional_repo, list) else [additional_repo]
+        for repo in repos:
+            pip_cmd.extend(["--index-url", repo])
+
+    if additional_indexes:
+        for index in additional_indexes:
+            pip_cmd.extend(["-f", index])
+
+    if requirements:
+        subprocess.check_call(pip_cmd + requirements)
+
+
+def _is_running_in_venv() -> bool:
+    """Check if currently running inside a virtual environment."""
+    return sys.prefix != sys.base_prefix
+
+
+def _check_venv_has_requirements(venv_path: Optional[str], requirements: List[str]) -> bool:
+    """Check if all requirements are installed in the venv.
+    :param venv_path: Path to venv, or None to check the currently activated environment.
+    :param requirements: List of requirements to check.
+    :return: True if all requirements are satisfied, False if not in a venv when venv_path is None.
+    """
+    if venv_path is None and not _is_running_in_venv():
+        _logger.debug("Not running in a venv, cannot check requirements")
+        return False
+
+    python_executable = f"{venv_path}/bin/python" if venv_path else sys.executable
+    try:
+        result = subprocess.run(
+            [python_executable, "-m", "pip", "freeze"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        installed = {}
+        for line in result.stdout.strip().split("\n"):
+            if "==" in line:
+                name, version = line.split("==", 1)
+                installed[name.lower()] = version
+
+        for req in requirements:
+            if "==" in req:
+                name, version = req.split("==", 1)
+                if installed.get(name.lower()) != version:
+                    _logger.debug(f"Requirement {req} not satisfied in venv")
+                    return False
+            else:
+                name = req.split("[")[0].split("<")[0].split(">")[0].split("!")[0].strip()
+                if name.lower() not in installed:
+                    _logger.debug(f"Requirement {name} not found in venv")
+                    return False
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
 def pack_in_pex(
     requirements: List[str],
     output: str,
@@ -135,7 +215,6 @@ def pack_in_pex(
     additional_indexes: Optional[List[str]] = None,
 ) -> str:
     """Pack current environment using a pex.
-
     :param additional_repo: an additional pypi repo if one was used env creation
     :param requirements: list of requirements (ex {'tensorflow': '1.15.0'})
     :param output: location of the pex
@@ -155,31 +234,54 @@ def pack_in_pex(
             tmp_ext = ".tmp"
         else:
             tmp_ext = ""
+
         if include_pex_tools:
             cmd.extend(["--include-tools"])
 
+        venv_repo_path = None
+        if VENV_OPTIMIZATION_LEVEL >= 1:
+            if _check_venv_has_requirements(venv_repo_path, requirements):
+                cmd.extend(["--venv-repository"])
+            else:
+                if UV_AVAILABLE:
+                    venv_repo_path = os.path.join(tempdir, "venv_repo")
+                    _create_uv_venv_with_deps(
+                        venv_repo_path,
+                        requirements,
+                        additional_repo,
+                        additional_indexes,
+                    )
+                    cmd.extend(["--venv-repository", venv_repo_path])
+                else:
+                    _logger.warning("Not running from venv or venv missing some requirements,"
+                                    " skipping optimization")
+
+            cmd.extend(["--max-install-jobs", "0"])
+
+        if VENV_OPTIMIZATION_LEVEL >= 2:
+            cmd.extend(["--no-pre-install-wheel"])
+
+        sources_dir = os.path.join(tempdir, "sources")
         if editable_requirements and len(editable_requirements) > 0:
+            os.makedirs(sources_dir, exist_ok=True)
             for current_package in editable_requirements.values():
                 _logger.debug("Add current path as source", current_package)
                 shutil.copytree(
                     current_package,
-                    os.path.join(tempdir, os.path.basename(current_package)),
+                    os.path.join(sources_dir, os.path.basename(current_package)),
                 )
-            cmd.append(f"--sources-directory={tempdir}")
+            cmd.append(f"--sources-directory={sources_dir}")
 
         for req in requirements:
             _logger.debug(f"Add requirement {req}")
             cmd.append(req)
+
         if _is_criteo():
             cmd.append(f"--index-url={CRITEO_PYPI_URL}")
 
         if additional_repo is not None:
-            additional_repo = (
-                additional_repo
-                if isinstance(additional_repo, list)
-                else [additional_repo]
-            )
-            for repo in additional_repo:
+            repos = additional_repo if isinstance(additional_repo, list) else [additional_repo]
+            for repo in repos:
                 cmd.append(f"--index-url={repo}")
 
         if additional_indexes:
