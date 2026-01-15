@@ -1,4 +1,4 @@
-from cluster_pack.uploader import upload_env, upload_zip, upload_spec
+from cluster_pack.uploader import upload_env, upload_zip
 
 from cluster_pack.packaging import (
     zip_path,

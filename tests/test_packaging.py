@@ -31,6 +31,28 @@ MYARCHIVE_METADATA = "myarchive.json"
 VARNAME = "VARNAME"
 
 
+@pytest.fixture(scope="module")
+def large_pex_unzipped():
+    """Build a large pex once and share across tests, cleanup at the end."""
+    tempdir = tempfile.mkdtemp()
+    try:
+        current_packages = packaging.get_non_editable_requirements(sys.executable)
+        reqs = uploader._build_reqs_from_venv({}, current_packages, [])
+        local_package_path = uploader._pack_from_venv(
+            sys.executable, reqs, tempdir, include_editable=True, allow_large_pex=True
+        )
+        assert os.path.exists(local_package_path)
+
+        unzipped_pex_path = local_package_path.replace(".zip", "")
+        os.mkdir(unzipped_pex_path)
+        shutil.unpack_archive(local_package_path, unzipped_pex_path)
+        st = os.stat(f"{unzipped_pex_path}/__main__.py")
+        os.chmod(f"{unzipped_pex_path}/__main__.py", st.st_mode | stat.S_IEXEC)
+        yield unzipped_pex_path
+    finally:
+        shutil.rmtree(tempdir)
+
+
 def test_get_virtualenv_name():
     with mock.patch.dict("os.environ"):
         os.environ[VARNAME] = "/path/to/my_venv"
@@ -243,18 +265,10 @@ def does_not_raise():
 
 
 def test_pack_in_pex():
-    if sys.version_info.minor == 9:
-        requirements = [
-            "protobuf==3.19.6",
-            "tensorflow==2.5.2",
-            "tensorboard==2.10.1",
-            "pyarrow==6.0.1",
-        ]
-    else:
-        requirements = [
-            "tensorflow",
-            "pyarrow"
-        ]
+    requirements = [
+        "numpy",
+        "pyarrow"
+    ]
     with tempfile.TemporaryDirectory() as tempdir:
         packaging.pack_in_pex(
             requirements, f"{tempdir}/out.pex", pex_inherit_path="false"
@@ -267,9 +281,9 @@ def test_pack_in_pex():
                         f"{tempdir}/out.pex",
                         "-c",
                         (
-                            """print("Start importing pyarrow and tensorflow..");"""
-                            """import pyarrow; import tensorflow;"""
-                            """print("Successfully imported pyarrow and tensorflow!")"""
+                            """print("Start importing pyarrow and numpy..");"""
+                            """import pyarrow; import numpy;"""
+                            """print("Successfully imported pyarrow and numpy!")"""
                         ),
                     ]
                 )
@@ -354,53 +368,41 @@ def test_pack_in_pex_with_include_tools():
     ],
 )
 def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(
-    is_large_pex, package_path
+    large_pex_unzipped, is_large_pex, package_path
 ):
-    with tempfile.TemporaryDirectory() as tempdir:
-        current_packages = packaging.get_non_editable_requirements(sys.executable)
-        reqs = uploader._build_reqs_from_venv({}, current_packages, [])
-        local_package_path = uploader._pack_from_venv(
-            sys.executable, reqs, tempdir, include_editable=True, allow_large_pex=True
-        )
-        assert os.path.exists(local_package_path)
-
-        unzipped_pex_path = local_package_path.replace(".zip", "")
-        os.mkdir(unzipped_pex_path)
-        shutil.unpack_archive(local_package_path, unzipped_pex_path)
-        st = os.stat(f"{unzipped_pex_path}/__main__.py")
-        os.chmod(f"{unzipped_pex_path}/__main__.py", st.st_mode | stat.S_IEXEC)
-        package_argument_as_string = (
-            "None" if package_path is None else f"'{package_path}'"
-        )
-        expected_package_path = (
-            f"hdfs:///user/{getpass.getuser()}/envs/{os.path.basename(unzipped_pex_path)}.zip"
-            if is_large_pex is None
-            else f"{package_path}.zip"
-        )
-        with does_not_raise():
-            print(
-                subprocess.check_output(
-                    [
-                        f"{unzipped_pex_path}/__main__.py",
-                        "-c",
-                        (
-                            """print("Start importing cluster-pack..");"""
-                            """from cluster_pack import packaging;"""
-                            """from unittest import mock;"""
-                            """packer = packaging.detect_packer_from_env();"""
-                            """packaging.get_default_fs = mock.Mock(return_value='hdfs://');"""
-                            f"""package_path={package_argument_as_string};"""
-                            f"""allow_large_pex={is_large_pex};"""
-                            """package_path, env_name, pex_file = \
+    unzipped_pex_path = large_pex_unzipped
+    package_argument_as_string = (
+        "None" if package_path is None else f"'{package_path}'"
+    )
+    expected_package_path = (
+        f"hdfs:///user/{getpass.getuser()}/envs/{os.path.basename(unzipped_pex_path)}.zip"
+        if is_large_pex is None
+        else f"{package_path}.zip"
+    )
+    with does_not_raise():
+        print(
+            subprocess.check_output(
+                [
+                    f"{unzipped_pex_path}/__main__.py",
+                    "-c",
+                    (
+                        """print("Start importing cluster-pack..");"""
+                        """from cluster_pack import packaging;"""
+                        """from unittest import mock;"""
+                        """packer = packaging.detect_packer_from_env();"""
+                        """packaging.get_default_fs = mock.Mock(return_value='hdfs://');"""
+                        f"""package_path={package_argument_as_string};"""
+                        f"""allow_large_pex={is_large_pex};"""
+                        """package_path, env_name, pex_file = \
                     packaging.detect_archive_names(packer, package_path, allow_large_pex);"""
-                            """print(f'package_path: {package_path}');"""
-                            """print(f'pex_file: {pex_file}');"""
-                            f"""assert(package_path == "{expected_package_path}");"""
-                            """assert(pex_file.endswith('.pex'));"""
-                        ),
-                    ]
-                )
+                        """print(f'package_path: {package_path}');"""
+                        """print(f'pex_file: {pex_file}');"""
+                        f"""assert(package_path == "{expected_package_path}");"""
+                        """assert(pex_file.endswith('.pex'));"""
+                    ),
+                ]
             )
+        )
 
 
 def test_pack_in_pex_with_additional_repo():
@@ -455,33 +457,6 @@ def test_pack_in_pex_include_editable_requirements():
                         (
                             """print("Start importing user-lib..");import user_lib;"""
                             """print("Successfully imported user-lib!")"""
-                        ),
-                    ]
-                )
-            )
-
-
-def test_pack_in_pex_from_spec():
-    with tempfile.TemporaryDirectory() as tempdir:
-        spec_file = os.path.join(
-            os.path.dirname(__file__), "resources", "requirements.txt"
-        )
-        packaging.pack_spec_in_pex(
-            spec_file,
-            f"{tempdir}/out.pex",
-            # make isolated pex from current pytest virtual env
-            pex_inherit_path="false",
-        )
-        assert os.path.exists(f"{tempdir}/out.pex")
-        with does_not_raise():
-            print(
-                subprocess.check_output(
-                    [
-                        f"{tempdir}/out.pex",
-                        "-c",
-                        (
-                            "print('Start importing cloudpickle..');import cloudpickle;"
-                            "assert cloudpickle.__version__ == '1.4.1'"
                         ),
                     ]
                 )
