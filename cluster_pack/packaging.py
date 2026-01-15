@@ -142,7 +142,6 @@ def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
 def pack_in_pex(
     requirements: List[str],
     output: str,
-    ignored_packages: Collection[str] = [],
     pex_inherit_path: str = "fallback",
     editable_requirements: Dict[str, str] = {},
     allow_large_pex: bool = False,
@@ -155,7 +154,6 @@ def pack_in_pex(
     :param additional_repo: an additional pypi repo if one was used env creation
     :param requirements: list of requirements (ex {'tensorflow': '1.15.0'})
     :param output: location of the pex
-    :param ignored_packages: packages to be exluded from pex
     :param pex_inherit_path: see https://github.com/pantsbuild/pex/blob/master/pex/bin/pex.py#L264,
                              possible values ['false', 'fallback', 'prefer']
     :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
@@ -185,12 +183,8 @@ def pack_in_pex(
             cmd.append(f"--sources-directory={tempdir}")
 
         for req in requirements:
-            pkg_name = req.split("=")[0]
-            if pkg_name in ignored_packages:
-                _logger.debug(f"Ignore requirement {req}")
-            else:
-                _logger.debug(f"Add requirement {req}")
-                cmd.append(req)
+            _logger.debug(f"Add requirement {req}")
+            cmd.append(req)
         if _is_criteo():
             cmd.append(f"--index-url={CRITEO_PYPI_URL}")
 
@@ -273,8 +267,6 @@ class Packer(object):
         self,
         output: str,
         reqs: List[str],
-        additional_packages: Dict[str, str],
-        ignored_packages: Collection[str],
         editable_requirements: Dict[str, str],
         allow_large_pex: bool = False,
         include_pex_tools: bool = False,
@@ -306,8 +298,6 @@ class PexPacker(Packer):
         self,
         output: str,
         reqs: List[str],
-        additional_packages: Dict[str, str],
-        ignored_packages: Collection[str],
         editable_requirements: Dict[str, str],
         allow_large_pex: bool = False,
         include_pex_tools: bool = False,
@@ -317,7 +307,6 @@ class PexPacker(Packer):
         return pack_in_pex(
             reqs,
             output,
-            ignored_packages,
             editable_requirements=editable_requirements,
             allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
