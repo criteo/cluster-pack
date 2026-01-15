@@ -218,7 +218,6 @@ def test_upload_env():
         mock_packer.assert_called_once_with(
             ["a==1.0", "b==2.0"],
             Any(str),
-            [],
             additional_indexes=None,
             additional_repo=None,
             allow_large_pex=False,
@@ -237,7 +236,6 @@ def test_upload_env():
         mock_packer.assert_called_once_with(
             ["b==2.0", "c==3.0"],
             Any(str),
-            ["a"],
             additional_indexes=None,
             additional_repo=None,
             allow_large_pex=False,
