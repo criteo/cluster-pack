@@ -45,6 +45,20 @@ class PythonEnvDescription(NamedTuple):
 UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
+UV_AVAILABLE: bool = False
+
+
+def _detect_uv() -> bool:
+    """Detect if uv is installed and available in PATH."""
+    if shutil.which("uv") is not None:
+        return True
+    else:
+        _logger.warning(f"Cluster-pack can now interact with uv to speed up uploads, it is recommended to install it.") #noqa: E501
+        return False
+
+
+UV_AVAILABLE = _detect_uv()
+
 
 def _get_tmp_dir() -> str:
     tmp_dir = f"/tmp/{uuid.uuid1()}"
