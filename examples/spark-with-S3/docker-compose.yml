@@ -12,6 +12,7 @@ services:
       PYSPARK_DRIVER_PYTHON: python
       AWS_ACCESS_KEY_ID: AAA
       AWS_SECRET_ACCESS_KEY: BBBBBBBB
+      UV_CACHE_DIR: /root/.cache/uv
     expose:
       - 7000
       - 7002
@@ -24,6 +25,7 @@ services:
     volumes:
       - ./conf/master:/etc/spark-conf
       - ../..:/cluster-pack
+      - ./.uv-cache:/root/.cache/uv
 
   worker:
     image: spark-docker
