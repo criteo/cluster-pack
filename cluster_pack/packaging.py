@@ -125,31 +125,6 @@ def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
         )
 
 
-def pack_spec_in_pex(
-    spec_file: str,
-    output: str,
-    pex_inherit_path: str = "fallback",
-    allow_large_pex: bool = False,
-    include_pex_tools: bool = False,
-    additional_repo: Optional[Union[List[str], str]] = None,
-    additional_indexes: Optional[List[str]] = None,
-) -> str:
-    with open(spec_file, "r") as f:
-        lines = [
-            line for line in f.read().splitlines() if line and not line.startswith("#")
-        ]
-        _logger.debug(f"used requirements: {lines}")
-        return pack_in_pex(
-            lines,
-            output,
-            pex_inherit_path=pex_inherit_path,
-            allow_large_pex=allow_large_pex,
-            include_pex_tools=include_pex_tools,
-            additional_repo=additional_repo,
-            additional_indexes=additional_indexes,
-        )
-
-
 def pack_in_pex(
     requirements: List[str],
     output: str,
@@ -294,15 +269,6 @@ class Packer(object):
     ) -> str:
         raise NotImplementedError
 
-    def pack_from_spec(
-        self,
-        spec_file: str,
-        output: str,
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-    ) -> str:
-        raise NotImplementedError
-
 
 def get_env_name(env_var_name: str) -> str:
     """
@@ -343,20 +309,6 @@ class PexPacker(Packer):
             include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
             additional_indexes=additional_indexes,
-        )
-
-    def pack_from_spec(
-        self,
-        spec_file: str,
-        output: str,
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-    ) -> str:
-        return pack_spec_in_pex(
-            spec_file=spec_file,
-            output=output,
-            allow_large_pex=allow_large_pex,
-            include_pex_tools=include_pex_tools,
         )
 
 
@@ -445,15 +397,6 @@ def resolve_zip_from_pex_dir(pex_dir: str) -> str:
     return pex_file
 
 
-def detect_packer_from_spec(spec_file: str) -> Packer:
-    if os.path.basename(spec_file) == "requirements.txt":
-        return PEX_PACKER
-    else:
-        raise ValueError(
-            f"Archive format {spec_file} unsupported. Must be requirements.txt"
-        )
-
-
 def detect_packer_from_env() -> Packer:
     return PEX_PACKER
 
@@ -462,7 +405,7 @@ def detect_packer_from_file(zip_file: str) -> Packer:
     if zip_file.endswith(".pex") or zip_file.endswith(".pex.zip"):
         return PEX_PACKER
     else:
-        raise ValueError(f"Archive format {zip_file} unsupported. Must be .pex")
+        raise ValueError(f"Archive format {zip_file} unsupported. Must be .pex or .pex.zip")
 
 
 def get_current_pex_filepath() -> str:
