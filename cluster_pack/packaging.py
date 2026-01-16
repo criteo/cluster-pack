@@ -508,6 +508,7 @@ def _running_from_pex() -> bool:
     # preferred way to detect whether we run from within a pex
     if "PEX" in os.environ:
         return True
+    return False
 
 
 def _is_criteo() -> bool:

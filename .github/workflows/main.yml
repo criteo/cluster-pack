@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [ { python: 3.9.15, spark: 3.5.7 }, { python: 3.11.8, spark: 3.5.7 } ]
+        version: [ { python: 3.9.15, spark: 3.5.8 }, { python: 3.11.8, spark: 3.5.8 } ]
         venv_optimization_level: [0, 1, 2]
 
     steps:
