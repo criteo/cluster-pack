@@ -161,8 +161,9 @@ def pack_in_pex(
         if include_pex_tools:
             cmd.extend(["--include-tools"])
 
-        if VENV_OPTIMIZATION_LEVEL >= 1 and pex_inherit_path != "false":
-            if dependencies.check_venv_has_requirements(None, requirements):
+        if VENV_OPTIMIZATION_LEVEL >= 1:
+            if (pex_inherit_path != "false"
+                    and dependencies.check_venv_has_requirements(None, requirements)):
                 cmd.extend(["--venv-repository"])
             elif UV_AVAILABLE:
                 venv_repo_path = os.path.join(tempdir, "venv_repo")
