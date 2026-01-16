@@ -49,7 +49,7 @@ LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 UV_AVAILABLE: bool = False
 
-VENV_OPTIMIZATION_LEVEL: int = 1
+VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
 
 
 def set_venv_optimization_level(level: int) -> None:

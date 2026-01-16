@@ -33,6 +33,15 @@ MYARCHIVE_METADATA = "myarchive.json"
 VARNAME = "VARNAME"
 
 
+@pytest.fixture(params=[0, 1, 2])
+def venv_optimization_level(request):
+    """Fixture to test with all venv optimization levels."""
+    original_level = packaging.VENV_OPTIMIZATION_LEVEL
+    packaging.set_venv_optimization_level(request.param)
+    yield request.param
+    packaging.set_venv_optimization_level(original_level)
+
+
 @pytest.fixture(scope="module")
 def large_pex_unzipped():
     """Build a large pex once and share across tests, cleanup at the end."""
@@ -306,7 +315,7 @@ def does_not_raise():
     yield
 
 
-def test_pack_in_pex():
+def test_pack_in_pex(venv_optimization_level):
     requirements = [
         "numpy",
         "pyarrow"
@@ -332,7 +341,7 @@ def test_pack_in_pex():
             )
 
 
-def test_pack_in_pex_with_allow_large():
+def test_pack_in_pex_with_allow_large(venv_optimization_level):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "numpy",
@@ -368,7 +377,7 @@ def test_pack_in_pex_with_allow_large():
                 )
 
 
-def test_pack_in_pex_with_include_tools():
+def test_pack_in_pex_with_include_tools(venv_optimization_level):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "numpy",
@@ -447,7 +456,7 @@ def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(
         )
 
 
-def test_pack_in_pex_with_additional_repo():
+def test_pack_in_pex_with_additional_repo(venv_optimization_level):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "torch",
@@ -478,7 +487,7 @@ def test_pack_in_pex_with_additional_repo():
             )
 
 
-def test_pack_in_pex_include_editable_requirements():
+def test_pack_in_pex_include_editable_requirements(venv_optimization_level):
     requirements = {}
     requirement_dir = os.path.join(os.path.dirname(__file__), "user-lib", "user_lib")
     with tempfile.TemporaryDirectory() as tempdir:
