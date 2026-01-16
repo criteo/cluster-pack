@@ -7,6 +7,7 @@ import pathlib
 import platform
 import tempfile
 from packaging import version
+from cluster_pack import dependencies, filesystem, packaging
 from typing import Tuple, Dict, Collection, List, Any, Optional, Union
 from urllib import parse, request
 
@@ -19,8 +20,6 @@ if wheel_filename_version >= version.parse("2.0.0"):
     parse_wheel = _WF.parse
 else:
     from wheel_filename import parse_wheel_filename as parse_wheel  # noqa: E501 # type: ignore[no-redef, attr-defined]
-
-from cluster_pack import filesystem, packaging
 
 _logger = logging.getLogger(__name__)
 
@@ -323,7 +322,7 @@ def _build_reqs_from_venv(
     _handle_packages(
         current_packages, additional_packages, ignored_packages, only_packages
     )
-    return packaging.format_requirements(current_packages)
+    return dependencies.format_requirements(current_packages)
 
 
 def _pack_from_venv(
@@ -360,14 +359,8 @@ def _pack_from_venv(
 
         pex_info = PexInfo.from_pex(local_package_path)
 
-        req_from_pex = _filter_out_requirements(
-            _sort_requirements(
-                _normalize_requirements(_format_pex_requirements(pex_info))
-            )
-        )
-        req_from_venv = _filter_out_requirements(
-            _sort_requirements(_normalize_requirements(reqs))
-        )
+        req_from_pex = _filter_out_requirements(_format_pex_requirements(pex_info))
+        req_from_venv = _filter_out_requirements(reqs)
 
         if req_from_pex == req_from_venv:
             env_copied_from_fallback_location = True
@@ -396,21 +389,13 @@ def _pack_from_venv(
     return local_package_path
 
 
-def _sort_requirements(a: List[str]) -> List[str]:
-    return sorted([item.lower() for item in a])
-
-
 def _format_pex_requirements(pex_info: PexInfo) -> List[str]:
     reqs = [parse_wheel(req) for req in pex_info.distributions.keys()]
     return [f"{req.project}=={req.version}" for req in reqs]
 
 
-def _normalize_requirements(reqs: List[str]) -> List[str]:
-    return [req.replace("_", "-") for req in reqs]
-
-
 def _filter_out_requirements(reqs: List[str]) -> List[str]:
-    def _keep(req: str) -> bool:
-        return all([d not in req for d in ["wheel", "pip", "setuptools"]])
-
-    return [req for req in reqs if _keep(req)]
+    return dependencies.filter_build_requirements(
+        dependencies.sort_requirements(
+            dependencies.normalize_requirements(reqs)
+        ))
