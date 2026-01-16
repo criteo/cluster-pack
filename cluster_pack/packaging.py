@@ -239,22 +239,21 @@ def pack_in_pex(
             cmd.extend(["--include-tools"])
 
         venv_repo_path = None
-        if VENV_OPTIMIZATION_LEVEL >= 1:
-            if _check_venv_has_requirements(venv_repo_path, requirements):
+        if VENV_OPTIMIZATION_LEVEL >= 1 and pex_inherit_path != "false":
+            if _check_venv_has_requirements(None, requirements):
                 cmd.extend(["--venv-repository"])
+            elif UV_AVAILABLE:
+                venv_repo_path = os.path.join(tempdir, "venv_repo")
+                _create_uv_venv_with_deps(
+                    venv_repo_path,
+                    requirements,
+                    additional_repo,
+                    additional_indexes,
+                )
+                cmd.extend(["--venv-repository", venv_repo_path])
             else:
-                if UV_AVAILABLE:
-                    venv_repo_path = os.path.join(tempdir, "venv_repo")
-                    _create_uv_venv_with_deps(
-                        venv_repo_path,
-                        requirements,
-                        additional_repo,
-                        additional_indexes,
-                    )
-                    cmd.extend(["--venv-repository", venv_repo_path])
-                else:
-                    _logger.warning("Not running from venv or venv missing some requirements,"
-                                    " skipping optimization")
+                _logger.warning("Not running from venv or venv missing some requirements, "
+                                "skipping optimization")
 
             cmd.extend(["--max-install-jobs", "0"])
 
