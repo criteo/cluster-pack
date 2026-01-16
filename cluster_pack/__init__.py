@@ -12,3 +12,5 @@ from cluster_pack.packaging import (
 )
 
 from cluster_pack.skein import skein_launcher as yarn_launcher
+
+experimental_fast_pex = True

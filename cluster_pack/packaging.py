@@ -16,6 +16,8 @@ import setuptools
 from packaging.version import Version
 from importlib.metadata import version as pkg_version
 
+import cluster_pack
+
 CRITEO_PYPI_URL = (
     "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
 )
@@ -138,11 +140,19 @@ def pack_in_pex(
     with tempfile.TemporaryDirectory() as tempdir:
         cmd = ["pex", f"--inherit-path={pex_inherit_path}"]
 
-        if allow_large_pex:
-            cmd.extend(["--layout", "packed"])
-            tmp_ext = ".tmp"
+        if cluster_pack.experimental_fast_pex:
+            forbid_allow_large_pex(allow_large_pex)
+            cmd.extend(["--layout", "packed", "--scie", "eager", "--scie-only", "--no-strip-pex-env", "--runtime-pex-root", ".pex"])
+            cmd.extend(["--no-pre-install-wheel", "--max-install-jobs", "0"])
+            pex_output = "scie"
         else:
-            tmp_ext = ""
+            if allow_large_pex:
+                cmd.extend(["--layout", "packed"])
+                pex_output = "large_pex"
+            else:
+                pex_output = output
+
+
         if include_pex_tools:
             cmd.extend(["--include-tools"])
 
@@ -178,7 +188,7 @@ def pack_in_pex(
             for index in additional_indexes:
                 cmd.extend(["-f", index])
 
-        cmd.extend(["-o", output + tmp_ext])
+        cmd.extend(["-o", pex_output])
 
         try:
             print(f"Running command: {' '.join(cmd)}")
@@ -190,12 +200,17 @@ def pack_in_pex(
             _logger.exception(err.stderr.decode("ascii"))
             raise PexCreationError(err.stderr.decode("ascii"))
 
-        check_large_pex(allow_large_pex, output + tmp_ext)
+        if cluster_pack.experimental_fast_pex:
+            scie_folder = pex_output
+            scie_filename = pex_output.removesuffix("/")
+            shutil.move(os.path.join(scie_folder, scie_filename), output)
+        else:
+            check_large_pex(allow_large_pex, pex_output)
+            if allow_large_pex:
+                shutil.make_archive(output, "zip", pex_output)
+                output += ".zip"
 
-        if allow_large_pex:
-            shutil.make_archive(output, "zip", output + tmp_ext)
-
-    return output + ".zip" if allow_large_pex else output
+    return output
 
 
 def _get_packages(
@@ -351,20 +366,23 @@ def detect_archive_names(
                 f", .{packer.extension()} is expected"
             )
 
-    # we are actually building or reusing a large pex and we have the information from the
-    # allow_large_pex flag
-    if (
-        extension == PEX_PACKER.extension()
-        and allow_large_pex
-        and not package_path.endswith(".zip")
-    ):
-        package_path += ".zip"
+    if cluster_pack.experimental_fast_pex:
+        forbid_allow_large_pex(allow_large_pex)
+    else:
+        # we are actually building or reusing a large pex and we have the information from the
+        # allow_large_pex flag
+        if (
+            extension == PEX_PACKER.extension()
+            and allow_large_pex
+            and not package_path.endswith(".zip")
+        ):
+            package_path += ".zip"
 
-    # We are running from an unzipped large pex and we have the information because `pex_file` is
-    # not empty, and it is a directory instead of a zipapp
-    if pex_file != "" and os.path.isdir(pex_file) and not package_path.endswith(".zip"):
-        zip_pex_file = resolve_zip_from_pex_dir(pex_file)
-        package_path = _build_package_path(os.path.basename(zip_pex_file), None)
+        # We are running from an unzipped large pex and we have the information because `pex_file` is
+        # not empty, and it is a directory instead of a zipapp
+        if pex_file != "" and os.path.isdir(pex_file) and not package_path.endswith(".zip"):
+            zip_pex_file = resolve_zip_from_pex_dir(pex_file)
+            package_path = _build_package_path(os.path.basename(zip_pex_file), None)
 
     return package_path, env_name, pex_file
 
@@ -494,3 +512,9 @@ def _running_from_pex() -> bool:
 
 def _is_criteo() -> bool:
     return "CRITEO_ENV" in os.environ
+
+
+def forbid_allow_large_pex(allow_large_pex: bool):
+    if allow_large_pex:
+        raise ValueError("allow_large_pex=True is incompatible with cluster_pack.experimental_fast_pex=True; "
+                         "please remove the allow_large_pex flag")

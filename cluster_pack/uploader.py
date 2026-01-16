@@ -1,3 +1,4 @@
+import glob
 import importlib.metadata
 import json
 import logging
@@ -206,11 +207,16 @@ def _upload_pex_file(
     if not resolved_fs.exists(dir):
         resolved_fs.mkdir(dir)
 
-    pex_file = (
-        packaging.resolve_zip_from_pex_dir(pex_file_or_dir)
-        if os.path.isdir(pex_file_or_dir)
-        else pex_file_or_dir
-    )
+    # pex_file = (
+    #     packaging.resolve_zip_from_pex_dir(pex_file_or_dir)
+    #     if os.path.isdir(pex_file_or_dir)
+    #     else pex_file_or_dir
+    # )
+
+    # Packed-layout scie cwd path at execution ends up being $PEX_ROOT/unzipped_pexes/3/3512f82857f135240a78f3a334be7d1bd43bad0b,
+    # so original PEX (default.pex in my case) is located 4 levels up from there (because PEX_ROOT=$YARN_CWD/.pex)
+    pex_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(pex_file_or_dir))))
+    pex_file = glob.glob(f"{pex_root}/*.pex")[0]
     _logger.info(f"upload current {pex_file} to {package_path}")
 
     try:

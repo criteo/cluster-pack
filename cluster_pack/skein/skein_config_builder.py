@@ -134,6 +134,7 @@ def _get_script(
 
     script = f"""
                 export PEX_ROOT="./.pex"
+                export SCIE_BASE="$(pwd)/.scie"
                 export PYTHONPATH="."
                 echo "running {cmd}" ..
                 {cmd}
