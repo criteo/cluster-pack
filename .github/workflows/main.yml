@@ -74,6 +74,7 @@ jobs:
     strategy:
       matrix:
         version: [ { python: 3.9.15, spark: 3.5.7 }, { python: 3.11.8, spark: 3.5.7 } ]
+        venv_optimization_level: [0, 1, 2]
 
     steps:
     - uses: actions/checkout@v2
@@ -104,7 +105,7 @@ jobs:
       run: docker exec spark-master ./examples/spark-with-S3/scripts/install_pyspark.sh ${{ matrix.version.spark }}
 
     - name: Run spark Job with implicitly created pex
-      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
+      run: docker exec -e CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL=${{ matrix.venv_optimization_level }} spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
 
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest
