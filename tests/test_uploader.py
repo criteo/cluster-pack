@@ -409,49 +409,6 @@ def test_format_pex_requirements():
         ] == cleaned_requirements
 
 
-@pytest.mark.parametrize(
-    "req, expected",
-    [
-        (
-            [
-                "pipdeptree==2.0.0",
-                "GitPython==3.1.14",
-                "six==1.15.0",
-                "Cython==0.29.22",
-            ],
-            [
-                "cython==0.29.22",
-                "gitpython==3.1.14",
-                "pipdeptree==2.0.0",
-                "six==1.15.0",
-            ],
-        ),
-        (
-            [
-                "pipdeptree==2.0.0",
-                "six==1.15.0",
-                "gitpython==3.1.14",
-                "cython==0.29.22",
-            ],
-            [
-                "cython==0.29.22",
-                "gitpython==3.1.14",
-                "pipdeptree==2.0.0",
-                "six==1.15.0",
-            ],
-        ),
-    ],
-)
-def test_sort_requirement(req, expected):
-    assert uploader._sort_requirements(req) == expected
-
-
-def test_normalize_requirement():
-    assert ["tf-yarn", "typing-extension", "to-to"] == uploader._normalize_requirements(
-        ["tf_yarn", "typing_extension", "to-to"]
-    )
-
-
 def _check_metadata(metadata_file, expected_json):
     with open(metadata_file, "r") as metadata_file:
         json_md = json.load(metadata_file)

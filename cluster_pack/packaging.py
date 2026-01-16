@@ -9,12 +9,14 @@ import subprocess
 from subprocess import CalledProcessError
 import sys
 import tempfile
-from typing import Tuple, Dict, Collection, List, Any, Optional, NamedTuple, Union
+from typing import Tuple, Dict, List, Any, Optional, NamedTuple, Union
 import uuid
 import zipfile
 import setuptools
 from packaging.version import Version
 from importlib.metadata import version as pkg_version
+
+from cluster_pack import dependencies
 
 CRITEO_PYPI_URL = (
     "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
@@ -113,16 +115,6 @@ def zip_path(
     return py_archive
 
 
-def format_requirements(requirements: Dict[str, str]) -> List[str]:
-    if requirements is None:
-        return list()
-    else:
-        return [
-            name + "==" + version if version else name
-            for name, version in requirements.items()
-        ]
-
-
 def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
     if allow_large_pex:
         return
@@ -133,75 +125,6 @@ def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
             f"The generate pex is larger than {max_pex_size_gb}Gb and won't be executable"
             " by python; Please set the 'allow_large_pex' flag in upload_env"
         )
-
-
-def _create_uv_venv_with_deps(
-    venv_path: str,
-    requirements: List[str],
-    additional_repo: Optional[Union[str, List[str]]] = None,
-    additional_indexes: Optional[List[str]] = None,
-) -> None:
-    """Create a uv venv and install all dependencies."""
-    subprocess.check_call(["uv", "venv", venv_path, "--python", sys.executable, "--seed"])
-
-    pip_cmd = ["uv", "pip", "install", "--python", f"{venv_path}/bin/python"]
-
-    if additional_repo is not None:
-        repos = additional_repo if isinstance(additional_repo, list) else [additional_repo]
-        for repo in repos:
-            pip_cmd.extend(["--index-url", repo])
-
-    if additional_indexes:
-        for index in additional_indexes:
-            pip_cmd.extend(["-f", index])
-
-    if requirements:
-        subprocess.check_call(pip_cmd + requirements)
-
-
-def _is_running_in_venv() -> bool:
-    """Check if currently running inside a virtual environment."""
-    return sys.prefix != sys.base_prefix
-
-
-def _check_venv_has_requirements(venv_path: Optional[str], requirements: List[str]) -> bool:
-    """Check if all requirements are installed in the venv.
-    :param venv_path: Path to venv, or None to check the currently activated environment.
-    :param requirements: List of requirements to check.
-    :return: True if all requirements are satisfied, False if not in a venv when venv_path is None.
-    """
-    if venv_path is None and not _is_running_in_venv():
-        _logger.debug("Not running in a venv, cannot check requirements")
-        return False
-
-    python_executable = f"{venv_path}/bin/python" if venv_path else sys.executable
-    try:
-        result = subprocess.run(
-            [python_executable, "-m", "pip", "freeze"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        installed = {}
-        for line in result.stdout.strip().split("\n"):
-            if "==" in line:
-                name, version = line.split("==", 1)
-                installed[name.lower()] = version
-
-        for req in requirements:
-            if "==" in req:
-                name, version = req.split("==", 1)
-                if installed.get(name.lower()) != version:
-                    _logger.debug(f"Requirement {req} not satisfied in venv")
-                    return False
-            else:
-                name = req.split("[")[0].split("<")[0].split(">")[0].split("!")[0].strip()
-                if name.lower() not in installed:
-                    _logger.debug(f"Requirement {name} not found in venv")
-                    return False
-        return True
-    except subprocess.CalledProcessError:
-        return False
 
 
 def pack_in_pex(
@@ -238,22 +161,21 @@ def pack_in_pex(
         if include_pex_tools:
             cmd.extend(["--include-tools"])
 
-        venv_repo_path = None
         if VENV_OPTIMIZATION_LEVEL >= 1 and pex_inherit_path != "false":
-            if _check_venv_has_requirements(None, requirements):
+            if dependencies.check_venv_has_requirements(None, requirements):
                 cmd.extend(["--venv-repository"])
             elif UV_AVAILABLE:
                 venv_repo_path = os.path.join(tempdir, "venv_repo")
-                _create_uv_venv_with_deps(
+                dependencies.create_uv_venv(
                     venv_repo_path,
                     requirements,
-                    additional_repo,
-                    additional_indexes,
+                    additional_repo=additional_repo,
+                    additional_indexes=additional_indexes,
                 )
                 cmd.extend(["--venv-repository", venv_repo_path])
             else:
                 _logger.warning("Not running from venv or venv missing some requirements, "
-                                "skipping optimization")
+                                "skipping optimization because `uv ` is not available.")
 
             cmd.extend(["--max-install-jobs", "0"])
 
@@ -586,14 +508,6 @@ def _running_from_pex() -> bool:
     # preferred way to detect whether we run from within a pex
     if "PEX" in os.environ:
         return True
-
-    # We still temporarilly support the previous way
-    try:
-        import _pex
-
-        return True
-    except ModuleNotFoundError:
-        return False
 
 
 def _is_criteo() -> bool:
