@@ -1,6 +1,7 @@
 import getpass
 import hashlib
 import imp
+import importlib.util
 import json
 import logging
 import os
@@ -108,31 +109,6 @@ def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
         raise PexTooLargeError(
             f"The generate pex is larger than {max_pex_size_gb}Gb and won't be executable"
             " by python; Please set the 'allow_large_pex' flag in upload_env"
-        )
-
-
-def pack_spec_in_pex(
-    spec_file: str,
-    output: str,
-    pex_inherit_path: str = "fallback",
-    allow_large_pex: bool = False,
-    include_pex_tools: bool = False,
-    additional_repo: Optional[Union[List[str], str]] = None,
-    additional_indexes: Optional[List[str]] = None,
-) -> str:
-    with open(spec_file, "r") as f:
-        lines = [
-            line for line in f.read().splitlines() if line and not line.startswith("#")
-        ]
-        _logger.debug(f"used requirements: {lines}")
-        return pack_in_pex(
-            lines,
-            output,
-            pex_inherit_path=pex_inherit_path,
-            allow_large_pex=allow_large_pex,
-            include_pex_tools=include_pex_tools,
-            additional_repo=additional_repo,
-            additional_indexes=additional_indexes,
         )
 
 
@@ -280,15 +256,6 @@ class Packer(object):
     ) -> str:
         raise NotImplementedError
 
-    def pack_from_spec(
-        self,
-        spec_file: str,
-        output: str,
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-    ) -> str:
-        raise NotImplementedError
-
 
 def get_env_name(env_var_name: str) -> str:
     """
@@ -330,20 +297,6 @@ class PexPacker(Packer):
             include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
             additional_indexes=additional_indexes,
-        )
-
-    def pack_from_spec(
-        self,
-        spec_file: str,
-        output: str,
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-    ) -> str:
-        return pack_spec_in_pex(
-            spec_file=spec_file,
-            output=output,
-            allow_large_pex=allow_large_pex,
-            include_pex_tools=include_pex_tools,
         )
 
 
@@ -432,15 +385,6 @@ def resolve_zip_from_pex_dir(pex_dir: str) -> str:
     return pex_file
 
 
-def detect_packer_from_spec(spec_file: str) -> Packer:
-    if os.path.basename(spec_file) == "requirements.txt":
-        return PEX_PACKER
-    else:
-        raise ValueError(
-            f"Archive format {spec_file} unsupported. Must be requirements.txt"
-        )
-
-
 def detect_packer_from_env() -> Packer:
     return PEX_PACKER
 
@@ -449,7 +393,7 @@ def detect_packer_from_file(zip_file: str) -> Packer:
     if zip_file.endswith(".pex") or zip_file.endswith(".pex.zip"):
         return PEX_PACKER
     else:
-        raise ValueError(f"Archive format {zip_file} unsupported. Must be .pex")
+        raise ValueError(f"Archive format {zip_file} unsupported. Must be .pex or .pex.zip")
 
 
 def get_current_pex_filepath() -> str:
@@ -491,9 +435,12 @@ def get_editable_requirements(
         else:
             for package_name in package_names:
                 try:
-                    _, path, _ = imp.find_module(package_name)
+                    spec = importlib.util.find_spec(package_name)
+                    if spec is None or spec.origin is None:
+                        raise ModuleNotFoundError(f"No module named '{package_name}'")
+                    path = os.path.dirname(spec.origin)
                     editable_requirements[os.path.basename(path)] = path
-                except ImportError:
+                except ModuleNotFoundError:
                     _logger.error(
                         f"Could not import package {package_name}"
                         f" repo exists={os.path.exists(package_name)}"
