@@ -49,6 +49,7 @@ UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 UV_AVAILABLE: bool = False
+SEVENZIP_AVAILABLE: bool = False
 
 VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
 
@@ -71,7 +72,52 @@ def _detect_uv() -> bool:
         return False
 
 
+def _detect_7zip() -> bool:
+    """Detect if 7z is installed and available in PATH."""
+    if shutil.which("7z") is not None:
+        return True
+    else:
+        _logger.info("7z not found in PATH, falling back to single-threaded zip compression")
+        return False
+
+
 UV_AVAILABLE = _detect_uv()
+SEVENZIP_AVAILABLE = _detect_7zip()
+
+
+def _make_zip_archive(output: str, source_dir: str) -> None:
+    """Create a zip archive from source_dir.
+
+    Uses 7z with multithreading if available, otherwise falls back to shutil.make_archive.
+
+    :param output: output path without .zip extension
+    :param source_dir: directory to compress
+    """
+    if SEVENZIP_AVAILABLE:
+        output_zip = output + ".zip"
+        cmd = [
+            "7z", "a",
+            "-tzip",
+            "-mx=6",
+            "-mmt=on",
+            output_zip,
+            os.path.join(source_dir, "*"),
+        ]
+        _logger.info(f"Creating zip archive with 7z: {' '.join(cmd)}")
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=source_dir,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            _logger.warning(f"7z failed: {e.stderr.decode('utf-8', errors='replace')}, "
+                            "falling back to shutil.make_archive")
+            shutil.make_archive(output, "zip", source_dir)
+    else:
+        shutil.make_archive(output, "zip", source_dir)
 
 
 def _get_tmp_dir() -> str:
@@ -228,7 +274,7 @@ def pack_in_pex(
         check_large_pex(allow_large_pex, output + tmp_ext)
 
         if allow_large_pex:
-            shutil.make_archive(output, "zip", output + tmp_ext)
+            _make_zip_archive(output, output + tmp_ext)
 
     return output + ".zip" if allow_large_pex else output
 
