@@ -1,6 +1,5 @@
 import getpass
 import hashlib
-import imp
 import importlib.util
 import json
 import logging
