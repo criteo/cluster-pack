@@ -1,4 +1,5 @@
 import getpass
+import hashlib
 import imp
 import json
 import logging
@@ -297,7 +298,8 @@ def get_env_name(env_var_name: str) -> str:
     if not virtual_env_path:
         return "default"
     else:
-        return os.path.basename(virtual_env_path)
+        path_hash = hashlib.sha1(virtual_env_path.encode()).hexdigest()[:7]
+        return f"{os.path.basename(virtual_env_path)}_{path_hash}"
 
 
 class PexPacker(Packer):

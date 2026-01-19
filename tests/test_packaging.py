@@ -34,7 +34,7 @@ VARNAME = "VARNAME"
 def test_get_virtualenv_name():
     with mock.patch.dict("os.environ"):
         os.environ[VARNAME] = "/path/to/my_venv"
-        assert "my_venv" == packaging.get_env_name(VARNAME)
+        assert "my_venv_ef57a4d" == packaging.get_env_name(VARNAME)
 
 
 def test_get_virtualenv_empty_returns_default():
