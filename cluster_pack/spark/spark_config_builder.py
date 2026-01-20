@@ -37,7 +37,8 @@ def add_editable_requirements(ssb: SparkSession.Builder) -> None:
         _add_archive(ssb, py_archive)
 
 
-def add_s3_params(ssb: SparkSession.Builder, fs_args: Dict[str, Any] = {}) -> None:
+def add_s3_params(ssb: SparkSession.Builder, fs_args: Optional[Dict[str, Any]] = None) -> None:
+    fs_args = fs_args or {}
     ssb.config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
     ssb.config("spark.hadoop.fs.s3a.path.style.access", "true")
     if "key" in fs_args:

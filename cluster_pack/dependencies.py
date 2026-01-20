@@ -124,7 +124,7 @@ def check_venv_has_requirements(
 def create_uv_venv(
     venv_path: str,
     requirements: List[str],
-    editable_requirements: Dict[str, str] = {},
+    editable_requirements: Optional[Dict[str, str]] = None,
     additional_repo: Optional[Union[str, List[str]]] = None,
     additional_indexes: Optional[List[str]] = None,
 ) -> None:
@@ -136,6 +136,8 @@ def create_uv_venv(
     :param additional_repo: Additional PyPI repository URLs.
     :param additional_indexes: Additional package index URLs.
     """
+    editable_requirements = editable_requirements or {}
+
     subprocess.check_call(["uv", "venv", venv_path, "--python", sys.executable, "--seed"])
 
     pip_cmd = ["uv", "pip", "install", "--python", f"{venv_path}/bin/python"]

@@ -97,7 +97,7 @@ def submit(
 def submit_func(
     skein_client: skein.Client,
     func: Callable,
-    args: List[Any] = [],
+    args: Optional[List[Any]] = None,
     name: str = "skein_launcher",
     num_cores: int = 1,
     memory: str = "1 GiB",
@@ -144,6 +144,8 @@ def submit_func(
                             and the entry point will be <output>/__main__.py
     :return: SkeinConfig
     """
+
+    args = args or []
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         skein_config = skein_config_builder.build_with_func(

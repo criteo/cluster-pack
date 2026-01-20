@@ -415,7 +415,8 @@ def _check_metadata(metadata_file, expected_json):
         assert json_md == expected_json
 
 
-def _write_spec_file(spec_file, reqs=[]):
+def _write_spec_file(spec_file, reqs=None):
+    reqs = reqs or []
     os.makedirs(os.path.dirname(spec_file))
     with open(spec_file, "w") as f:
         for req in reqs:
