@@ -154,15 +154,12 @@ def test_get_non_editable_requirements():
 
 def _install_packages(tempdir: str, packages: List[str], editable: bool = False):
     """Install packages into the venv, using uv if available."""
-    if UV_AVAILABLE:
-        cmd = ["uv", "pip", "install", "--python", f"{tempdir}/bin/python"]
-        if editable:
-            cmd.append("-e")
-
-    else:
-        cmd = [f"{tempdir}/bin/python", "-m", "pip", "install"]
-        if editable:
-            cmd.append("-e")
+    cmd = (
+        ["uv", "pip", "install", "--python", f"{tempdir}/bin/python"] if UV_AVAILABLE
+        else [f"{tempdir}/bin/python", "-m", "pip", "install"]
+    )
+    if editable:
+        cmd.append("-e")
 
     cmd.extend(packages)
     subprocess.check_call(cmd)
