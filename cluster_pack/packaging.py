@@ -131,7 +131,7 @@ def pack_in_pex(
     requirements: List[str],
     output: str,
     pex_inherit_path: str = "fallback",
-    editable_requirements: Dict[str, str] = {},
+    editable_requirements: Optional[Dict[str, str]] = None,
     allow_large_pex: bool = False,
     include_pex_tools: bool = False,
     additional_repo: Optional[Union[str, List[str]]] = None,
@@ -148,6 +148,8 @@ def pack_in_pex(
                             and the entry point will be <output>/__main__.py
     :return: destination of the archive, name of the pex
     """
+
+    editable_requirements = editable_requirements or {}
 
     with tempfile.TemporaryDirectory() as tempdir:
         cmd = ["pex", f"--inherit-path={pex_inherit_path}"]
@@ -507,9 +509,7 @@ def get_default_fs() -> str:
 def _running_from_pex() -> bool:
     # Env variable PEX has been introduced in pex==2.1.54 and is now the
     # preferred way to detect whether we run from within a pex
-    if "PEX" in os.environ:
-        return True
-    return False
+    return "PEX" in os.environ
 
 
 def _is_criteo() -> bool:
