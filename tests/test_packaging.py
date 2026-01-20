@@ -1,5 +1,6 @@
 import contextlib
 import getpass
+import hashlib
 import os
 import shutil
 import stat
@@ -56,7 +57,8 @@ def large_pex_unzipped():
 def test_get_virtualenv_name():
     with mock.patch.dict("os.environ"):
         os.environ[VARNAME] = "/path/to/my_venv"
-        assert "my_venv" == packaging.get_env_name(VARNAME)
+        expected_hash = hashlib.sha1("/path/to/my_venv".encode("utf-8")).hexdigest()[:7]
+        assert f"my_venv_{expected_hash}" == packaging.get_env_name(VARNAME)
 
 
 def test_get_virtualenv_empty_returns_default():
@@ -64,6 +66,28 @@ def test_get_virtualenv_empty_returns_default():
         if VARNAME in os.environ:
             del os.environ[VARNAME]
         assert "default" == packaging.get_env_name(VARNAME)
+
+
+def test_default_hdfs_pex_name_includes_venv_path_hash():
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}._running_from_pex", return_value=False))
+        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.get_default_fs", return_value="hdfs://"))
+        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.getpass.getuser", return_value="alice"))
+        with mock.patch.dict("os.environ"):
+            os.environ["VIRTUAL_ENV"] = "/home/alice/workspaces/proj/.venv"
+            expected_hash = hashlib.sha1(
+                "/home/alice/workspaces/proj/.venv".encode("utf-8")
+            ).hexdigest()[:7]
+            expected_env_name = f".venv_{expected_hash}"
+            expected_path = f"hdfs:///user/alice/envs/{expected_env_name}.pex"
+
+            actual_path, actual_env_name, actual_pex_file = packaging.detect_archive_names(
+                packaging.PEX_PACKER, package_path=None, allow_large_pex=False
+            )
+
+            assert actual_pex_file == ""
+            assert actual_env_name == expected_env_name
+            assert actual_path == expected_path
 
 
 def test_get_empty_editable_requirements():
