@@ -95,8 +95,10 @@ def upload_zip(
     zip_file: str,
     package_path: str = None,
     force_upload: bool = False,
-    fs_args: Dict[str, Any] = {},
+    fs_args: Optional[Dict[str, Any]] = None,
 ) -> str:
+    fs_args = fs_args or {}
+
     packer = packaging.detect_packer_from_file(zip_file)
     package_path, _, _ = packaging.detect_archive_names(packer, package_path)
 
@@ -117,12 +119,12 @@ def upload_zip(
 def upload_env(
     package_path: str = None,
     packer: packaging.Packer = None,
-    additional_packages: Dict[str, str] = {},
-    ignored_packages: Collection[str] = [],
+    additional_packages: Optional[Dict[str, str]] = None,
+    ignored_packages: Optional[Collection[str]] = None,
     only_packages: Optional[Collection[str]] = None,
     force_upload: bool = False,
     include_editable: bool = False,
-    fs_args: Dict[str, Any] = {},
+    fs_args: Optional[Dict[str, Any]] = None,
     allow_large_pex: bool = False,
     include_pex_tools: bool = False,
     additional_repo: Optional[Union[str, List[str]]] = None,
@@ -149,6 +151,10 @@ def upload_env(
                                 torch1.10/index.html
     :return: package_path
     """
+    additional_packages = additional_packages or {}
+    ignored_packages = ignored_packages or []
+    fs_args = fs_args or {}
+
     if packer is None:
         packer = packaging.detect_packer_from_env()
     package_path, env_name, pex_file = packaging.detect_archive_names(
@@ -226,10 +232,13 @@ def _upload_pex_file(
 
 def _handle_packages(
     current_packages: Dict[str, str],
-    additional_packages: Dict[str, str] = {},
-    ignored_packages: Collection[str] = [],
+    additional_packages: Optional[Dict[str, str]] = None,
+    ignored_packages: Optional[Collection[str]] = None,
     only_packages: Optional[Collection[str]] = None,
 ) -> None:
+    additional_packages = additional_packages or {}
+    ignored_packages = ignored_packages or []
+
     if len(additional_packages) > 0:
         additional_package_names = list(additional_packages.keys())
         current_packages_names = list(current_packages.keys())
@@ -262,8 +271,8 @@ def _handle_packages(
 def _upload_env_from_venv(
     package_path: str,
     packer: packaging.Packer = packaging.PEX_PACKER,
-    additional_packages: Dict[str, str] = {},
-    ignored_packages: Collection[str] = [],
+    additional_packages: Dict[str, str] = None,
+    ignored_packages: Collection[str] = None,
     only_packages: Optional[Collection[str]] = None,
     resolved_fs: Any = None,
     force_upload: bool = False,
@@ -273,6 +282,9 @@ def _upload_env_from_venv(
     additional_repo: Optional[Union[str, List[str]]] = None,
     additional_indexes: Optional[List[str]] = None,
 ) -> None:
+    additional_packages = additional_packages or {}
+    ignored_packages = ignored_packages or []
+
     executable = (
         packaging.get_current_pex_filepath()
         if packaging._running_from_pex()
