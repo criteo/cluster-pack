@@ -105,7 +105,7 @@ def _make_zip_archive(output: str, source_dir: str) -> None:
         ]
         _logger.info(f"Creating zip archive with 7z: {' '.join(cmd)}")
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 cwd=source_dir,
                 stderr=subprocess.PIPE,
