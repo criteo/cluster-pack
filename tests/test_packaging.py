@@ -8,6 +8,7 @@ import sys
 import tempfile
 import zipfile
 from importlib.metadata import version as pkg_version
+from typing import List
 from unittest import mock
 
 import pytest
@@ -22,13 +23,23 @@ from cluster_pack.packaging import (
     LARGE_PEX_CMD,
     resolve_zip_from_pex_dir,
     check_large_pex,
-    PexTooLargeError
+    PexTooLargeError,
+    UV_AVAILABLE,
 )
 
 MODULE_TO_TEST = "cluster_pack.packaging"
 MYARCHIVE_FILENAME = "myarchive.pex"
 MYARCHIVE_METADATA = "myarchive.json"
 VARNAME = "VARNAME"
+
+
+@pytest.fixture(params=[0, 1, 2])
+def venv_optimization_level(request):
+    """Fixture to test with all venv optimization levels."""
+    original_level = packaging.VENV_OPTIMIZATION_LEVEL
+    packaging.set_venv_optimization_level(request.param)
+    yield request.param
+    packaging.set_venv_optimization_level(original_level)
 
 
 @pytest.fixture(scope="module")
@@ -69,17 +80,7 @@ def test_get_virtualenv_empty_returns_default():
 def test_get_empty_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        subprocess.check_call(
-            [
-                f"{tempdir}/bin/python",
-                "-m",
-                "pip",
-                "install",
-                "cloudpickle",
-                _get_editable_package_name(),
-                "pip==22.0",
-            ]
-        )
+        _install_packages(tempdir, ["cloudpickle", _get_editable_package_name(), "pip==22.0"])
         editable_requirements = packaging._get_editable_requirements(
             f"{tempdir}/bin/python"
         )
@@ -89,22 +90,12 @@ def test_get_empty_editable_requirements():
 def test_get_empty_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        subprocess.check_call(
-            [
-                f"{tempdir}/bin/python",
-                "-m",
-                "pip",
-                "install",
-                "-e",
-                _get_editable_package_name(),
-                "pip==22.0",
-            ]
-        )
+        _install_packages(tempdir, [_get_editable_package_name(), "pip==22.0"], editable=True)
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python"
         )
-        assert len(non_editable_requirements) == 2
-        assert list(non_editable_requirements.keys()) == ["pip", "setuptools"]
+        assert len(non_editable_requirements) == 3
+        assert list(non_editable_requirements.keys()) == ["pip", "setuptools", "wheel"]
 
 
 def test__get_editable_requirements():
@@ -153,35 +144,46 @@ def test_get_non_editable_requirements():
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python"
         )
-        assert len(non_editable_requirements) == 3
         assert list(non_editable_requirements.keys()) == [
             "cloudpickle",
             "pip",
             "setuptools",
+            "wheel"
         ]
+
+
+def _install_packages(tempdir: str, packages: List[str], editable: bool = False):
+    """Install packages into the venv, using uv if available."""
+    if UV_AVAILABLE:
+        cmd = ["uv", "pip", "install", "--python", f"{tempdir}/bin/python"]
+        if editable:
+            cmd.append("-e")
+
+    else:
+        cmd = [f"{tempdir}/bin/python", "-m", "pip", "install"]
+        if editable:
+            cmd.append("-e")
+
+    cmd.extend(packages)
+    subprocess.check_call(cmd)
 
 
 def _create_venv(tempdir: str):
-    subprocess.check_call([sys.executable, "-m", "venv", f"{tempdir}"])
+    if UV_AVAILABLE:
+        subprocess.check_call(["uv", "venv", tempdir, "--python", sys.executable])
+    else:
+        subprocess.check_call([sys.executable, "-m", "venv", tempdir])
+    _install_packages(tempdir, ["setuptools", "wheel"])
 
 
 def _pip_install(tempdir: str, pip_version: str = "22.0", use_src_layout: bool = False):
-    subprocess.check_call(
-        [
-            f"{tempdir}/bin/python",
-            "-m",
-            "pip",
-            "install",
-            "cloudpickle",
-            f"pip=={pip_version}",
-        ]
-    )
+    _install_packages(tempdir, ["cloudpickle", f"pip=={pip_version}"])
     pkg = (
         _get_editable_package_name_src_layout()
         if use_src_layout
         else _get_editable_package_name()
     )
-    subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install", "-e", pkg])
+    _install_packages(tempdir, [pkg], editable=True)
     if pkg not in sys.path:
         sys.path.append(pkg)
 
@@ -264,7 +266,7 @@ def does_not_raise():
     yield
 
 
-def test_pack_in_pex():
+def test_pack_in_pex(venv_optimization_level):
     requirements = [
         "numpy",
         "pyarrow"
@@ -290,7 +292,7 @@ def test_pack_in_pex():
             )
 
 
-def test_pack_in_pex_with_allow_large():
+def test_pack_in_pex_with_allow_large(venv_optimization_level):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "numpy",
@@ -326,7 +328,7 @@ def test_pack_in_pex_with_allow_large():
                 )
 
 
-def test_pack_in_pex_with_include_tools():
+def test_pack_in_pex_with_include_tools(venv_optimization_level):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "numpy",
@@ -405,7 +407,7 @@ def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(
         )
 
 
-def test_pack_in_pex_with_additional_repo():
+def test_pack_in_pex_with_additional_repo(venv_optimization_level):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "torch",
@@ -436,7 +438,7 @@ def test_pack_in_pex_with_additional_repo():
             )
 
 
-def test_pack_in_pex_include_editable_requirements():
+def test_pack_in_pex_include_editable_requirements(venv_optimization_level):
     requirements = {}
     requirement_dir = os.path.join(os.path.dirname(__file__), "user-lib", "user_lib")
     with tempfile.TemporaryDirectory() as tempdir:

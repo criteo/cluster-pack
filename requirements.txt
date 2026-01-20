@@ -1,9 +1,10 @@
 cloudpickle
-pex>=2.1.137
+pex>=2.69.1
 pip>=22.0
 pyarrow
 fire
-types-setuptools
+setuptools
+wheel
 wheel-filename
 # fsspec.get() broken in 2025.12.0
 # Remove this pin once it is fixed in any upcoming version
@@ -12,4 +13,3 @@ fsspec<=2025.10.0
 s3fs<=2025.10.0
 skein
 packaging
-setuptools

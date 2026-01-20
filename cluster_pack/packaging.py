@@ -9,12 +9,14 @@ import subprocess
 from subprocess import CalledProcessError
 import sys
 import tempfile
-from typing import Tuple, Dict, Collection, List, Any, Optional, NamedTuple, Union
+from typing import Tuple, Dict, List, Any, Optional, NamedTuple, Union
 import uuid
 import zipfile
 import setuptools
 from packaging.version import Version
 from importlib.metadata import version as pkg_version
+
+from cluster_pack import dependencies
 
 CRITEO_PYPI_URL = (
     "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
@@ -44,6 +46,31 @@ class PythonEnvDescription(NamedTuple):
 
 UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
+
+UV_AVAILABLE: bool = False
+
+VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
+
+
+def set_venv_optimization_level(level: int) -> None:
+    """Set the venv optimization level for pex builds.
+
+    :param level: optimization level (0=disabled, 1=default optimizations, 2=aggressive)
+    """
+    global VENV_OPTIMIZATION_LEVEL
+    VENV_OPTIMIZATION_LEVEL = level
+
+
+def _detect_uv() -> bool:
+    """Detect if uv is installed and available in PATH."""
+    if shutil.which("uv") is not None:
+        return True
+    else:
+        _logger.warning(f"Cluster-pack can now interact with uv to speed up uploads, it is recommended to install it.") #noqa: E501
+        return False
+
+
+UV_AVAILABLE = _detect_uv()
 
 
 def _get_tmp_dir() -> str:
@@ -88,16 +115,6 @@ def zip_path(
     return py_archive
 
 
-def format_requirements(requirements: Dict[str, str]) -> List[str]:
-    if requirements is None:
-        return list()
-    else:
-        return [
-            name + "==" + version if version else name
-            for name, version in requirements.items()
-        ]
-
-
 def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
     if allow_large_pex:
         return
@@ -113,7 +130,6 @@ def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
 def pack_in_pex(
     requirements: List[str],
     output: str,
-    ignored_packages: Collection[str] = [],
     pex_inherit_path: str = "fallback",
     editable_requirements: Dict[str, str] = {},
     allow_large_pex: bool = False,
@@ -122,11 +138,9 @@ def pack_in_pex(
     additional_indexes: Optional[List[str]] = None,
 ) -> str:
     """Pack current environment using a pex.
-
     :param additional_repo: an additional pypi repo if one was used env creation
     :param requirements: list of requirements (ex {'tensorflow': '1.15.0'})
     :param output: location of the pex
-    :param ignored_packages: packages to be exluded from pex
     :param pex_inherit_path: see https://github.com/pantsbuild/pex/blob/master/pex/bin/pex.py#L264,
                              possible values ['false', 'fallback', 'prefer']
     :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
@@ -143,35 +157,53 @@ def pack_in_pex(
             tmp_ext = ".tmp"
         else:
             tmp_ext = ""
+
         if include_pex_tools:
             cmd.extend(["--include-tools"])
 
+        if VENV_OPTIMIZATION_LEVEL >= 1:
+            if (pex_inherit_path != "false"
+                    and dependencies.check_venv_has_requirements(None, requirements)):
+                cmd.extend(["--venv-repository"])
+            elif UV_AVAILABLE:
+                venv_repo_path = os.path.join(tempdir, "venv_repo")
+                dependencies.create_uv_venv(
+                    venv_repo_path,
+                    requirements,
+                    additional_repo=additional_repo,
+                    additional_indexes=additional_indexes,
+                )
+                cmd.extend(["--venv-repository", venv_repo_path])
+            else:
+                _logger.warning("Not running from venv or venv missing some requirements, "
+                                "skipping optimization because `uv ` is not available.")
+
+            cmd.extend(["--max-install-jobs", "0"])
+
+        if VENV_OPTIMIZATION_LEVEL >= 2:
+            cmd.extend(["--no-pre-install-wheel"])
+
+        sources_dir = os.path.join(tempdir, "sources")
         if editable_requirements and len(editable_requirements) > 0:
+            os.makedirs(sources_dir, exist_ok=True)
             for current_package in editable_requirements.values():
                 _logger.debug("Add current path as source", current_package)
                 shutil.copytree(
                     current_package,
-                    os.path.join(tempdir, os.path.basename(current_package)),
+                    os.path.join(sources_dir, os.path.basename(current_package)),
                 )
-            cmd.append(f"--sources-directory={tempdir}")
+            cmd.append(f"--sources-directory={sources_dir}")
 
         for req in requirements:
-            pkg_name = req.split("=")[0]
-            if pkg_name in ignored_packages:
-                _logger.debug(f"Ignore requirement {req}")
-            else:
-                _logger.debug(f"Add requirement {req}")
-                cmd.append(req)
+            _logger.debug(f"Add requirement {req}")
+            cmd.append(req)
+
         if _is_criteo():
             cmd.append(f"--index-url={CRITEO_PYPI_URL}")
 
         if additional_repo is not None:
-            additional_repo = (
-                additional_repo
-                if isinstance(additional_repo, list)
-                else [additional_repo]
-            )
-            for repo in additional_repo:
+            repos = additional_repo if isinstance(additional_repo, list) else [additional_repo]
+            for repo in repos:
                 cmd.append(f"--index-url={repo}")
 
         if additional_indexes:
@@ -244,8 +276,6 @@ class Packer(object):
         self,
         output: str,
         reqs: List[str],
-        additional_packages: Dict[str, str],
-        ignored_packages: Collection[str],
         editable_requirements: Dict[str, str],
         allow_large_pex: bool = False,
         include_pex_tools: bool = False,
@@ -277,8 +307,6 @@ class PexPacker(Packer):
         self,
         output: str,
         reqs: List[str],
-        additional_packages: Dict[str, str],
-        ignored_packages: Collection[str],
         editable_requirements: Dict[str, str],
         allow_large_pex: bool = False,
         include_pex_tools: bool = False,
@@ -288,7 +316,6 @@ class PexPacker(Packer):
         return pack_in_pex(
             reqs,
             output,
-            ignored_packages,
             editable_requirements=editable_requirements,
             allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
@@ -482,14 +509,7 @@ def _running_from_pex() -> bool:
     # preferred way to detect whether we run from within a pex
     if "PEX" in os.environ:
         return True
-
-    # We still temporarilly support the previous way
-    try:
-        import _pex
-
-        return True
-    except ModuleNotFoundError:
-        return False
+    return False
 
 
 def _is_criteo() -> bool:

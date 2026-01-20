@@ -16,11 +16,16 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.9
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+        cache-dependency-glob: "**/requirements*.txt"
     - name: Install dependencies
       run: |
-        pip install --upgrade pip
-        pip install .
-        pip install -r tests-requirements.txt
+        uv pip install --system --upgrade pip
+        uv pip install --system .
+        uv pip install --system -r tests-requirements.txt
     - name: Linter
       run: |
         pylama
@@ -34,6 +39,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.9, 3.11]
+        use-uv: [true, false]
 
     steps:
     - uses: actions/checkout@v2
@@ -41,7 +47,20 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
+    - name: Install uv
+      if: matrix.use-uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+        cache-dependency-glob: "**/requirements*.txt"
+    - name: Install dependencies (with uv)
+      if: matrix.use-uv
+      run: |
+        uv pip install --system --upgrade pip
+        uv pip install --system -e .
+        uv pip install --system -r tests-requirements.txt
+    - name: Install dependencies (without uv)
+      if: ${{ !matrix.use-uv }}
       run: |
         pip install --upgrade pip
         pip install -e .
@@ -54,10 +73,23 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [ { python: 3.9.15, spark: 3.5.7 }, { python: 3.11.8, spark: 3.5.7 } ]
+        version: [ { python: 3.9.15, spark: 3.5.8 }, { python: 3.11.8, spark: 3.5.8 } ]
+        venv_optimization_level: [0, 1, 2]
 
     steps:
     - uses: actions/checkout@v2
+
+    - name: Prepare uv cache directory
+      run: mkdir -p .uv-cache
+
+    - name: Cache uv packages for Docker
+      uses: actions/cache@v4
+      with:
+        path: .uv-cache
+        key: uv-docker-${{ matrix.version.python }}
+        restore-keys: |
+          uv-docker-${{ matrix.version.python }}
+
     
     - name: Build spark-docker
       run: docker build -t spark-docker ./examples/spark-with-S3 --build-arg SPARK_INPUT_VERSION=${{ matrix.version.spark }} --build-arg PYTHON_VERSION=${{ matrix.version.python }}
@@ -65,7 +97,7 @@ jobs:
     - name: Build the docker-compose stack
       run: |
         docker compose -f ./examples/spark-with-S3/docker-compose.yml up -d
-      
+
     - name: Check running containers
       run: docker ps -a
 
@@ -73,7 +105,7 @@ jobs:
       run: docker exec spark-master ./examples/spark-with-S3/scripts/install_pyspark.sh ${{ matrix.version.spark }}
 
     - name: Run spark Job with implicitly created pex
-      run: docker exec spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
+      run: docker exec -e CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL=${{ matrix.venv_optimization_level }} spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
 
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest

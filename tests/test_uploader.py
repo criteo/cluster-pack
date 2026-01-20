@@ -218,7 +218,6 @@ def test_upload_env():
         mock_packer.assert_called_once_with(
             ["a==1.0", "b==2.0"],
             Any(str),
-            [],
             additional_indexes=None,
             additional_repo=None,
             allow_large_pex=False,
@@ -237,7 +236,6 @@ def test_upload_env():
         mock_packer.assert_called_once_with(
             ["b==2.0", "c==3.0"],
             Any(str),
-            ["a"],
             additional_indexes=None,
             additional_repo=None,
             allow_large_pex=False,
@@ -409,49 +407,6 @@ def test_format_pex_requirements():
             "pipdeptree==2.0.0",
             "six==1.15.0",
         ] == cleaned_requirements
-
-
-@pytest.mark.parametrize(
-    "req, expected",
-    [
-        (
-            [
-                "pipdeptree==2.0.0",
-                "GitPython==3.1.14",
-                "six==1.15.0",
-                "Cython==0.29.22",
-            ],
-            [
-                "cython==0.29.22",
-                "gitpython==3.1.14",
-                "pipdeptree==2.0.0",
-                "six==1.15.0",
-            ],
-        ),
-        (
-            [
-                "pipdeptree==2.0.0",
-                "six==1.15.0",
-                "gitpython==3.1.14",
-                "cython==0.29.22",
-            ],
-            [
-                "cython==0.29.22",
-                "gitpython==3.1.14",
-                "pipdeptree==2.0.0",
-                "six==1.15.0",
-            ],
-        ),
-    ],
-)
-def test_sort_requirement(req, expected):
-    assert uploader._sort_requirements(req) == expected
-
-
-def test_normalize_requirement():
-    assert ["tf-yarn", "typing-extension", "to-to"] == uploader._normalize_requirements(
-        ["tf_yarn", "typing_extension", "to-to"]
-    )
 
 
 def _check_metadata(metadata_file, expected_json):
