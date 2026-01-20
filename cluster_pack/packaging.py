@@ -509,9 +509,7 @@ def get_default_fs() -> str:
 def _running_from_pex() -> bool:
     # Env variable PEX has been introduced in pex==2.1.54 and is now the
     # preferred way to detect whether we run from within a pex
-    if "PEX" in os.environ:
-        return True
-    return False
+    return "PEX" in os.environ
 
 
 def _is_criteo() -> bool:
