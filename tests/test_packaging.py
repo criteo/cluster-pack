@@ -8,6 +8,7 @@ import sys
 import tempfile
 import zipfile
 from importlib.metadata import version as pkg_version
+from typing import List
 from unittest import mock
 
 import pytest
@@ -79,7 +80,7 @@ def test_get_virtualenv_empty_returns_default():
 def test_get_empty_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        _install_packages(tempdir, "cloudpickle", _get_editable_package_name(), "pip==22.0")
+        _install_packages(tempdir, ["cloudpickle", _get_editable_package_name(), "pip==22.0"])
         editable_requirements = packaging._get_editable_requirements(
             f"{tempdir}/bin/python"
         )
@@ -89,7 +90,7 @@ def test_get_empty_editable_requirements():
 def test_get_empty_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        _install_packages(tempdir, _get_editable_package_name(), "pip==22.0", editable=True)
+        _install_packages(tempdir, [_get_editable_package_name(), "pip==22.0"], editable=True)
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python"
         )
@@ -151,7 +152,7 @@ def test_get_non_editable_requirements():
         ]
 
 
-def _install_packages(tempdir: str, *packages: str, editable: bool = False):
+def _install_packages(tempdir: str, packages: List[str], editable: bool = False):
     """Install packages into the venv, using uv if available."""
     if UV_AVAILABLE:
         cmd = ["uv", "pip", "install", "--python", f"{tempdir}/bin/python"]
@@ -172,17 +173,17 @@ def _create_venv(tempdir: str):
         subprocess.check_call(["uv", "venv", tempdir, "--python", sys.executable])
     else:
         subprocess.check_call([sys.executable, "-m", "venv", tempdir])
-    _install_packages(tempdir, "setuptools", "wheel")
+    _install_packages(tempdir, ["setuptools", "wheel"])
 
 
 def _pip_install(tempdir: str, pip_version: str = "22.0", use_src_layout: bool = False):
-    _install_packages(tempdir, "cloudpickle", f"pip=={pip_version}")
+    _install_packages(tempdir, ["cloudpickle", f"pip=={pip_version}"])
     pkg = (
         _get_editable_package_name_src_layout()
         if use_src_layout
         else _get_editable_package_name()
     )
-    _install_packages(tempdir, pkg, editable=True)
+    _install_packages(tempdir, [pkg], editable=True)
     if pkg not in sys.path:
         sys.path.append(pkg)
 
