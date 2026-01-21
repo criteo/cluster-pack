@@ -1,4 +1,5 @@
 import getpass
+import hashlib
 import importlib.util
 import json
 import logging
@@ -289,13 +290,22 @@ class Packer(object):
 
 def get_env_name(env_var_name: str) -> str:
     """
-    Return default virtual env
+    Return a stable, collision-resistant environment name.
+
+    When the environment variable is set (e.g. VIRTUAL_ENV), we append a short hash
+    of its path to the basename. This prevents collisions when multiple venvs share
+    the same directory name (e.g. many projects using ".venv" or "venv-linux").
     """
     virtual_env_path = os.environ.get(env_var_name)
     if not virtual_env_path:
         return "default"
     else:
-        return os.path.basename(virtual_env_path)
+        normalized_path = os.path.normpath(
+            os.path.realpath(os.path.abspath(virtual_env_path))
+        )
+        short_hash = hashlib.sha1(normalized_path.encode("utf-8")).hexdigest()[:7]
+        base = os.path.basename(normalized_path)
+        return f"{base}_{short_hash}"
 
 
 class PexPacker(Packer):
