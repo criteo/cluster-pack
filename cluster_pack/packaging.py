@@ -88,20 +88,35 @@ UV_AVAILABLE = _detect_uv()
 SEVENZIP_EXECUTABLE = _detect_7zip()
 
 
+def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compresslevel: int = 1) -> None:
+    """Create a zip archive using zipfile module with specified compression level.
+
+    :param output_zip: output path (with .zip extension)
+    :param source_dir: directory to compress
+    :param compresslevel: compression level 0-9 (0=store, 1=fastest, 9=best)
+    """
+    with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=compresslevel) as zf:
+        for root, _, files in os.walk(source_dir):
+            for file in files:
+                full_path = os.path.join(root, file)
+                arc_name = os.path.relpath(full_path, source_dir)
+                zf.write(full_path, arc_name)
+
+
 def _make_zip_archive(output: str, source_dir: str) -> None:
     """Create a zip archive from source_dir.
 
-    Uses 7z/7za with multithreading if available, otherwise falls back to shutil.make_archive.
+    Uses 7z/7za with multithreading if available, otherwise falls back to zipfile with fast compression.
 
     :param output: output path without .zip extension
     :param source_dir: directory to compress
     """
+    output_zip = output + ".zip"
     if SEVENZIP_EXECUTABLE:
-        output_zip = output + ".zip"
         cmd = [
             SEVENZIP_EXECUTABLE, "a",
             "-tzip",
-            "-mx=6",
+            "-mx=1",
             "-mmt=on",
             output_zip,
             os.path.join(source_dir, "*"),
@@ -117,10 +132,11 @@ def _make_zip_archive(output: str, source_dir: str) -> None:
             )
         except subprocess.CalledProcessError as e:
             _logger.warning(f"{SEVENZIP_EXECUTABLE} failed: {e.stderr.decode('utf-8', errors='replace')}, "
-                            "falling back to shutil.make_archive")
-            shutil.make_archive(output, "zip", source_dir)
+                            "falling back to zipfile")
+            _make_zip_archive_zipfile(output_zip, source_dir, compresslevel=1)
     else:
-        shutil.make_archive(output, "zip", source_dir)
+        _logger.info("Creating zip archive with zipfile (compresslevel=1)")
+        _make_zip_archive_zipfile(output_zip, source_dir, compresslevel=1)
 
 
 def _get_tmp_dir() -> str:
