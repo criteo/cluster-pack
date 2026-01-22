@@ -24,7 +24,7 @@ def add_packaged_environment(ssb: SparkSession.Builder, archive: str) -> None:
     if _get_value(ssb, "spark.submit.deployMode") == "cluster":
         os.environ["PYSPARK_DRIVER_PYTHON"] = usage.interpreter_cmd
     else:
-        os.environ["PYSPARK_DRIVER_PYTHON"] = "python"
+        os.environ["PYSPARK_DRIVER_PYTHON"] = usage.interpreter_cmd
 
     if not _get_value(ssb, "spark.master") == "yarn":
         _logger.info("Not running on yarn. Adding archive to spark.files")
