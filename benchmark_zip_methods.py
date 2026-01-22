@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import time
+from functools import partial
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -17,29 +18,26 @@ from cluster_pack.packaging import (
     make_zip_archive_shutil,
     make_zip_archive_zipfile,
     make_zip_archive_7z,
-    SEVENZIP_AVAILABLE,
+    SEVENZIP_EXECUTABLE,
 )
 
 PYTHON_VERSION = "3.11"
 TORCH_VERSION = "torch==2.8.0"
 BENCHMARK_DIR = "/tmp/zip_methods_benchmark"
 
-PEX_LAYOUTS = ["zipapp", "packed", "loose"]
+PEX_LAYOUTS = ["packed", "loose", "zipapp",]
 ZIP_METHODS = [
-    ("shutil", None),
+    ("7z_cl0", 0),
+    ("7z_cl1", 1),
     ("zipfile_cl0", 0),
     ("zipfile_cl1", 1),
-    ("7z_cl0", 0),
-    ("7z_cl6", 6),
+    ("shutil", None),
 ]
 
 
 def check_uv_available() -> bool:
     """Check if uv is installed and available."""
     return shutil.which("uv") is not None
-
-
-
 
 
 def clear_cache(name: str = "pex") -> None:
@@ -222,7 +220,7 @@ def benchmark_layout(venv_path: str, layout: str) -> List[Dict[str, Any]]:
         print(f"  Uncompressed size: {uncompressed_size_mb:.1f}MB")
 
         for method_name, compresslevel in ZIP_METHODS:
-            if method_name.startswith("7z") and not SEVENZIP_AVAILABLE:
+            if method_name.startswith("7z") and not SEVENZIP_EXECUTABLE:
                 print(f"\n  Skipping {method_name} (7z not available)")
                 continue
 
