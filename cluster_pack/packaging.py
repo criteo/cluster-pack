@@ -49,7 +49,7 @@ UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 UV_AVAILABLE: bool = False
-SEVENZIP_AVAILABLE: bool = False
+SEVENZIP_EXECUTABLE: Optional[str] = None
 
 VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
 
@@ -72,38 +72,41 @@ def _detect_uv() -> bool:
         return False
 
 
-def _detect_7zip() -> bool:
-    """Detect if 7z is installed and available in PATH."""
-    if shutil.which("7z") is not None:
-        return True
-    else:
-        _logger.info("7z not found in PATH, falling back to single-threaded zip compression")
-        return False
+def _detect_7zip() -> Optional[str]:
+    """Detect if 7z or 7za is installed and available in PATH.
+
+    :return: the executable name ('7z' or '7za') if found, None otherwise
+    """
+    for executable in ["7z", "7za"]:
+        if shutil.which(executable) is not None:
+            return executable
+    _logger.info("7z/7za not found in PATH, falling back to single-threaded zip compression")
+    return None
 
 
 UV_AVAILABLE = _detect_uv()
-SEVENZIP_AVAILABLE = _detect_7zip()
+SEVENZIP_EXECUTABLE = _detect_7zip()
 
 
 def _make_zip_archive(output: str, source_dir: str) -> None:
     """Create a zip archive from source_dir.
 
-    Uses 7z with multithreading if available, otherwise falls back to shutil.make_archive.
+    Uses 7z/7za with multithreading if available, otherwise falls back to shutil.make_archive.
 
     :param output: output path without .zip extension
     :param source_dir: directory to compress
     """
-    if SEVENZIP_AVAILABLE:
+    if SEVENZIP_EXECUTABLE:
         output_zip = output + ".zip"
         cmd = [
-            "7z", "a",
+            SEVENZIP_EXECUTABLE, "a",
             "-tzip",
             "-mx=6",
             "-mmt=on",
             output_zip,
             os.path.join(source_dir, "*"),
         ]
-        _logger.info(f"Creating zip archive with 7z: {' '.join(cmd)}")
+        _logger.info(f"Creating zip archive with {SEVENZIP_EXECUTABLE}: {' '.join(cmd)}")
         try:
             subprocess.run(
                 cmd,
@@ -113,7 +116,7 @@ def _make_zip_archive(output: str, source_dir: str) -> None:
                 check=True,
             )
         except subprocess.CalledProcessError as e:
-            _logger.warning(f"7z failed: {e.stderr.decode('utf-8', errors='replace')}, "
+            _logger.warning(f"{SEVENZIP_EXECUTABLE} failed: {e.stderr.decode('utf-8', errors='replace')}, "
                             "falling back to shutil.make_archive")
             shutil.make_archive(output, "zip", source_dir)
     else:
