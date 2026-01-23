@@ -60,11 +60,13 @@ jobs:
         uv pip install --system -e .
         uv pip install --system -r tests-requirements.txt
     - name: Install dependencies (without uv)
+      # Also remove 7z to test fallback path
       if: ${{ !matrix.use-uv }}
       run: |
         pip install --upgrade pip
         pip install -e .
         pip install -r tests-requirements.txt
+        sudo mv /usr/bin/7z /usr/bin/7z.bak
     - name: Tests
       run: |
         pytest -m "not hadoop and not conda" -s tests

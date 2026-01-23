@@ -49,6 +49,7 @@ UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 UV_AVAILABLE: bool = False
+SEVENZIP_EXECUTABLE: Optional[str] = None
 
 VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
 
@@ -71,7 +72,71 @@ def _detect_uv() -> bool:
         return False
 
 
+def _detect_7zip() -> Optional[str]:
+    """Detect if 7z or 7za is installed and available in PATH.
+
+    :return: the executable name ('7z' or '7za') if found, None otherwise
+    """
+    for executable in ["7z", "7za"]:
+        if shutil.which(executable) is not None:
+            return executable
+    _logger.info("7z/7za not found in PATH, falling back to single-threaded zip compression")
+    return None
+
+
 UV_AVAILABLE = _detect_uv()
+SEVENZIP_EXECUTABLE = _detect_7zip()
+
+
+def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compresslevel: int = 1) -> None:
+    """Create a zip archive using zipfile module with specified compression level.
+
+    :param output_zip: output path (with .zip extension)
+    :param source_dir: directory to compress
+    :param compresslevel: compression level 0-9 (0=store, 1=fastest, 9=best)
+    """
+    with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=compresslevel) as zf:
+        for root, _, files in os.walk(source_dir):
+            for file in files:
+                full_path = os.path.join(root, file)
+                arc_name = os.path.relpath(full_path, source_dir)
+                zf.write(full_path, arc_name)
+
+
+def _make_zip_archive(output: str, source_dir: str) -> None:
+    """Create a zip archive from source_dir.
+
+    Uses 7z/7za with multithreading if available, otherwise falls back to zipfile with fast compression.
+
+    :param output: output path without .zip extension
+    :param source_dir: directory to compress
+    """
+    output_zip = output + ".zip"
+    if SEVENZIP_EXECUTABLE:
+        cmd = [
+            SEVENZIP_EXECUTABLE, "a",
+            "-tzip",
+            "-mx=1",
+            "-mmt=on",
+            output_zip,
+            os.path.join(source_dir, "*"),
+        ]
+        _logger.info(f"Creating zip archive with {SEVENZIP_EXECUTABLE}: {' '.join(cmd)}")
+        try:
+            subprocess.run(
+                cmd,
+                cwd=source_dir,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            _logger.warning(f"{SEVENZIP_EXECUTABLE} failed: {e.stderr.decode('utf-8', errors='replace')}, "
+                            "falling back to zipfile")
+            _make_zip_archive_zipfile(output_zip, source_dir, compresslevel=1)
+    else:
+        _logger.info("Creating zip archive with zipfile (compresslevel=1)")
+        _make_zip_archive_zipfile(output_zip, source_dir, compresslevel=1)
 
 
 def _get_tmp_dir() -> str:
@@ -228,7 +293,7 @@ def pack_in_pex(
         check_large_pex(allow_large_pex, output + tmp_ext)
 
         if allow_large_pex:
-            shutil.make_archive(output, "zip", output + tmp_ext)
+            _make_zip_archive(output, output + tmp_ext)
 
     return output + ".zip" if allow_large_pex else output
 
