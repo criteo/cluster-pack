@@ -113,7 +113,9 @@ def test_get_current_user_with_env_variable():
 def test_get_current_user_with_empty_env_variable():
     """Test that empty C_PACK_USER falls back to getpass.getuser()."""
     with contextlib.ExitStack() as stack:
-        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.getpass.getuser", return_value="system_user"))
+        stack.enter_context(
+            mock.patch(f"{MODULE_TO_TEST}.getpass.getuser", return_value="system_user")
+        )
         with mock.patch.dict("os.environ", clear=True):
             # Test when C_PACK_USER is not set
             assert packaging._get_current_user() == "system_user"
@@ -137,7 +139,9 @@ def test_get_current_user_strips_whitespace():
 def test_build_package_path_uses_c_pack_user_env():
     """Test that _build_package_path uses C_PACK_USER when set."""
     with contextlib.ExitStack() as stack:
-        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.get_default_fs", return_value="hdfs://"))
+        stack.enter_context(
+            mock.patch(f"{MODULE_TO_TEST}.get_default_fs", return_value="hdfs://")
+        )
         with mock.patch.dict("os.environ"):
             os.environ["C_PACK_USER"] = "env_user"
 
