@@ -168,8 +168,7 @@ def test_get_empty_non_editable_requirements():
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python"
         )
-        assert len(non_editable_requirements) == 3
-        assert list(non_editable_requirements.keys()) == ["pip", "setuptools", "wheel"]
+        assert list(non_editable_requirements.keys()) == ["packaging", "pip", "setuptools", "wheel"]
 
 
 def test__get_editable_requirements():
@@ -220,6 +219,7 @@ def test_get_non_editable_requirements():
         )
         assert list(non_editable_requirements.keys()) == [
             "cloudpickle",
+            "packaging",
             "pip",
             "setuptools",
             "wheel"
