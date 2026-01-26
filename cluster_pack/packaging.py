@@ -53,6 +53,21 @@ def _get_tmp_dir() -> str:
     return tmp_dir
 
 
+def _get_current_user() -> str:
+    """
+    Get the current user name.
+
+    First checks the C_PACK_USER environment variable.
+    If not set or empty, falls back to getpass.getuser().
+
+    :return: username string
+    """
+    user = os.environ.get("C_PACK_USER", "").strip()
+    if user:
+        return user
+    return getpass.getuser()
+
+
 def zip_path(
     py_dir: str, include_base_name: bool = True, tmp_dir: str = _get_tmp_dir()
 ) -> str:
@@ -373,7 +388,7 @@ def get_non_editable_requirements(executable: str = sys.executable) -> Dict[str,
 
 
 def _build_package_path(name: str, extension: Optional[str]) -> str:
-    path = f"{get_default_fs()}/user/{getpass.getuser()}/envs/{name}"
+    path = f"{get_default_fs()}/user/{_get_current_user()}/envs/{name}"
     if extension is None:
         return path
     return f"{path}.{extension}"
