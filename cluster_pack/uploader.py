@@ -199,7 +199,7 @@ def _upload_pex_file(
             info_to_upload = PexInfo.from_pex(pex_file_or_dir)
             if (
                 not force_upload
-                and info_from_storage.code_hash == info_to_upload.code_hash
+                and info_from_storage.pex_hash == info_to_upload.pex_hash
             ):
                 _logger.info(
                     f"skip upload of current {pex_file_or_dir}"
