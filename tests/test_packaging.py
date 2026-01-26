@@ -26,6 +26,7 @@ from cluster_pack.packaging import (
     check_large_pex,
     PexTooLargeError,
     UV_AVAILABLE,
+    _get_current_user,
 )
 
 MODULE_TO_TEST = "cluster_pack.packaging"
@@ -83,7 +84,7 @@ def test_default_hdfs_pex_name_includes_venv_path_hash():
     with contextlib.ExitStack() as stack:
         stack.enter_context(mock.patch(f"{MODULE_TO_TEST}._running_from_pex", return_value=False))
         stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.get_default_fs", return_value="hdfs://"))
-        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.getpass.getuser", return_value="alice"))
+        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}._get_current_user", return_value="alice"))
         with mock.patch.dict("os.environ"):
             os.environ["VIRTUAL_ENV"] = "/home/alice/workspaces/proj/.venv"
             expected_hash = hashlib.sha1(
@@ -99,6 +100,51 @@ def test_default_hdfs_pex_name_includes_venv_path_hash():
             assert actual_pex_file == ""
             assert actual_env_name == expected_env_name
             assert actual_path == expected_path
+
+
+def test_get_current_user_with_env_variable():
+    """Test that C_PACK_USER environment variable is used when set."""
+    with mock.patch.dict("os.environ"):
+        # Test when C_PACK_USER is set
+        os.environ["C_PACK_USER"] = "custom_user"
+        assert packaging._get_current_user() == "custom_user"
+
+
+def test_get_current_user_with_empty_env_variable():
+    """Test that empty C_PACK_USER falls back to getpass.getuser()."""
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.getpass.getuser", return_value="system_user"))
+        with mock.patch.dict("os.environ", clear=True):
+            # Test when C_PACK_USER is not set
+            assert packaging._get_current_user() == "system_user"
+
+            # Test when C_PACK_USER is empty string
+            os.environ["C_PACK_USER"] = ""
+            assert packaging._get_current_user() == "system_user"
+
+            # Test when C_PACK_USER is only whitespace
+            os.environ["C_PACK_USER"] = "   "
+            assert packaging._get_current_user() == "system_user"
+
+
+def test_get_current_user_strips_whitespace():
+    """Test that C_PACK_USER whitespace is stripped."""
+    with mock.patch.dict("os.environ"):
+        os.environ["C_PACK_USER"] = "  spaced_user  "
+        assert packaging._get_current_user() == "spaced_user"
+
+
+def test_build_package_path_uses_c_pack_user_env():
+    """Test that _build_package_path uses C_PACK_USER when set."""
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.get_default_fs", return_value="hdfs://"))
+        with mock.patch.dict("os.environ"):
+            os.environ["C_PACK_USER"] = "env_user"
+
+            result = packaging._build_package_path("myenv", "pex")
+            expected = "hdfs:///user/env_user/envs/myenv.pex"
+
+            assert result == expected
 
 
 def test_get_empty_editable_requirements():
@@ -398,7 +444,7 @@ def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(
         "None" if package_path is None else f"'{package_path}'"
     )
     expected_package_path = (
-        f"hdfs:///user/{getpass.getuser()}/envs/{os.path.basename(unzipped_pex_path)}.zip"
+        f"hdfs:///user/{_get_current_user()}/envs/{os.path.basename(unzipped_pex_path)}.zip"
         if is_large_pex is None
         else f"{package_path}.zip"
     )
@@ -528,19 +574,19 @@ archive_test_data = [
     (False, "dummy/path/exe.pex", True, False, "dummy/path/exe.pex.zip"),
     (True, "dummy/path/exe.pex", False, False, "dummy/path/exe.pex"),
     (True, "dummy/path/exe.pex", True, False, "dummy/path/exe.pex.zip"),
-    (False, None, False, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
-    (False, None, None, False, f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex"),
+    (False, None, False, False, f"hdfs:///user/{_get_current_user()}/envs/venv_exe.pex"),
+    (False, None, None, False, f"hdfs:///user/{_get_current_user()}/envs/venv_exe.pex"),
     (
         False,
         None,
         True,
         False,
-        f"hdfs:///user/{getpass.getuser()}/envs/venv_exe.pex.zip",
+        f"hdfs:///user/{_get_current_user()}/envs/venv_exe.pex.zip",
     ),
-    (True, None, False, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex"),
-    (True, None, True, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex.zip"),
-    (True, None, None, False, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex"),
-    (True, None, None, True, f"hdfs:///user/{getpass.getuser()}/envs/pex_exe.pex.zip"),
+    (True, None, False, False, f"hdfs:///user/{_get_current_user()}/envs/pex_exe.pex"),
+    (True, None, True, False, f"hdfs:///user/{_get_current_user()}/envs/pex_exe.pex.zip"),
+    (True, None, None, False, f"hdfs:///user/{_get_current_user()}/envs/pex_exe.pex"),
+    (True, None, None, True, f"hdfs:///user/{_get_current_user()}/envs/pex_exe.pex.zip"),
 ]
 
 
