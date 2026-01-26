@@ -29,6 +29,24 @@ $ pip install .
 ## Prerequisites
 
 cluster-pack supports Python ≥3.9.
+Cluster-pack can speed up pex creation by using uv if available.
+
+## Feature flags
+- C_PACK_VENV_OPTIMIZATION_LEVEL (default 1): uses an existing venv to speed up pex creation
+  - This will work if no additional packages (not already in the venv) are requested at the pex creation, or fallbacks to standard pex creation
+  - If uv is installed, it will be used to speed up the previous use case by creating a transient venv with additional requirements, 
+which is faster than pex's default way of building the pex
+  - also adds an optimization to use multithreading when running the pex the first time (`--max-install-jobs 0`)
+  - Can be deactivated by setting it to 0 in case of issues
+
+- C_PACK_USE_ZIPFILE (default 1): use zipfile module to create the zip archive instead of shutil.make_archive
+  - This is another python lib to create zip files, which allows to control the compression level.
+  - Can be deactivated by setting it to 0 in case of issues
+
+- C_PACK_ZIP_COMPRESSION_LEVEL (default 0, i.e. no compression): compression level to use when creating the zip archive
+  - Currently, we only explicitly zip pex files that have been built with `--layout packed` which already produces compressed files.
+  - In that case, there is no advantage in compressing again, so the default level is 0 which speeds up a lot `large_pex` creation.
+  - Only used if C_PACK_USE_ZIPFILE is set to 1
 
 ## Features
 
