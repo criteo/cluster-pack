@@ -49,9 +49,10 @@ UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 UV_AVAILABLE: bool = False
-USE_ZIPFILE: bool = False
+USE_ZIPFILE: bool = os.environ.get("C_PACK_USE_ZIPFILE", "1").lower() in ("1", "true", "yes")
+ZIP_COMPRESSLEVEL: int = int(os.environ.get("C_PACK_ZIP_COMPRESSLEVEL", "0"))
 
-VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
+VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("C_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
 
 
 def set_venv_optimization_level(level: int) -> None:
@@ -108,8 +109,8 @@ def _make_zip_archive(output: str, source_dir: str) -> None:
     :param source_dir: directory to compress
     """
     if USE_ZIPFILE:
-        _logger.info("Creating zip archive with zipfile (compresslevel=1)")
-        _make_zip_archive_zipfile(output + ".zip", source_dir, compresslevel=1)
+        _logger.info(f"Creating zip archive with zipfile (compresslevel={ZIP_COMPRESSLEVEL})")
+        _make_zip_archive_zipfile(output + ".zip", source_dir, compresslevel=ZIP_COMPRESSLEVEL)
     else:
         _logger.info("Creating zip archive with shutil.make_archive")
         shutil.make_archive(output, "zip", source_dir)
