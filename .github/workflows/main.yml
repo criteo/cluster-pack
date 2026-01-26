@@ -105,7 +105,7 @@ jobs:
       run: docker exec spark-master ./examples/spark-with-S3/scripts/install_pyspark.sh ${{ matrix.version.spark }}
 
     - name: Run spark Job with implicitly created pex
-      run: docker exec -e CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL=${{ matrix.venv_optimization_level }} spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
+      run: docker exec -e C_PACK_VENV_OPTIMIZATION_LEVEL=${{ matrix.venv_optimization_level }} spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
 
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest
