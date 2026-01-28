@@ -49,8 +49,10 @@ UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 UV_AVAILABLE: bool = False
+USE_ZIPFILE: bool = os.environ.get("C_PACK_USE_ZIPFILE", "1").lower() in ("1", "true", "yes")
+ZIP_COMPRESSLEVEL: int = int(os.environ.get("C_PACK_ZIP_COMPRESSLEVEL", "0"))
 
-VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("CLUSTER_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
+VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("C_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
 
 
 def set_venv_optimization_level(level: int) -> None:
@@ -72,6 +74,46 @@ def _detect_uv() -> bool:
 
 
 UV_AVAILABLE = _detect_uv()
+
+
+def set_use_zipfile(use_zipfile: bool) -> None:
+    """Set whether to use zipfile module instead of shutil.make_archive for zipping.
+
+    :param use_zipfile: True to use zipfile module, False to use shutil.make_archive
+    """
+    global USE_ZIPFILE
+    USE_ZIPFILE = use_zipfile
+
+
+def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compresslevel: int = 1) -> None:
+    """Create a zip archive using zipfile module with specified compression level.
+
+    :param output_zip: output path (with .zip extension)
+    :param source_dir: directory to compress
+    :param compresslevel: compression level 0-9 (0=store, 1=fastest, 9=best)
+    """
+    with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=compresslevel) as zf:
+        for root, _, files in os.walk(source_dir):
+            for file in files:
+                full_path = os.path.join(root, file)
+                arc_name = os.path.relpath(full_path, source_dir)
+                zf.write(full_path, arc_name)
+
+
+def _make_zip_archive(output: str, source_dir: str) -> None:
+    """Create a zip archive from source_dir.
+
+    Uses zipfile module if USE_ZIPFILE is True, otherwise uses shutil.make_archive.
+
+    :param output: output path without .zip extension
+    :param source_dir: directory to compress
+    """
+    if USE_ZIPFILE:
+        _logger.info(f"Creating zip archive with zipfile (compresslevel={ZIP_COMPRESSLEVEL})")
+        _make_zip_archive_zipfile(output + ".zip", source_dir, compresslevel=ZIP_COMPRESSLEVEL)
+    else:
+        _logger.info("Creating zip archive with shutil.make_archive")
+        shutil.make_archive(output, "zip", source_dir)
 
 
 def _get_tmp_dir() -> str:
@@ -228,7 +270,7 @@ def pack_in_pex(
         check_large_pex(allow_large_pex, output + tmp_ext)
 
         if allow_large_pex:
-            shutil.make_archive(output, "zip", output + tmp_ext)
+            _make_zip_archive(output, output + tmp_ext)
 
     return output + ".zip" if allow_large_pex else output
 
