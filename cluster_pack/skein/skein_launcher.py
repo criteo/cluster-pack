@@ -10,6 +10,7 @@ from typing import Dict, Optional, List, Callable, Any
 
 from cluster_pack.skein import skein_config_builder
 from cluster_pack import filesystem
+from cluster_pack.packaging import _get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +226,7 @@ def _submit(
         spec.acquire_map_reduce_delegation_token = acquire_map_reduce_delegation_token
 
     # activate Impersonation only if user to run the job is not the current user (yarn issue)
-    if user and user != getpass.getuser():
+    if user and user != _get_current_user():
         spec.user = user
 
     if queue:
