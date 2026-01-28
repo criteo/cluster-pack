@@ -32,6 +32,11 @@ cluster-pack supports Python ≥3.9.
 Cluster-pack can speed up pex creation by using uv if available.
 
 ## Feature flags
+- C_PACK_USER: override the current user for HDFS path generation and Skein impersonation
+  - When set, this value is used instead of the system user (from `getpass.getuser()`)
+  - Useful for running jobs as a different user or in environments where the system user doesn't match the HDFS user
+  - If not set or empty, falls back to the current system user
+
 - C_PACK_VENV_OPTIMIZATION_LEVEL (default 1): uses an existing venv to speed up pex creation
   - This will work if no additional packages (not already in the venv) are requested at the pex creation, or fallbacks to standard pex creation
   - If uv is installed, it will be used to speed up the previous use case by creating a transient venv with additional requirements, 
