@@ -49,8 +49,30 @@ UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 UV_AVAILABLE: bool = False
-USE_ZIPFILE: bool = os.environ.get("C_PACK_USE_ZIPFILE", "1").lower() in ("1", "true", "yes")
-ZIP_COMPRESSLEVEL: int = int(os.environ.get("C_PACK_ZIP_COMPRESSLEVEL", "0"))
+
+# Layout optimization modes for large pex creation
+# SLOW_FAST_SMALL: layout packed + zipfile storage (no compression)
+# FAST_MID_BIG: layout loose + zipfile storage (no compression)
+# MID_SLOW_SMALL: layout loose + zipfile compression level 1
+# DISABLED: fallback to shutil + layout packed - legacy behavior
+VALID_LAYOUT_OPTIMIZATIONS = ("SLOW_FAST_SMALL", "FAST_MID_BIG", "MID_SLOW_SMALL", "DISABLED")
+LAYOUT_OPTIMIZATION = os.environ.get("C_PACK_LAYOUT_OPTIMIZATION", "SLOW_FAST_SMALL")
+
+
+def set_layout_optimization(mode: str) -> None:
+    """Set the layout optimization mode for large pex creation.
+
+    :param mode: One of 'SLOW_FAST_SMALL', 'FAST_MID_BIG', 'MID_SLOW_SMALL', 'DISABLED'
+    """
+    global LAYOUT_OPTIMIZATION
+    mode = mode.upper()
+    if mode not in VALID_LAYOUT_OPTIMIZATIONS:
+        raise ValueError(f"Invalid mode '{mode}'. Valid values: {VALID_LAYOUT_OPTIMIZATIONS}")
+    LAYOUT_OPTIMIZATION = mode
+
+
+set_layout_optimization(LAYOUT_OPTIMIZATION)
+
 
 VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("C_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
 
@@ -76,16 +98,7 @@ def _detect_uv() -> bool:
 UV_AVAILABLE = _detect_uv()
 
 
-def set_use_zipfile(use_zipfile: bool) -> None:
-    """Set whether to use zipfile module instead of shutil.make_archive for zipping.
-
-    :param use_zipfile: True to use zipfile module, False to use shutil.make_archive
-    """
-    global USE_ZIPFILE
-    USE_ZIPFILE = use_zipfile
-
-
-def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compresslevel: int = 1) -> None:
+def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compresslevel: int = 0) -> None:
     """Create a zip archive using zipfile module with specified compression level.
 
     :param output_zip: output path (with .zip extension)
@@ -101,19 +114,21 @@ def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compresslevel: i
 
 
 def _make_zip_archive(output: str, source_dir: str) -> None:
-    """Create a zip archive from source_dir.
-
-    Uses zipfile module if USE_ZIPFILE is True, otherwise uses shutil.make_archive.
+    """Create a zip archive from source_dir based on LAYOUT_OPTIMIZATION setting.
 
     :param output: output path without .zip extension
     :param source_dir: directory to compress
     """
-    if USE_ZIPFILE:
-        _logger.info(f"Creating zip archive with zipfile (compresslevel={ZIP_COMPRESSLEVEL})")
-        _make_zip_archive_zipfile(output + ".zip", source_dir, compresslevel=ZIP_COMPRESSLEVEL)
-    else:
-        _logger.info("Creating zip archive with shutil.make_archive")
+    if LAYOUT_OPTIMIZATION == "DISABLED":
+        _logger.info("Creating zip archive with shutil.make_archive (DISABLED mode)")
         shutil.make_archive(output, "zip", source_dir)
+    elif LAYOUT_OPTIMIZATION == "MID_SLOW_SMALL":
+        _logger.info("Creating zip archive with zipfile (compresslevel=1, MID_SLOW_SMALL mode)")
+        _make_zip_archive_zipfile(output + ".zip", source_dir, compresslevel=1)
+    else:
+        _logger.info(f"Creating zip archive with zipfile "
+                     f"(compresslevel=0, {LAYOUT_OPTIMIZATION} mode)")
+        _make_zip_archive_zipfile(output + ".zip", source_dir, compresslevel=0)
 
 
 def _get_tmp_dir() -> str:
@@ -213,7 +228,10 @@ def pack_in_pex(
         cmd = ["pex", f"--inherit-path={pex_inherit_path}"]
 
         if allow_large_pex:
-            cmd.extend(["--layout", "packed"])
+            if LAYOUT_OPTIMIZATION in ("FAST_MID_BIG", "MID_SLOW_SMALL"):
+                cmd.extend(["--layout", "loose"])
+            else:
+                cmd.extend(["--layout", "packed"])
             tmp_ext = ".tmp"
         else:
             tmp_ext = ""
