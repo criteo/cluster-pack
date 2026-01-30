@@ -1,6 +1,6 @@
 # cluster-pack
 
-cluster-pack is a library on top of either [pex][pex] (Conda support has been discontinued)to make your Python code easily
+cluster-pack is a library on top of [pex][pex] to make your Python code easily
 available on a cluster.
 
 Its goal is to easily deploy your prod/dev Python code & libraries on any cluster. cluster-pack supports HDFS/S3 as a distributed storage.
