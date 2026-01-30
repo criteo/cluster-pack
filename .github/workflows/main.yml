@@ -104,8 +104,26 @@ jobs:
     - name: Install pyspark
       run: docker exec spark-master ./examples/spark-with-S3/scripts/install_pyspark.sh ${{ matrix.version.spark }}
 
-    - name: Run spark Job with implicitly created pex
-      run: docker exec -e C_PACK_VENV_OPTIMIZATION_LEVEL=${{ matrix.venv_optimization_level }} spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
+    - name: Run spark Job with all layout optimization modes
+      run: |
+        declare -A timings
+        for mode in SLOW_FAST_SMALL FAST_MID_BIG MID_SLOW_SMALL DISABLED; do
+          echo "=== Testing C_PACK_LAYOUT_OPTIMIZATION=$mode ==="
+          start_time=$(date +%s)
+          docker exec -e C_PACK_VENV_OPTIMIZATION_LEVEL=${{ matrix.venv_optimization_level }} -e C_PACK_LAYOUT_OPTIMIZATION=$mode spark-master ./examples/spark-with-S3/scripts/run_spark_example.sh
+          end_time=$(date +%s)
+          timings[$mode]=$((end_time - start_time))
+        done
+        echo ""
+        echo "==========================================="
+        echo "TIMING SUMMARY (VENV_OPT=${{ matrix.venv_optimization_level }})"
+        echo "==========================================="
+        printf "%-20s %10s\n" "Mode" "Time (s)"
+        printf "%-20s %10s\n" "--------------------" "----------"
+        for mode in SLOW_FAST_SMALL FAST_MID_BIG MID_SLOW_SMALL DISABLED; do
+          printf "%-20s %10s\n" "$mode" "${timings[$mode]}"
+        done
+        echo "==========================================="
 
   # hadoop_hdfs:
   #   runs-on: ubuntu-latest
