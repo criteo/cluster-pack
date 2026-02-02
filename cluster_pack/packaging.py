@@ -19,17 +19,10 @@ from importlib.metadata import version as pkg_version
 
 from cluster_pack import dependencies
 from cluster_pack.settings import (
-    LayoutOptimization,
-    LayoutOptimizationParams,
-    set_layout_optimization,
-    set_venv_optimization_level,
     get_layout_optimization,
     get_venv_optimization_level,
     is_uv_available,
-)
-
-CRITEO_PYPI_URL = (
-    "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
+    get_pypi_index,
 )
 
 EDITABLE_PACKAGES_INDEX = "editable_packages_index"
@@ -232,8 +225,9 @@ def pack_in_pex(
             _logger.debug(f"Add requirement {req}")
             cmd.append(req)
 
-        if _is_criteo():
-            cmd.append(f"--index-url={CRITEO_PYPI_URL}")
+        pypi_index = get_pypi_index()
+        if pypi_index:
+            cmd.append(f"--index-url={pypi_index}")
 
         if additional_repo is not None:
             repos = additional_repo if isinstance(additional_repo, list) else [additional_repo]
@@ -551,7 +545,3 @@ def _running_from_pex() -> bool:
     # Env variable PEX has been introduced in pex==2.1.54 and is now the
     # preferred way to detect whether we run from within a pex
     return "PEX" in os.environ
-
-
-def _is_criteo() -> bool:
-    return "CRITEO_ENV" in os.environ

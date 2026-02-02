@@ -1,8 +1,14 @@
+import os
+from unittest import mock
+
 from cluster_pack.settings import (
     LayoutOptimization,
     LayoutOptimizationParams,
     set_layout_optimization,
     get_layout_optimization,
+    CRITEO_PYPI_URL,
+    get_pypi_index,
+    set_pypi_index
 )
 
 
@@ -27,3 +33,19 @@ class TestSetLayoutOptimization:
 
         finally:
             set_layout_optimization(default)
+
+
+class TestPypiIndex:
+    def test_get_pypi_when_criteo(self):
+        with mock.patch.dict(os.environ, {"CRITEO_ENV": "1"}):
+            set_pypi_index(None)
+            assert get_pypi_index() == CRITEO_PYPI_URL
+            set_pypi_index("http://dummy/url")
+            assert get_pypi_index() == "http://dummy/url"
+
+    def test_is_criteo_when_env_not_set(self):
+        with mock.patch.dict(os.environ, clear=True):
+            set_pypi_index(None)
+            assert get_pypi_index() is None
+            set_pypi_index("http://dummy/url")
+            assert get_pypi_index() == "http://dummy/url"

@@ -72,6 +72,7 @@ def _detect_uv() -> bool:
 UV_AVAILABLE: bool = _detect_uv()
 LAYOUT_OPTIMIZATION: LayoutOptimization = LayoutOptimization.SLOW_FAST_SMALL
 VENV_OPTIMIZATION_LEVEL: int = 1
+PYPI_INDEX_URL: Union[str, None] = None
 
 
 def set_layout_optimization(mode: Union[str, LayoutOptimization]) -> None:
@@ -111,6 +112,30 @@ def is_uv_available() -> bool:
     return UV_AVAILABLE
 
 
+# Criteo-specific settings
+CRITEO_PYPI_URL = "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
+
+
+def _is_criteo() -> bool:
+    """Check if running in Criteo environment."""
+    return "CRITEO_ENV" in os.environ
+
+
+def set_pypi_index(pypi_index: str) -> None:
+    global PYPI_INDEX_URL
+    if pypi_index:
+        PYPI_INDEX_URL = pypi_index
+    elif _is_criteo():
+        PYPI_INDEX_URL = CRITEO_PYPI_URL
+    else:
+        PYPI_INDEX_URL = None
+
+
+def get_pypi_index() -> str:
+    return PYPI_INDEX_URL
+
+
 # Initialize from environment variables
 set_layout_optimization(os.environ.get("C_PACK_LAYOUT_OPTIMIZATION", "SLOW_FAST_SMALL"))
 set_venv_optimization_level(int(os.environ.get("C_PACK_VENV_OPTIMIZATION_LEVEL", "1")))
+set_pypi_index(os.environ.get("C_PACK_PYPI_URL", None))
