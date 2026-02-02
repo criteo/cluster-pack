@@ -50,6 +50,7 @@ UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 UV_AVAILABLE: bool = False
+SEVENZIP_EXECUTABLE: Optional[str] = None
 
 
 class LayoutOptimizationParams(NamedTuple):
@@ -142,10 +143,23 @@ def _detect_uv() -> bool:
         return False
 
 
+def _detect_7zip() -> Optional[str]:
+    """Detect if 7z or 7za is installed and available in PATH.
+
+    :return: the executable name ('7z' or '7za') if found, None otherwise
+    """
+    for executable in ["7z", "7za"]:
+        if shutil.which(executable) is not None:
+            return executable
+    _logger.info("7z/7za not found in PATH, falling back to single-threaded zip compression")
+    return None
+
+
 UV_AVAILABLE = _detect_uv()
+SEVENZIP_EXECUTABLE = _detect_7zip()
 
 
-def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compress_level: int = 0) -> None:
+def make_zip_archive_zipfile(output_zip: str, source_dir: str, compress_level: int = 0) -> None:
     """Create a zip archive using zipfile module with specified compression level.
 
     :param output_zip: output path (with .zip extension)
@@ -160,20 +174,62 @@ def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compress_level: 
                 zf.write(full_path, arc_name)
 
 
-def _make_zip_archive(output: str, source_dir: str, use_zipfile: bool, compress_level: int) -> None:
-    """Create a zip archive from source_dir.
+def make_zip_archive_7z(output_zip: str, source_dir: str, compress_level: int = 6) -> None:
+    """Create a zip archive using 7z with multithreading.
+
+    :param output_zip: output path (with .zip extension)
+    :param source_dir: directory to compress
+    :param compress_level: compression level 0-9 (0=store, 1=fastest, 9=best)
+    """
+    if not SEVENZIP_EXECUTABLE:
+        raise RuntimeError("7z executable not found")
+    cmd = [
+        SEVENZIP_EXECUTABLE, "a",
+        "-tzip",
+        f"-mx={compress_level}",
+        "-mmt=on",
+        output_zip,
+        os.path.join(source_dir, "*"),
+    ]
+    _logger.info(f"Creating zip archive with {SEVENZIP_EXECUTABLE} (compress_level={compress_level})")
+    try:
+        subprocess.run(cmd, cwd=source_dir, stderr=subprocess.PIPE, stdout=subprocess.PIPE, check=True)
+    except subprocess.CalledProcessError as e:
+        _logger.warning(f"7z failed: {e.stderr.decode('utf-8', errors='replace')}, falling back to zipfile")
+        make_zip_archive_zipfile(output_zip, source_dir, compress_level=compress_level)
+
+
+def make_zip_archive_shutil(output: str, source_dir: str) -> None:
+    """Create a zip archive using shutil.make_archive.
 
     :param output: output path without .zip extension
     :param source_dir: directory to compress
-    :param use_zipfile: True to use zipfile module, False for shutil.make_archive
+    """
+
+    shutil.make_archive(output, "zip", source_dir)
+
+
+def _make_zip_archive(output: str, source_dir: str, use_zipfile: bool, compress_level: int) -> None:
+    """Create a zip archive from source_dir.
+
+    Uses 7z with multithreading if available and use_zipfile=True, otherwise falls back to
+    zipfile module or shutil.make_archive.
+
+    :param output: output path without .zip extension
+    :param source_dir: directory to compress
+    :param use_zipfile: True to use zipfile/7z, False for shutil.make_archive
     :param compress_level: compression level (0=store, 1-9=compression), only used if use_zipfile=True
     """
+    output_zip = output + ".zip"
     if use_zipfile:
-        _logger.info(f"Creating zip archive with zipfile (compresslevel={compress_level})")
-        _make_zip_archive_zipfile(output + ".zip", source_dir, compress_level=compress_level)
+        if SEVENZIP_EXECUTABLE:
+            make_zip_archive_7z(output_zip, source_dir, compress_level=compress_level)
+        else:
+            _logger.info(f"Creating zip archive with zipfile (compresslevel={compress_level})")
+            make_zip_archive_zipfile(output_zip, source_dir, compress_level=compress_level)
     else:
         _logger.info("Creating zip archive with shutil.make_archive")
-        shutil.make_archive(output, "zip", source_dir)
+        make_zip_archive_shutil(output, source_dir)
 
 
 def _get_tmp_dir() -> str:

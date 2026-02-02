@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark pex creation comparing shutil vs zipfile for zipping, across 3 pex layouts.
+"""Benchmark pex creation comparing shutil vs zipfile vs 7z for zipping, across 3 pex layouts.
 
 This benchmark only runs when uv is available and uses --max-install-jobs 0 setting.
 
@@ -10,19 +10,28 @@ import os
 import shutil
 import subprocess
 import time
-import zipfile
+from functools import partial
 from pathlib import Path
 from typing import List, Dict, Any
+
+from cluster_pack.packaging import (
+    make_zip_archive_shutil,
+    make_zip_archive_zipfile,
+    make_zip_archive_7z,
+    SEVENZIP_EXECUTABLE,
+)
 
 PYTHON_VERSION = "3.11"
 TORCH_VERSION = "torch==2.8.0"
 BENCHMARK_DIR = "/tmp/zip_methods_benchmark"
 
-PEX_LAYOUTS = ["zipapp", "packed", "loose"]
+PEX_LAYOUTS = ["packed", "loose", "zipapp",]
 ZIP_METHODS = [
-    ("shutil", None),
+    ("7z_cl0", 0),
+    ("7z_cl1", 1),
     ("zipfile_cl0", 0),
     ("zipfile_cl1", 1),
+    ("shutil", None),
 ]
 
 
@@ -88,31 +97,23 @@ def create_pex_with_layout(venv_path: str, output_path: str, layout: str) -> flo
     return elapsed
 
 
-def zip_with_shutil(source_dir: str, output: str) -> tuple[float, float]:
-    """Zip using shutil.make_archive. Returns (time, size_mb)."""
-    if os.path.exists(output + ".zip"):
-        os.remove(output + ".zip")
+def timed_zip(zip_func, source_dir: str, output: str, compress_level: int = None) -> tuple[float, float]:
+    """Time a zip function and return (elapsed_time, size_mb).
 
-    start = time.time()
-    shutil.make_archive(output, "zip", source_dir)
-    elapsed = time.time() - start
-    size_mb = os.path.getsize(output + ".zip") / (1024 * 1024)
-    return elapsed, size_mb
-
-
-def zip_with_zipfile(source_dir: str, output: str, compresslevel: int = 1) -> tuple[float, float]:
-    """Zip using zipfile module. Returns (time, size_mb)."""
+    :param zip_func: one of make_zip_archive_shutil, make_zip_archive_zipfile, make_zip_archive_7z
+    :param source_dir: directory to compress
+    :param output: output path without .zip extension
+    :param compress_level: compression level (only for zipfile/7z)
+    """
     output_zip = output + ".zip"
     if os.path.exists(output_zip):
         os.remove(output_zip)
 
     start = time.time()
-    with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=compresslevel) as zf:
-        for root, _, files in os.walk(source_dir):
-            for f in files:
-                full_path = os.path.join(root, f)
-                arc_name = os.path.relpath(full_path, source_dir)
-                zf.write(full_path, arc_name)
+    if zip_func == make_zip_archive_shutil:
+        zip_func(output, source_dir)
+    else:
+        zip_func(output_zip, source_dir, compress_level=compress_level)
     elapsed = time.time() - start
     size_mb = os.path.getsize(output_zip) / (1024 * 1024)
     return elapsed, size_mb
@@ -127,6 +128,23 @@ def unzip_archive(zip_path: str, extract_dir: str) -> float:
     start = time.time()
     subprocess.run(
         ["unzip", "-q", zip_path, "-d", extract_dir],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    elapsed = time.time() - start
+    return elapsed
+
+
+def unzip_with_7z(zip_path: str, extract_dir: str) -> float:
+    """Unzip using 7z. Returns time in seconds."""
+    if os.path.exists(extract_dir):
+        shutil.rmtree(extract_dir)
+    os.makedirs(extract_dir)
+
+    start = time.time()
+    subprocess.run(
+        ["7z", "x", "-y", "-mmt=on", f"-o{extract_dir}", zip_path],
         check=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -202,18 +220,28 @@ def benchmark_layout(venv_path: str, layout: str) -> List[Dict[str, Any]]:
         print(f"  Uncompressed size: {uncompressed_size_mb:.1f}MB")
 
         for method_name, compresslevel in ZIP_METHODS:
+            if method_name.startswith("7z") and not SEVENZIP_EXECUTABLE:
+                print(f"\n  Skipping {method_name} (7z not available)")
+                continue
+
             zip_output = os.path.join(BENCHMARK_DIR, f"{layout}_{method_name}")
 
             print(f"\n  Testing {method_name}...")
             if method_name == "shutil":
-                compress_time, compressed_size_mb = zip_with_shutil(output_path, zip_output)
+                zip_func = make_zip_archive_shutil
+            elif method_name.startswith("7z"):
+                zip_func = make_zip_archive_7z
             else:
-                compress_time, compressed_size_mb = zip_with_zipfile(output_path, zip_output, compresslevel)
+                zip_func = make_zip_archive_zipfile
+            compress_time, compressed_size_mb = timed_zip(zip_func, output_path, zip_output, compresslevel)
 
             ratio = (compressed_size_mb / uncompressed_size_mb) * 100
 
             extract_dir = os.path.join(BENCHMARK_DIR, f"{layout}_{method_name}_extract")
-            extract_time = unzip_archive(zip_output + ".zip", extract_dir)
+            if method_name.startswith("7z"):
+                extract_time = unzip_with_7z(zip_output + ".zip", extract_dir)
+            else:
+                extract_time = unzip_archive(zip_output + ".zip", extract_dir)
 
             print(f"    Compress: {compress_time:.2f}s, Size: {compressed_size_mb:.1f}MB ({ratio:.1f}%), Extract: {extract_time:.2f}s")
 

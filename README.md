@@ -32,6 +32,7 @@ $ pip install .
 
 - Cluster-pack supports Python ≥3.9.
 - Cluster-pack can speed up pex creation by using uv if available.
+- Cluster-pack can use 7z for faster multithreaded zip compression if available.
 
 ## Feature flags
 - C_PACK_USER: override the current user for HDFS path generation and Skein impersonation
