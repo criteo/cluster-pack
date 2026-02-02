@@ -34,6 +34,12 @@ $ pip install .
 - Cluster-pack can speed up pex creation by using uv if available.
 
 ## Feature flags
+- C_PACK_PYPI_URL: custom PyPI URL for pex creation
+  - When set, pex will use this URL as the index-url for downloading packages
+  - If not set or empty, pex will use the default PyPI index
+  - If you need to set extra Pypi repositories, you can use the `extra_pypi_repo` argument in various functions
+used to build pex files (e.g. `upload_env`, `build_pex`)
+
 - C_PACK_USER: override the current user for HDFS path generation and Skein impersonation
   - When set, this value is used instead of the system user (from `getpass.getuser()`)
   - Useful for running jobs as a different user or in environments where the system user doesn't match the HDFS user

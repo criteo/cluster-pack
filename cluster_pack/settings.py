@@ -113,7 +113,7 @@ def is_uv_available() -> bool:
 
 
 # Criteo-specific settings
-CRITEO_PYPI_URL = "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
+CRITEO_PYPI_URL = "https://filer-pypi-integration.crto.in/repository/criteo.moab.pypi-read/simple"
 
 
 def _is_criteo() -> bool:
