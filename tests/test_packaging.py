@@ -25,8 +25,12 @@ from cluster_pack.packaging import (
     resolve_zip_from_pex_dir,
     check_large_pex,
     PexTooLargeError,
-    UV_AVAILABLE,
     _get_current_user,
+)
+from cluster_pack.settings import (
+    is_uv_available,
+    get_venv_optimization_level,
+    set_venv_optimization_level,
 )
 
 MODULE_TO_TEST = "cluster_pack.packaging"
@@ -38,10 +42,10 @@ VARNAME = "VARNAME"
 @pytest.fixture(params=[0, 1, 2])
 def venv_optimization_level(request):
     """Fixture to test with all venv optimization levels."""
-    original_level = packaging.VENV_OPTIMIZATION_LEVEL
-    packaging.set_venv_optimization_level(request.param)
+    original_level = get_venv_optimization_level()
+    set_venv_optimization_level(request.param)
     yield request.param
-    packaging.set_venv_optimization_level(original_level)
+    set_venv_optimization_level(original_level)
 
 
 @pytest.fixture(scope="module")
@@ -229,18 +233,17 @@ def test_get_non_editable_requirements():
 def _install_packages(tempdir: str, packages: List[str], editable: bool = False):
     """Install packages into the venv, using uv if available."""
     cmd = (
-        ["uv", "pip", "install", "--python", f"{tempdir}/bin/python"] if UV_AVAILABLE
+        ["uv", "pip", "install", "--python", f"{tempdir}/bin/python"] if is_uv_available()
         else [f"{tempdir}/bin/python", "-m", "pip", "install"]
     )
     if editable:
         cmd.append("-e")
-
     cmd.extend(packages)
     subprocess.check_call(cmd)
 
 
 def _create_venv(tempdir: str):
-    if UV_AVAILABLE:
+    if is_uv_available():
         subprocess.check_call(["uv", "venv", tempdir, "--python", sys.executable])
     else:
         subprocess.check_call([sys.executable, "-m", "venv", tempdir])

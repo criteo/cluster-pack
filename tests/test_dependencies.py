@@ -3,7 +3,7 @@ import tempfile
 import pytest
 
 from cluster_pack import dependencies
-from cluster_pack.packaging import UV_AVAILABLE
+from cluster_pack.settings import UV_AVAILABLE
 
 
 class TestNormalizePackageName:

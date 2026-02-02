@@ -10,7 +10,6 @@ import subprocess
 from subprocess import CalledProcessError
 import sys
 import tempfile
-from enum import Enum
 from typing import Tuple, Dict, List, Any, Optional, NamedTuple, Union
 import uuid
 import zipfile
@@ -19,6 +18,15 @@ from packaging.version import Version
 from importlib.metadata import version as pkg_version
 
 from cluster_pack import dependencies
+from cluster_pack.settings import (
+    LayoutOptimization,
+    LayoutOptimizationParams,
+    set_layout_optimization,
+    set_venv_optimization_level,
+    get_layout_optimization,
+    get_venv_optimization_level,
+    is_uv_available,
+)
 
 CRITEO_PYPI_URL = (
     "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
@@ -48,101 +56,6 @@ class PythonEnvDescription(NamedTuple):
 
 UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
-
-UV_AVAILABLE: bool = False
-
-
-class LayoutOptimizationParams(NamedTuple):
-    """Parameters derived from a LayoutOptimization mode."""
-    pex_layout: str  # "packed" or "loose"
-    use_zipfile: bool  # True to use zipfile module, False for shutil
-    compress_level: int  # 0 = store only, 1-9 = compression level
-
-
-class LayoutOptimization(Enum):
-    """Layout optimization modes for large pex creation.
-
-    SLOW_FAST_SMALL:   slow build, fastest 1st execution, smallest archive
-    FAST_MID_BIG:      fastest build, medium 1st execution, biggest archive
-    MID_SLOW_SMALL:    medium build, slowest 1st execution, small archive
-    DISABLED (legacy): slowest build, fast 1st execution, small archive
-
-    benchmark results to build a pex with torch==2.8.0+cu128:
-    --------------------------------------------------
-    |     Mode        | Creation| 1st Exec |  Size   |
-    |-----------------|---------|----------|---------|
-    | SLOW_FAST_SMALL | 348.27s |  30.60s  | 3737 MB |
-    | FAST_MID_BIG    | 27.65s  |  40.36s  | 6386 MB |
-    | MID_SLOW_SMALL  | 167.17s |  54.77s  | 3878 MB |
-    | DISABLED        | 442.79s |  34.10s  | 3726 MB |
-    """
-    SLOW_FAST_SMALL = "SLOW_FAST_SMALL"
-    FAST_MID_BIG = "FAST_MID_BIG"
-    MID_SLOW_SMALL = "MID_SLOW_SMALL"
-    DISABLED = "DISABLED"
-
-    @classmethod
-    def from_string(cls, value: str) -> "LayoutOptimization":
-        """Parse a string value into a LayoutOptimization enum member."""
-        try:
-            return cls(value.upper())
-        except ValueError:
-            valid = [m.value for m in cls]
-            raise ValueError(f"Invalid mode '{value}'. Valid values: {valid}")
-
-    def get_params(self) -> LayoutOptimizationParams:
-        """Return the implementation parameters for this optimization mode."""
-        if self == LayoutOptimization.SLOW_FAST_SMALL:
-            return LayoutOptimizationParams(pex_layout="packed", use_zipfile=True, compress_level=0)
-        elif self == LayoutOptimization.FAST_MID_BIG:
-            return LayoutOptimizationParams(pex_layout="loose", use_zipfile=True, compress_level=0)
-        elif self == LayoutOptimization.MID_SLOW_SMALL:
-            return LayoutOptimizationParams(pex_layout="loose", use_zipfile=True, compress_level=1)
-        else:  # DISABLED
-            return LayoutOptimizationParams(pex_layout="packed", use_zipfile=False, compress_level=0)
-
-
-LAYOUT_OPTIMIZATION: LayoutOptimization = LayoutOptimization.SLOW_FAST_SMALL
-
-
-def set_layout_optimization(mode: Union[str, LayoutOptimization]) -> None:
-    """Set the layout optimization mode for large pex creation.
-
-    :param mode: A LayoutOptimization enum member or string
-    :raises ValueError: if mode is an invalid string
-    """
-    global LAYOUT_OPTIMIZATION
-    if isinstance(mode, str):
-        LAYOUT_OPTIMIZATION = LayoutOptimization.from_string(mode)
-    else:
-        LAYOUT_OPTIMIZATION = mode
-
-
-set_layout_optimization(os.environ.get("C_PACK_LAYOUT_OPTIMIZATION", "SLOW_FAST_SMALL"))
-
-
-VENV_OPTIMIZATION_LEVEL: int = int(os.environ.get("C_PACK_VENV_OPTIMIZATION_LEVEL", "1"))
-
-
-def set_venv_optimization_level(level: int) -> None:
-    """Set the venv optimization level for pex builds.
-
-    :param level: optimization level (0=disabled, 1=default optimizations, 2=aggressive)
-    """
-    global VENV_OPTIMIZATION_LEVEL
-    VENV_OPTIMIZATION_LEVEL = level
-
-
-def _detect_uv() -> bool:
-    """Detect if uv is installed and available in PATH."""
-    if shutil.which("uv") is not None:
-        return True
-    else:
-        _logger.warning(f"Cluster-pack can now interact with uv to speed up uploads, it is recommended to install it.") #noqa: E501
-        return False
-
-
-UV_AVAILABLE = _detect_uv()
 
 
 def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compress_level: int = 0) -> None:
@@ -268,7 +181,7 @@ def pack_in_pex(
     """
 
     editable_requirements = editable_requirements or {}
-    params = LAYOUT_OPTIMIZATION.get_params()
+    params = get_layout_optimization().get_params()
 
     with tempfile.TemporaryDirectory() as tempdir:
         cmd = ["pex", f"--inherit-path={pex_inherit_path}"]
@@ -282,11 +195,11 @@ def pack_in_pex(
         if include_pex_tools:
             cmd.extend(["--include-tools"])
 
-        if VENV_OPTIMIZATION_LEVEL >= 1:
+        if get_venv_optimization_level() >= 1:
             if (pex_inherit_path != "false"
                     and dependencies.check_venv_has_requirements(None, requirements)):
                 cmd.extend(["--venv-repository"])
-            elif UV_AVAILABLE:
+            elif is_uv_available():
                 venv_repo_path = os.path.join(tempdir, "venv_repo")
                 dependencies.create_uv_venv(
                     venv_repo_path,
@@ -301,7 +214,7 @@ def pack_in_pex(
 
             cmd.extend(["--max-install-jobs", "0"])
 
-        if VENV_OPTIMIZATION_LEVEL >= 2:
+        if get_venv_optimization_level() >= 2:
             cmd.extend(["--no-pre-install-wheel"])
 
         sources_dir = os.path.join(tempdir, "sources")
