@@ -73,6 +73,7 @@ UV_AVAILABLE: bool = _detect_uv()
 LAYOUT_OPTIMIZATION: LayoutOptimization = LayoutOptimization.SLOW_FAST_SMALL
 VENV_OPTIMIZATION_LEVEL: int = 1
 PYPI_INDEX_URL: Union[str, None] = None
+C_PACK_USER = None
 
 
 def set_layout_optimization(mode: Union[str, LayoutOptimization]) -> None:
@@ -135,22 +136,22 @@ def get_pypi_index() -> str:
     return PYPI_INDEX_URL
 
 
+def set_current_user(user: Optional[str]) -> None:
+    #  If `user` not set or empty, falls back to getpass.getuser()
+    global C_PACK_USER
+    stripped = user.strip() if user else None
+    if stripped:
+        C_PACK_USER = stripped
+    else:
+        C_PACK_USER = getpass.getuser()
+
+
+def _get_current_user() -> str:
+    return C_PACK_USER
+
+
 # Initialize from environment variables
 set_layout_optimization(os.environ.get("C_PACK_LAYOUT_OPTIMIZATION", "SLOW_FAST_SMALL"))
 set_venv_optimization_level(int(os.environ.get("C_PACK_VENV_OPTIMIZATION_LEVEL", "1")))
 set_pypi_index(os.environ.get("C_PACK_PYPI_URL", None))
-
-
-def _get_current_user() -> str:
-    """
-    Get the current user name.
-
-    First checks the C_PACK_USER environment variable.
-    If not set or empty, falls back to getpass.getuser().
-
-    :return: username string
-    """
-    user = os.environ.get("C_PACK_USER", "").strip()
-    if user:
-        return user
-    return getpass.getuser()
+set_current_user(os.environ.get("C_PACK_USER", None))
