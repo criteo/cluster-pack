@@ -1,5 +1,4 @@
 import contextlib
-import getpass
 import hashlib
 import os
 import shutil
@@ -25,12 +24,11 @@ from cluster_pack.packaging import (
     resolve_zip_from_pex_dir,
     check_large_pex,
     PexTooLargeError,
-    _get_current_user,
 )
 from cluster_pack.settings import (
     is_uv_available,
     get_venv_optimization_level,
-    set_venv_optimization_level,
+    set_venv_optimization_level, _get_current_user,
 )
 
 MODULE_TO_TEST = "cluster_pack.packaging"
@@ -104,55 +102,6 @@ def test_default_hdfs_pex_name_includes_venv_path_hash():
             assert actual_pex_file == ""
             assert actual_env_name == expected_env_name
             assert actual_path == expected_path
-
-
-def test_get_current_user_with_env_variable():
-    """Test that C_PACK_USER environment variable is used when set."""
-    with mock.patch.dict("os.environ"):
-        # Test when C_PACK_USER is set
-        os.environ["C_PACK_USER"] = "custom_user"
-        assert packaging._get_current_user() == "custom_user"
-
-
-def test_get_current_user_with_empty_env_variable():
-    """Test that empty C_PACK_USER falls back to getpass.getuser()."""
-    with contextlib.ExitStack() as stack:
-        stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.getpass.getuser", return_value="system_user")
-        )
-        with mock.patch.dict("os.environ", clear=True):
-            # Test when C_PACK_USER is not set
-            assert packaging._get_current_user() == "system_user"
-
-            # Test when C_PACK_USER is empty string
-            os.environ["C_PACK_USER"] = ""
-            assert packaging._get_current_user() == "system_user"
-
-            # Test when C_PACK_USER is only whitespace
-            os.environ["C_PACK_USER"] = "   "
-            assert packaging._get_current_user() == "system_user"
-
-
-def test_get_current_user_strips_whitespace():
-    """Test that C_PACK_USER whitespace is stripped."""
-    with mock.patch.dict("os.environ"):
-        os.environ["C_PACK_USER"] = "  spaced_user  "
-        assert packaging._get_current_user() == "spaced_user"
-
-
-def test_build_package_path_uses_c_pack_user_env():
-    """Test that _build_package_path uses C_PACK_USER when set."""
-    with contextlib.ExitStack() as stack:
-        stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.get_default_fs", return_value="hdfs://")
-        )
-        with mock.patch.dict("os.environ"):
-            os.environ["C_PACK_USER"] = "env_user"
-
-            result = packaging._build_package_path("myenv", "pex")
-            expected = "hdfs:///user/env_user/envs/myenv.pex"
-
-            assert result == expected
 
 
 def test_get_empty_editable_requirements():

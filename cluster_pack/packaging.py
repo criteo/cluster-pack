@@ -1,4 +1,3 @@
-import getpass
 import hashlib
 import importlib.util
 import json
@@ -22,7 +21,7 @@ from cluster_pack.settings import (
     get_layout_optimization,
     get_venv_optimization_level,
     is_uv_available,
-    get_pypi_index,
+    get_pypi_index, _get_current_user,
 )
 
 EDITABLE_PACKAGES_INDEX = "editable_packages_index"
@@ -87,21 +86,6 @@ def _get_tmp_dir() -> str:
     _logger.debug(f"local tmp_dir {tmp_dir}")
     os.makedirs(tmp_dir, exist_ok=True)
     return tmp_dir
-
-
-def _get_current_user() -> str:
-    """
-    Get the current user name.
-
-    First checks the C_PACK_USER environment variable.
-    If not set or empty, falls back to getpass.getuser().
-
-    :return: username string
-    """
-    user = os.environ.get("C_PACK_USER", "").strip()
-    if user:
-        return user
-    return getpass.getuser()
 
 
 def zip_path(

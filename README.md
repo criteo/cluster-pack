@@ -34,6 +34,8 @@ $ pip install .
 - Cluster-pack can speed up pex creation by using uv if available.
 
 ## Feature flags
+Most of these feature flags have corresponding get/set functions in the `cluster_pack.settings` module.
+
 - C_PACK_PYPI_URL: custom PyPI URL for pex creation
   - When set, pex will use this URL as the index-url for downloading packages
   - If not set or empty, pex will use the default PyPI index

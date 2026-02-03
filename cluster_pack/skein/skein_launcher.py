@@ -10,7 +10,7 @@ from typing import Dict, Optional, List, Callable, Any
 
 from cluster_pack.skein import skein_config_builder
 from cluster_pack import filesystem
-from cluster_pack.packaging import _get_current_user
+from cluster_pack.settings import _get_current_user
 
 logger = logging.getLogger(__name__)
 

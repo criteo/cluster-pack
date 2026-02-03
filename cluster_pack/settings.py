@@ -1,10 +1,10 @@
 """Environment detection and optimization settings for cluster-pack."""
-
+import getpass
 import logging
 import os
 import shutil
 from enum import Enum
-from typing import NamedTuple, Union
+from typing import NamedTuple, Union, Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ def _is_criteo() -> bool:
     return "CRITEO_ENV" in os.environ
 
 
-def set_pypi_index(pypi_index: str) -> None:
+def set_pypi_index(pypi_index: Optional[str]) -> None:
     global PYPI_INDEX_URL
     if pypi_index:
         PYPI_INDEX_URL = pypi_index
@@ -139,3 +139,18 @@ def get_pypi_index() -> str:
 set_layout_optimization(os.environ.get("C_PACK_LAYOUT_OPTIMIZATION", "SLOW_FAST_SMALL"))
 set_venv_optimization_level(int(os.environ.get("C_PACK_VENV_OPTIMIZATION_LEVEL", "1")))
 set_pypi_index(os.environ.get("C_PACK_PYPI_URL", None))
+
+
+def _get_current_user() -> str:
+    """
+    Get the current user name.
+
+    First checks the C_PACK_USER environment variable.
+    If not set or empty, falls back to getpass.getuser().
+
+    :return: username string
+    """
+    user = os.environ.get("C_PACK_USER", "").strip()
+    if user:
+        return user
+    return getpass.getuser()
