@@ -1,5 +1,5 @@
 import getpass
-import imp
+import importlib.util
 import json
 import logging
 import os
@@ -504,9 +504,12 @@ def get_editable_requirements(
         else:
             for package_name in package_names:
                 try:
-                    _, path, _ = imp.find_module(package_name)
+                    spec = importlib.util.find_spec(package_name)
+                    if spec is None or spec.origin is None:
+                        raise ModuleNotFoundError(f"No module named '{package_name}'")
+                    path = os.path.dirname(spec.origin)
                     editable_requirements[os.path.basename(path)] = path
-                except ImportError:
+                except ModuleNotFoundError:
                     _logger.error(
                         f"Could not import package {package_name}"
                         f" repo exists={os.path.exists(package_name)}"
