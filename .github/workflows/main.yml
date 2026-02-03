@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master, cherry-pick-release-0.3.17.post1 ]
+    branches: [ master, cherry-pick-release-0.3.17.post1, fork_0.3.17 ]
   pull_request:
-    branches: [ master, cherry-pick-release-0.3.17.post1 ]
+    branches: [ master, cherry-pick-release-0.3.17.post1, fork_0.3.17 ]
 
 jobs:
   lint:
