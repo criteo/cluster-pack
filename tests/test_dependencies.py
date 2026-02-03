@@ -2,8 +2,10 @@
 import tempfile
 import pytest
 
-from cluster_pack import dependencies
-from cluster_pack.packaging import UV_AVAILABLE
+from cluster_pack import (
+    dependencies,
+    is_uv_available,
+)
 
 
 class TestNormalizePackageName:
@@ -178,7 +180,7 @@ class TestCheckVenvHasRequirements:
         assert result is False
 
 
-@pytest.mark.skipif(not UV_AVAILABLE, reason="uv not available")
+@pytest.mark.skipif(not is_uv_available(), reason="uv not available")
 class TestCreateUvVenv:
     def test_creates_venv_with_requirements(self):
         with tempfile.TemporaryDirectory() as tempdir:

@@ -1,5 +1,4 @@
 import contextlib
-import getpass
 import hashlib
 import os
 import shutil
@@ -25,8 +24,11 @@ from cluster_pack.packaging import (
     resolve_zip_from_pex_dir,
     check_large_pex,
     PexTooLargeError,
-    UV_AVAILABLE,
-    _get_current_user,
+)
+from cluster_pack.settings import (
+    is_uv_available,
+    get_venv_optimization_level,
+    set_venv_optimization_level, _get_current_user,
 )
 
 MODULE_TO_TEST = "cluster_pack.packaging"
@@ -38,10 +40,10 @@ VARNAME = "VARNAME"
 @pytest.fixture(params=[0, 1, 2])
 def venv_optimization_level(request):
     """Fixture to test with all venv optimization levels."""
-    original_level = packaging.VENV_OPTIMIZATION_LEVEL
-    packaging.set_venv_optimization_level(request.param)
+    original_level = get_venv_optimization_level()
+    set_venv_optimization_level(request.param)
     yield request.param
-    packaging.set_venv_optimization_level(original_level)
+    set_venv_optimization_level(original_level)
 
 
 @pytest.fixture(scope="module")
@@ -100,55 +102,6 @@ def test_default_hdfs_pex_name_includes_venv_path_hash():
             assert actual_pex_file == ""
             assert actual_env_name == expected_env_name
             assert actual_path == expected_path
-
-
-def test_get_current_user_with_env_variable():
-    """Test that C_PACK_USER environment variable is used when set."""
-    with mock.patch.dict("os.environ"):
-        # Test when C_PACK_USER is set
-        os.environ["C_PACK_USER"] = "custom_user"
-        assert packaging._get_current_user() == "custom_user"
-
-
-def test_get_current_user_with_empty_env_variable():
-    """Test that empty C_PACK_USER falls back to getpass.getuser()."""
-    with contextlib.ExitStack() as stack:
-        stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.getpass.getuser", return_value="system_user")
-        )
-        with mock.patch.dict("os.environ", clear=True):
-            # Test when C_PACK_USER is not set
-            assert packaging._get_current_user() == "system_user"
-
-            # Test when C_PACK_USER is empty string
-            os.environ["C_PACK_USER"] = ""
-            assert packaging._get_current_user() == "system_user"
-
-            # Test when C_PACK_USER is only whitespace
-            os.environ["C_PACK_USER"] = "   "
-            assert packaging._get_current_user() == "system_user"
-
-
-def test_get_current_user_strips_whitespace():
-    """Test that C_PACK_USER whitespace is stripped."""
-    with mock.patch.dict("os.environ"):
-        os.environ["C_PACK_USER"] = "  spaced_user  "
-        assert packaging._get_current_user() == "spaced_user"
-
-
-def test_build_package_path_uses_c_pack_user_env():
-    """Test that _build_package_path uses C_PACK_USER when set."""
-    with contextlib.ExitStack() as stack:
-        stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.get_default_fs", return_value="hdfs://")
-        )
-        with mock.patch.dict("os.environ"):
-            os.environ["C_PACK_USER"] = "env_user"
-
-            result = packaging._build_package_path("myenv", "pex")
-            expected = "hdfs:///user/env_user/envs/myenv.pex"
-
-            assert result == expected
 
 
 def test_get_empty_editable_requirements():
@@ -229,18 +182,17 @@ def test_get_non_editable_requirements():
 def _install_packages(tempdir: str, packages: List[str], editable: bool = False):
     """Install packages into the venv, using uv if available."""
     cmd = (
-        ["uv", "pip", "install", "--python", f"{tempdir}/bin/python"] if UV_AVAILABLE
+        ["uv", "pip", "install", "--python", f"{tempdir}/bin/python"] if is_uv_available()
         else [f"{tempdir}/bin/python", "-m", "pip", "install"]
     )
     if editable:
         cmd.append("-e")
-
     cmd.extend(packages)
     subprocess.check_call(cmd)
 
 
 def _create_venv(tempdir: str):
-    if UV_AVAILABLE:
+    if is_uv_available():
         subprocess.check_call(["uv", "venv", tempdir, "--python", sys.executable])
     else:
         subprocess.check_call([sys.executable, "-m", "venv", tempdir])
