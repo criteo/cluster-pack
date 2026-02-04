@@ -1,5 +1,4 @@
 import fire
-import getpass
 import logging
 import os
 import skein

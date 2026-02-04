@@ -1,4 +1,3 @@
-import getpass
 import hashlib
 import importlib.metadata
 import json
@@ -13,6 +12,8 @@ from typing import Tuple, Dict, Collection, List, Any, Optional, Union
 from urllib import parse, request
 
 from pex.pex_info import PexInfo
+
+from cluster_pack.packaging import _get_current_user
 
 # wheel_filename introduce breaking change in 2.0.0
 wheel_filename_version = version.parse(importlib.metadata.version("wheel_filename"))
@@ -202,7 +203,7 @@ def upload_spec(
     packer = packaging.detect_packer_from_spec(spec_file)
     if not package_path:
         package_path = (
-            f"{packaging.get_default_fs()}/user/{getpass.getuser()}"
+            f"{packaging.get_default_fs()}/user/{_get_current_user()}"
             f"/envs/{_unique_filename(spec_file, packer)}"
         )
     elif not package_path.endswith(packer.extension()):

@@ -354,7 +354,7 @@ def test_upload_env_in_a_pex():
 @mock.patch(f"{MODULE_TO_TEST}.filesystem.resolve_filesystem_and_path")
 @mock.patch(f"{MODULE_TO_TEST}.packaging.pack_spec_in_pex")
 @mock.patch(f"{MODULE_TO_TEST}.packaging.get_default_fs")
-@mock.patch(f"{MODULE_TO_TEST}.getpass.getuser")
+@mock.patch(f"{MODULE_TO_TEST}._get_current_user")
 def test_upload_spec_hdfs(
     mock_get_user,
     mock_get_default_fs,
