@@ -138,6 +138,29 @@ def test_put():
         assert os.stat(remote_file).st_mode & 0o777 == 0o755
 
 
+def test_arrow_fs_get_and_put():
+    # HadoopFileSystem inherits from ArrowFSWrapper: exercising the wrapper on a local
+    # pyarrow filesystem covers the same code path as fs.get()/fs.put() on HDFS.
+    # Regression test for fsspec 2025.12.0 / 2026.1.0 where get() raised
+    # "OSError: only valid on seekable files" (fsspec/filesystem_spec#1981)
+    import pyarrow.fs
+    from fsspec.implementations.arrow import ArrowFSWrapper
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file = _create_temp_file(temp_dir)
+        fs = ArrowFSWrapper(pyarrow.fs.LocalFileSystem())
+
+        downloaded = os.path.join(temp_dir, "downloaded.txt")
+        fs.get(file, downloaded)
+        with open(downloaded, "rb") as f:
+            assert f.read() == lines.encode()
+
+        uploaded = os.path.join(temp_dir, "uploaded.txt")
+        fs.put(downloaded, uploaded)
+        with open(uploaded, "rb") as f:
+            assert f.read() == lines.encode()
+
+
 @pytest.mark.parametrize(
     "uri,expected_protocol,expected_kwargs,expected_path",
     [
