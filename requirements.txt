@@ -1,10 +1,9 @@
 cloudpickle
-pex>=2.69.1
+pex>=2.1.137
 pip>=22.0
 pyarrow
 fire
-setuptools
-wheel
+types-setuptools
 wheel-filename
 # fsspec.get() broken in 2025.12.0
 # Remove this pin once it is fixed in any upcoming version

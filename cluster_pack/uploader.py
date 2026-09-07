@@ -1,3 +1,4 @@
+import hashlib
 import importlib.metadata
 import json
 import logging
@@ -7,11 +8,12 @@ import pathlib
 import platform
 import tempfile
 from packaging import version
-from cluster_pack import dependencies, filesystem, packaging
 from typing import Tuple, Dict, Collection, List, Any, Optional, Union
 from urllib import parse, request
 
 from pex.pex_info import PexInfo
+
+from cluster_pack.packaging import _get_current_user
 
 # wheel_filename introduce breaking change in 2.0.0
 wheel_filename_version = version.parse(importlib.metadata.version("wheel_filename"))
@@ -20,6 +22,8 @@ if wheel_filename_version >= version.parse("2.0.0"):
     parse_wheel = _WF.parse
 else:
     from wheel_filename import parse_wheel_filename as parse_wheel  # noqa: E501 # type: ignore[no-redef, attr-defined]
+
+from cluster_pack import filesystem, packaging
 
 _logger = logging.getLogger(__name__)
 
@@ -95,10 +99,8 @@ def upload_zip(
     zip_file: str,
     package_path: str = None,
     force_upload: bool = False,
-    fs_args: Optional[Dict[str, Any]] = None,
+    fs_args: Dict[str, Any] = {},
 ) -> str:
-    fs_args = fs_args or {}
-
     packer = packaging.detect_packer_from_file(zip_file)
     package_path, _, _ = packaging.detect_archive_names(packer, package_path)
 
@@ -119,12 +121,12 @@ def upload_zip(
 def upload_env(
     package_path: str = None,
     packer: packaging.Packer = None,
-    additional_packages: Optional[Dict[str, str]] = None,
-    ignored_packages: Optional[Collection[str]] = None,
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = [],
     only_packages: Optional[Collection[str]] = None,
     force_upload: bool = False,
     include_editable: bool = False,
-    fs_args: Optional[Dict[str, Any]] = None,
+    fs_args: Dict[str, Any] = {},
     allow_large_pex: bool = False,
     include_pex_tools: bool = False,
     additional_repo: Optional[Union[str, List[str]]] = None,
@@ -151,10 +153,6 @@ def upload_env(
                                 torch1.10/index.html
     :return: package_path
     """
-    additional_packages = additional_packages or {}
-    ignored_packages = ignored_packages or []
-    fs_args = fs_args or {}
-
     if packer is None:
         packer = packaging.detect_packer_from_env()
     package_path, env_name, pex_file = packaging.detect_archive_names(
@@ -182,6 +180,81 @@ def upload_env(
         _upload_pex_file(packer, pex_file, package_path, resolved_fs, force_upload)
 
     return (package_path, env_name)
+
+
+def upload_spec(
+    spec_file: str,
+    package_path: str = None,
+    force_upload: bool = False,
+    fs_args: Dict[str, Any] = {},
+    allow_large_pex: bool = False,
+) -> str:
+    """Upload an environment from a spec file
+
+    :param spec_file: the spec file, must be requirements.txt
+    :param package_path: the path where to upload the package
+    :param force_upload: whether the cache should be cleared
+    :param fs_args: specific arguments for special file systems (like S3)
+    :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
+                            python's limitation with zips > 2Gb. The file will need to be unzipped
+                            and the entry point will be <output>/__main__.py
+    :return: package_path
+    """
+    packer = packaging.detect_packer_from_spec(spec_file)
+    if not package_path:
+        package_path = (
+            f"{packaging.get_default_fs()}/user/{_get_current_user()}"
+            f"/envs/{_unique_filename(spec_file, packer)}"
+        )
+    elif not package_path.endswith(packer.extension()):
+        package_path = os.path.join(package_path, _unique_filename(spec_file, packer))
+
+    if (
+        packer.extension() == packaging.PEX_PACKER.extension()
+        and allow_large_pex
+        and not package_path.endswith(".zip")
+    ):
+        package_path += ".zip"
+
+    resolved_fs, path = filesystem.resolve_filesystem_and_path(package_path, **fs_args)
+
+    hash = _get_hash(spec_file)
+    _logger.info(f"Packaging from {spec_file} with hash={hash}")
+    reqs = [hash]
+
+    up_to_date = _is_archive_up_to_date(package_path, reqs, resolved_fs)
+    if force_upload or not up_to_date:
+        _logger.info(f"Zipping and uploading your env to {package_path}")
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            archive_local = packer.pack_from_spec(
+                spec_file=spec_file,
+                output=f"{tempdir}/{packer.env_name()}.{packer.extension()}",
+                allow_large_pex=allow_large_pex,
+            )
+
+            dir = os.path.dirname(package_path)
+            if not resolved_fs.exists(dir):
+                resolved_fs.mkdir(dir)
+            resolved_fs.put(archive_local, package_path)
+
+            _dump_archive_metadata(package_path, reqs, resolved_fs)
+    else:
+        _logger.info(f"{package_path} already exists")
+
+    return package_path
+
+
+def _unique_filename(spec_file: str, packer: packaging.Packer) -> str:
+    repo = os.path.basename(os.path.dirname(spec_file))
+    if repo:
+        repo = "_" + repo
+    return f"cluster_pack{repo}.{packer.extension()}"
+
+
+def _get_hash(spec_file: str) -> str:
+    with open(spec_file) as f:
+        return hashlib.sha1(f.read().encode()).hexdigest()
 
 
 def _upload_pex_file(
@@ -232,13 +305,10 @@ def _upload_pex_file(
 
 def _handle_packages(
     current_packages: Dict[str, str],
-    additional_packages: Optional[Dict[str, str]] = None,
-    ignored_packages: Optional[Collection[str]] = None,
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = [],
     only_packages: Optional[Collection[str]] = None,
 ) -> None:
-    additional_packages = additional_packages or {}
-    ignored_packages = ignored_packages or []
-
     if len(additional_packages) > 0:
         additional_package_names = list(additional_packages.keys())
         current_packages_names = list(current_packages.keys())
@@ -271,8 +341,8 @@ def _handle_packages(
 def _upload_env_from_venv(
     package_path: str,
     packer: packaging.Packer = packaging.PEX_PACKER,
-    additional_packages: Dict[str, str] = None,
-    ignored_packages: Collection[str] = None,
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = [],
     only_packages: Optional[Collection[str]] = None,
     resolved_fs: Any = None,
     force_upload: bool = False,
@@ -282,9 +352,6 @@ def _upload_env_from_venv(
     additional_repo: Optional[Union[str, List[str]]] = None,
     additional_indexes: Optional[List[str]] = None,
 ) -> None:
-    additional_packages = additional_packages or {}
-    ignored_packages = ignored_packages or []
-
     executable = (
         packaging.get_current_pex_filepath()
         if packaging._running_from_pex()
@@ -308,6 +375,8 @@ def _upload_env_from_venv(
             reqs,
             tempdir,
             packer,
+            additional_packages,
+            ignored_packages,
             force_upload,
             include_editable,
             allow_large_pex,
@@ -334,7 +403,7 @@ def _build_reqs_from_venv(
     _handle_packages(
         current_packages, additional_packages, ignored_packages, only_packages
     )
-    return dependencies.format_requirements(current_packages)
+    return packaging.format_requirements(current_packages)
 
 
 def _pack_from_venv(
@@ -342,6 +411,8 @@ def _pack_from_venv(
     reqs: List[str],
     tempdir: str,
     packer: packaging.Packer = packaging.PEX_PACKER,
+    additional_packages: Dict[str, str] = {},
+    ignored_packages: Collection[str] = [],
     force_upload: bool = False,
     include_editable: bool = False,
     allow_large_pex: bool = False,
@@ -371,8 +442,14 @@ def _pack_from_venv(
 
         pex_info = PexInfo.from_pex(local_package_path)
 
-        req_from_pex = _filter_out_requirements(_format_pex_requirements(pex_info))
-        req_from_venv = _filter_out_requirements(reqs)
+        req_from_pex = _filter_out_requirements(
+            _sort_requirements(
+                _normalize_requirements(_format_pex_requirements(pex_info))
+            )
+        )
+        req_from_venv = _filter_out_requirements(
+            _sort_requirements(_normalize_requirements(reqs))
+        )
 
         if req_from_pex == req_from_venv:
             env_copied_from_fallback_location = True
@@ -392,6 +469,8 @@ def _pack_from_venv(
         local_package_path = packer.pack(
             output=local_package_path,
             reqs=reqs,
+            additional_packages=additional_packages,
+            ignored_packages=ignored_packages,
             editable_requirements=editable_requirements,
             allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
@@ -401,13 +480,21 @@ def _pack_from_venv(
     return local_package_path
 
 
+def _sort_requirements(a: List[str]) -> List[str]:
+    return sorted([item.lower() for item in a])
+
+
 def _format_pex_requirements(pex_info: PexInfo) -> List[str]:
     reqs = [parse_wheel(req) for req in pex_info.distributions.keys()]
     return [f"{req.project}=={req.version}" for req in reqs]
 
 
+def _normalize_requirements(reqs: List[str]) -> List[str]:
+    return [req.replace("_", "-") for req in reqs]
+
+
 def _filter_out_requirements(reqs: List[str]) -> List[str]:
-    return dependencies.filter_build_requirements(
-        dependencies.sort_requirements(
-            dependencies.normalize_requirements(reqs)
-        ))
+    def _keep(req: str) -> bool:
+        return all([d not in req for d in ["wheel", "pip", "setuptools"]])
+
+    return [req for req in reqs if _keep(req)]

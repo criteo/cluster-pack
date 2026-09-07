@@ -15,7 +15,7 @@ class SkeinConfig(NamedTuple):
 
 def build_with_func(
     func: Callable,
-    args: Optional[List[Any]] = None,
+    args: List[Any] = [],
     package_path: Optional[str] = None,
     additional_files: Optional[List[str]] = None,
     tmp_dir: str = packaging._get_tmp_dir(),
@@ -40,8 +40,6 @@ def build_with_func(
                             and the entry point will be <output>/__main__.py
     :return: SkeinConfig
     """
-    args = args or []
-
     function_name = f"function_{uuid.uuid4()}.dat"
     function_path = f"{tmp_dir}/{function_name}"
     val_to_serialize = {"func": func, "args": args}
@@ -66,7 +64,7 @@ def build_with_func(
 
 def build(
     module_name: str,
-    args: Optional[List[Any]] = None,
+    args: List[Any] = [],
     package_path: Optional[str] = None,
     additional_files: Optional[List[str]] = None,
     tmp_dir: str = packaging._get_tmp_dir(),
@@ -87,8 +85,6 @@ def build(
                             and the entry point will be <output>/__main__.py
     :return: SkeinConfig
     """
-    args = args or []
-
     if not package_path:
         package_path, _ = uploader.upload_env(allow_large_pex=allow_large_pex)
 
@@ -129,10 +125,8 @@ def build(
 def _get_script(
     python_env_descriptor: packaging.PythonEnvDescription,
     module_name: str,
-    args: Optional[List[Any]] = None,
+    args: List[Any] = [],
 ) -> str:
-    args = args or []
-
     launch_options = "-m" if not module_name.endswith(".py") else ""
     launch_args = " ".join(args)
 
