@@ -1,5 +1,5 @@
 import contextlib
-import getpass
+import hashlib
 import os
 import shutil
 import stat
@@ -8,6 +8,7 @@ import sys
 import tempfile
 import zipfile
 from importlib.metadata import version as pkg_version
+from typing import List
 from unittest import mock
 
 import pytest
@@ -23,7 +24,11 @@ from cluster_pack.packaging import (
     resolve_zip_from_pex_dir,
     check_large_pex,
     PexTooLargeError,
-    _get_current_user
+)
+from cluster_pack.settings import (
+    is_uv_available,
+    get_venv_optimization_level,
+    set_venv_optimization_level, _get_current_user,
 )
 
 MODULE_TO_TEST = "cluster_pack.packaging"
@@ -32,10 +37,42 @@ MYARCHIVE_METADATA = "myarchive.json"
 VARNAME = "VARNAME"
 
 
+@pytest.fixture(params=[0, 1, 2])
+def venv_optimization_level(request):
+    """Fixture to test with all venv optimization levels."""
+    original_level = get_venv_optimization_level()
+    set_venv_optimization_level(request.param)
+    yield request.param
+    set_venv_optimization_level(original_level)
+
+
+@pytest.fixture(scope="module")
+def large_pex_unzipped():
+    """Build a large pex once and share across tests, cleanup at the end."""
+    tempdir = tempfile.mkdtemp()
+    try:
+        current_packages = packaging.get_non_editable_requirements(sys.executable)
+        reqs = uploader._build_reqs_from_venv({}, current_packages, [])
+        local_package_path = uploader._pack_from_venv(
+            sys.executable, reqs, tempdir, include_editable=True, allow_large_pex=True
+        )
+        assert os.path.exists(local_package_path)
+
+        unzipped_pex_path = local_package_path.replace(".zip", "")
+        os.mkdir(unzipped_pex_path)
+        shutil.unpack_archive(local_package_path, unzipped_pex_path)
+        st = os.stat(f"{unzipped_pex_path}/__main__.py")
+        os.chmod(f"{unzipped_pex_path}/__main__.py", st.st_mode | stat.S_IEXEC)
+        yield unzipped_pex_path
+    finally:
+        shutil.rmtree(tempdir)
+
+
 def test_get_virtualenv_name():
     with mock.patch.dict("os.environ"):
         os.environ[VARNAME] = "/path/to/my_venv"
-        assert "my_venv" == packaging.get_env_name(VARNAME)
+        expected_hash = hashlib.sha1("/path/to/my_venv".encode("utf-8")).hexdigest()[:7]
+        assert f"my_venv_{expected_hash}" == packaging.get_env_name(VARNAME)
 
 
 def test_get_virtualenv_empty_returns_default():
@@ -45,69 +82,32 @@ def test_get_virtualenv_empty_returns_default():
         assert "default" == packaging.get_env_name(VARNAME)
 
 
-def test_get_current_user_with_env_variable():
-    """Test that C_PACK_USER environment variable is used when set."""
-    with mock.patch.dict("os.environ"):
-        # Test when C_PACK_USER is set
-        os.environ["C_PACK_USER"] = "custom_user"
-        assert packaging._get_current_user() == "custom_user"
-
-
-def test_get_current_user_with_empty_env_variable():
-    """Test that empty C_PACK_USER falls back to getpass.getuser()."""
+def test_default_hdfs_pex_name_includes_venv_path_hash():
     with contextlib.ExitStack() as stack:
-        stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.getpass.getuser", return_value="system_user")
-        )
-        with mock.patch.dict("os.environ", clear=True):
-            # Test when C_PACK_USER is not set
-            assert packaging._get_current_user() == "system_user"
-
-            # Test when C_PACK_USER is empty string
-            os.environ["C_PACK_USER"] = ""
-            assert packaging._get_current_user() == "system_user"
-
-            # Test when C_PACK_USER is only whitespace
-            os.environ["C_PACK_USER"] = "   "
-            assert packaging._get_current_user() == "system_user"
-
-
-def test_get_current_user_strips_whitespace():
-    """Test that C_PACK_USER whitespace is stripped."""
-    with mock.patch.dict("os.environ"):
-        os.environ["C_PACK_USER"] = "  spaced_user  "
-        assert packaging._get_current_user() == "spaced_user"
-
-
-def test_build_package_path_uses_c_pack_user_env():
-    """Test that _build_package_path uses C_PACK_USER when set."""
-    with contextlib.ExitStack() as stack:
-        stack.enter_context(
-            mock.patch(f"{MODULE_TO_TEST}.get_default_fs", return_value="hdfs://")
-        )
+        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}._running_from_pex", return_value=False))
+        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}.get_default_fs", return_value="hdfs://"))
+        stack.enter_context(mock.patch(f"{MODULE_TO_TEST}._get_current_user", return_value="alice"))
         with mock.patch.dict("os.environ"):
-            os.environ["C_PACK_USER"] = "env_user"
+            os.environ["VIRTUAL_ENV"] = "/home/alice/workspaces/proj/.venv"
+            expected_hash = hashlib.sha1(
+                "/home/alice/workspaces/proj/.venv".encode("utf-8")
+            ).hexdigest()[:7]
+            expected_env_name = f".venv_{expected_hash}"
+            expected_path = f"hdfs:///user/alice/envs/{expected_env_name}.pex"
 
-            result = packaging._build_package_path("myenv", "pex")
-            expected = "hdfs:///user/env_user/envs/myenv.pex"
+            actual_path, actual_env_name, actual_pex_file = packaging.detect_archive_names(
+                packaging.PEX_PACKER, package_path=None, allow_large_pex=False
+            )
 
-            assert result == expected
+            assert actual_pex_file == ""
+            assert actual_env_name == expected_env_name
+            assert actual_path == expected_path
 
 
 def test_get_empty_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        subprocess.check_call(
-            [
-                f"{tempdir}/bin/python",
-                "-m",
-                "pip",
-                "install",
-                "cloudpickle",
-                _get_editable_package_name(),
-                "pip==22.0",
-            ]
-        )
+        _install_packages(tempdir, ["cloudpickle", _get_editable_package_name(), "pip==22.0"])
         editable_requirements = packaging._get_editable_requirements(
             f"{tempdir}/bin/python"
         )
@@ -117,22 +117,11 @@ def test_get_empty_editable_requirements():
 def test_get_empty_non_editable_requirements():
     with tempfile.TemporaryDirectory() as tempdir:
         _create_venv(tempdir)
-        subprocess.check_call(
-            [
-                f"{tempdir}/bin/python",
-                "-m",
-                "pip",
-                "install",
-                "-e",
-                _get_editable_package_name(),
-                "pip==22.0",
-            ]
-        )
+        _install_packages(tempdir, [_get_editable_package_name(), "pip==22.0"], editable=True)
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python"
         )
-        assert len(non_editable_requirements) == 2
-        assert list(non_editable_requirements.keys()) == ["pip", "setuptools"]
+        assert list(non_editable_requirements.keys()) == ["packaging", "pip", "setuptools", "wheel"]
 
 
 def test__get_editable_requirements():
@@ -181,35 +170,43 @@ def test_get_non_editable_requirements():
         non_editable_requirements = packaging.get_non_editable_requirements(
             f"{tempdir}/bin/python"
         )
-        assert len(non_editable_requirements) == 3
         assert list(non_editable_requirements.keys()) == [
             "cloudpickle",
+            "packaging",
             "pip",
             "setuptools",
+            "wheel"
         ]
+
+
+def _install_packages(tempdir: str, packages: List[str], editable: bool = False):
+    """Install packages into the venv, using uv if available."""
+    cmd = (
+        ["uv", "pip", "install", "--python", f"{tempdir}/bin/python"] if is_uv_available()
+        else [f"{tempdir}/bin/python", "-m", "pip", "install"]
+    )
+    if editable:
+        cmd.append("-e")
+    cmd.extend(packages)
+    subprocess.check_call(cmd)
 
 
 def _create_venv(tempdir: str):
-    subprocess.check_call([sys.executable, "-m", "venv", f"{tempdir}"])
+    if is_uv_available():
+        subprocess.check_call(["uv", "venv", tempdir, "--python", sys.executable])
+    else:
+        subprocess.check_call([sys.executable, "-m", "venv", tempdir])
+    _install_packages(tempdir, ["setuptools", "wheel"])
 
 
 def _pip_install(tempdir: str, pip_version: str = "22.0", use_src_layout: bool = False):
-    subprocess.check_call(
-        [
-            f"{tempdir}/bin/python",
-            "-m",
-            "pip",
-            "install",
-            "cloudpickle",
-            f"pip=={pip_version}",
-        ]
-    )
+    _install_packages(tempdir, ["cloudpickle", f"pip=={pip_version}"])
     pkg = (
         _get_editable_package_name_src_layout()
         if use_src_layout
         else _get_editable_package_name()
     )
-    subprocess.check_call([f"{tempdir}/bin/python", "-m", "pip", "install", "-e", pkg])
+    _install_packages(tempdir, [pkg], editable=True)
     if pkg not in sys.path:
         sys.path.append(pkg)
 
@@ -292,7 +289,7 @@ def does_not_raise():
     yield
 
 
-def test_pack_in_pex():
+def test_pack_in_pex(venv_optimization_level):
     requirements = [
         "numpy",
         "pyarrow"
@@ -318,7 +315,7 @@ def test_pack_in_pex():
             )
 
 
-def test_pack_in_pex_with_allow_large():
+def test_pack_in_pex_with_allow_large(venv_optimization_level):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "numpy",
@@ -354,7 +351,7 @@ def test_pack_in_pex_with_allow_large():
                 )
 
 
-def test_pack_in_pex_with_include_tools():
+def test_pack_in_pex_with_include_tools(venv_optimization_level):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "numpy",
@@ -396,56 +393,44 @@ def test_pack_in_pex_with_include_tools():
     ],
 )
 def test_pack_in_pex_with_large_correctly_retrieves_zip_archive(
-    is_large_pex, package_path
+    large_pex_unzipped, is_large_pex, package_path
 ):
-    with tempfile.TemporaryDirectory() as tempdir:
-        current_packages = packaging.get_non_editable_requirements(sys.executable)
-        reqs = uploader._build_reqs_from_venv({}, current_packages, [])
-        local_package_path = uploader._pack_from_venv(
-            sys.executable, reqs, tempdir, include_editable=True, allow_large_pex=True
-        )
-        assert os.path.exists(local_package_path)
-
-        unzipped_pex_path = local_package_path.replace(".zip", "")
-        os.mkdir(unzipped_pex_path)
-        shutil.unpack_archive(local_package_path, unzipped_pex_path)
-        st = os.stat(f"{unzipped_pex_path}/__main__.py")
-        os.chmod(f"{unzipped_pex_path}/__main__.py", st.st_mode | stat.S_IEXEC)
-        package_argument_as_string = (
-            "None" if package_path is None else f"'{package_path}'"
-        )
-        expected_package_path = (
-            f"hdfs:///user/{getpass.getuser()}/envs/{os.path.basename(unzipped_pex_path)}.zip"
-            if is_large_pex is None
-            else f"{package_path}.zip"
-        )
-        with does_not_raise():
-            print(
-                subprocess.check_output(
-                    [
-                        f"{unzipped_pex_path}/__main__.py",
-                        "-c",
-                        (
-                            """print("Start importing cluster-pack..");"""
-                            """from cluster_pack import packaging;"""
-                            """from unittest import mock;"""
-                            """packer = packaging.detect_packer_from_env();"""
-                            """packaging.get_default_fs = mock.Mock(return_value='hdfs://');"""
-                            f"""package_path={package_argument_as_string};"""
-                            f"""allow_large_pex={is_large_pex};"""
-                            """package_path, env_name, pex_file = \
+    unzipped_pex_path = large_pex_unzipped
+    package_argument_as_string = (
+        "None" if package_path is None else f"'{package_path}'"
+    )
+    expected_package_path = (
+        f"hdfs:///user/{_get_current_user()}/envs/{os.path.basename(unzipped_pex_path)}.zip"
+        if is_large_pex is None
+        else f"{package_path}.zip"
+    )
+    with does_not_raise():
+        print(
+            subprocess.check_output(
+                [
+                    f"{unzipped_pex_path}/__main__.py",
+                    "-c",
+                    (
+                        """print("Start importing cluster-pack..");"""
+                        """from cluster_pack import packaging;"""
+                        """from unittest import mock;"""
+                        """packer = packaging.detect_packer_from_env();"""
+                        """packaging.get_default_fs = mock.Mock(return_value='hdfs://');"""
+                        f"""package_path={package_argument_as_string};"""
+                        f"""allow_large_pex={is_large_pex};"""
+                        """package_path, env_name, pex_file = \
                     packaging.detect_archive_names(packer, package_path, allow_large_pex);"""
-                            """print(f'package_path: {package_path}');"""
-                            """print(f'pex_file: {pex_file}');"""
-                            f"""assert(package_path == "{expected_package_path}");"""
-                            """assert(pex_file.endswith('.pex'));"""
-                        ),
-                    ]
-                )
+                        """print(f'package_path: {package_path}');"""
+                        """print(f'pex_file: {pex_file}');"""
+                        f"""assert(package_path == "{expected_package_path}");"""
+                        """assert(pex_file.endswith('.pex'));"""
+                    ),
+                ]
             )
+        )
 
 
-def test_pack_in_pex_with_additional_repo():
+def test_pack_in_pex_with_additional_repo(venv_optimization_level):
     with tempfile.TemporaryDirectory() as tempdir:
         requirements = [
             "torch",
@@ -476,7 +461,7 @@ def test_pack_in_pex_with_additional_repo():
             )
 
 
-def test_pack_in_pex_include_editable_requirements():
+def test_pack_in_pex_include_editable_requirements(venv_optimization_level):
     requirements = {}
     requirement_dir = os.path.join(os.path.dirname(__file__), "user-lib", "user_lib")
     with tempfile.TemporaryDirectory() as tempdir:
@@ -497,33 +482,6 @@ def test_pack_in_pex_include_editable_requirements():
                         (
                             """print("Start importing user-lib..");import user_lib;"""
                             """print("Successfully imported user-lib!")"""
-                        ),
-                    ]
-                )
-            )
-
-
-def test_pack_in_pex_from_spec():
-    with tempfile.TemporaryDirectory() as tempdir:
-        spec_file = os.path.join(
-            os.path.dirname(__file__), "resources", "requirements.txt"
-        )
-        packaging.pack_spec_in_pex(
-            spec_file,
-            f"{tempdir}/out.pex",
-            # make isolated pex from current pytest virtual env
-            pex_inherit_path="false",
-        )
-        assert os.path.exists(f"{tempdir}/out.pex")
-        with does_not_raise():
-            print(
-                subprocess.check_output(
-                    [
-                        f"{tempdir}/out.pex",
-                        "-c",
-                        (
-                            "print('Start importing cloudpickle..');import cloudpickle;"
-                            "assert cloudpickle.__version__ == '1.4.1'"
                         ),
                     ]
                 )

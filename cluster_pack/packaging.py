@@ -1,4 +1,4 @@
-import getpass
+import hashlib
 import importlib.util
 import json
 import logging
@@ -9,15 +9,19 @@ import subprocess
 from subprocess import CalledProcessError
 import sys
 import tempfile
-from typing import Tuple, Dict, Collection, List, Any, Optional, NamedTuple, Union
+from typing import Tuple, Dict, List, Any, Optional, NamedTuple, Union
 import uuid
 import zipfile
 import setuptools
 from packaging.version import Version
 from importlib.metadata import version as pkg_version
 
-CRITEO_PYPI_URL = (
-    "https://filer-build-pypi.prod.crto.in/repository/criteo.moab.pypi-read/simple"
+from cluster_pack import dependencies
+from cluster_pack.settings import (
+    get_layout_optimization,
+    get_venv_optimization_level,
+    is_uv_available,
+    get_pypi_index, _get_current_user,
 )
 
 EDITABLE_PACKAGES_INDEX = "editable_packages_index"
@@ -46,26 +50,42 @@ UNPACKED_ENV_NAME = "pyenv"
 LARGE_PEX_CMD = f"{UNPACKED_ENV_NAME}/__main__.py"
 
 
+def _make_zip_archive_zipfile(output_zip: str, source_dir: str, compress_level: int = 0) -> None:
+    """Create a zip archive using zipfile module with specified compression level.
+
+    :param output_zip: output path (with .zip extension)
+    :param source_dir: directory to compress
+    :param compress_level: compression level 0-9 (0=store, 1=fastest, 9=best)
+    """
+    with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=compress_level) as zf:
+        for root, _, files in os.walk(source_dir):
+            for file in files:
+                full_path = os.path.join(root, file)
+                arc_name = os.path.relpath(full_path, source_dir)
+                zf.write(full_path, arc_name)
+
+
+def _make_zip_archive(output: str, source_dir: str, use_zipfile: bool, compress_level: int) -> None:
+    """Create a zip archive from source_dir.
+
+    :param output: output path without .zip extension
+    :param source_dir: directory to compress
+    :param use_zipfile: True to use zipfile module, False for shutil.make_archive
+    :param compress_level: compression level (0=store, 1-9=compression), only used if use_zipfile=True
+    """
+    if use_zipfile:
+        _logger.info(f"Creating zip archive with zipfile (compresslevel={compress_level})")
+        _make_zip_archive_zipfile(output + ".zip", source_dir, compress_level=compress_level)
+    else:
+        _logger.info("Creating zip archive with shutil.make_archive")
+        shutil.make_archive(output, "zip", source_dir)
+
+
 def _get_tmp_dir() -> str:
     tmp_dir = f"/tmp/{uuid.uuid1()}"
     _logger.debug(f"local tmp_dir {tmp_dir}")
     os.makedirs(tmp_dir, exist_ok=True)
     return tmp_dir
-
-
-def _get_current_user() -> str:
-    """
-    Get the current user name.
-
-    First checks the C_PACK_USER environment variable.
-    If not set or empty, falls back to getpass.getuser().
-
-    :return: username string
-    """
-    user = os.environ.get("C_PACK_USER", "").strip()
-    if user:
-        return user
-    return getpass.getuser()
 
 
 def zip_path(
@@ -103,16 +123,6 @@ def zip_path(
     return py_archive
 
 
-def format_requirements(requirements: Dict[str, str]) -> List[str]:
-    if requirements is None:
-        return list()
-    else:
-        return [
-            name + "==" + version if version else name
-            for name, version in requirements.items()
-        ]
-
-
 def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
     if allow_large_pex:
         return
@@ -125,48 +135,20 @@ def check_large_pex(allow_large_pex: bool, pex_file: str) -> None:
         )
 
 
-def pack_spec_in_pex(
-    spec_file: str,
-    output: str,
-    pex_inherit_path: str = "fallback",
-    allow_large_pex: bool = False,
-    include_pex_tools: bool = False,
-    additional_repo: Optional[Union[List[str], str]] = None,
-    additional_indexes: Optional[List[str]] = None,
-) -> str:
-    with open(spec_file, "r") as f:
-        lines = [
-            line for line in f.read().splitlines() if line and not line.startswith("#")
-        ]
-        _logger.debug(f"used requirements: {lines}")
-        return pack_in_pex(
-            lines,
-            output,
-            pex_inherit_path=pex_inherit_path,
-            allow_large_pex=allow_large_pex,
-            include_pex_tools=include_pex_tools,
-            additional_repo=additional_repo,
-            additional_indexes=additional_indexes,
-        )
-
-
 def pack_in_pex(
     requirements: List[str],
     output: str,
-    ignored_packages: Collection[str] = [],
     pex_inherit_path: str = "fallback",
-    editable_requirements: Dict[str, str] = {},
+    editable_requirements: Optional[Dict[str, str]] = None,
     allow_large_pex: bool = False,
     include_pex_tools: bool = False,
     additional_repo: Optional[Union[str, List[str]]] = None,
     additional_indexes: Optional[List[str]] = None,
 ) -> str:
     """Pack current environment using a pex.
-
     :param additional_repo: an additional pypi repo if one was used env creation
     :param requirements: list of requirements (ex {'tensorflow': '1.15.0'})
     :param output: location of the pex
-    :param ignored_packages: packages to be exluded from pex
     :param pex_inherit_path: see https://github.com/pantsbuild/pex/blob/master/pex/bin/pex.py#L264,
                              possible values ['false', 'fallback', 'prefer']
     :param allow_large_pex: Creates a non-executable pex that will need to be unzipped to circumvent
@@ -175,43 +157,65 @@ def pack_in_pex(
     :return: destination of the archive, name of the pex
     """
 
+    editable_requirements = editable_requirements or {}
+    params = get_layout_optimization().get_params()
+
     with tempfile.TemporaryDirectory() as tempdir:
         cmd = ["pex", f"--inherit-path={pex_inherit_path}"]
 
         if allow_large_pex:
-            cmd.extend(["--layout", "packed"])
+            cmd.extend(["--layout", params.pex_layout])
             tmp_ext = ".tmp"
         else:
             tmp_ext = ""
+
         if include_pex_tools:
             cmd.extend(["--include-tools"])
 
+        if get_venv_optimization_level() >= 1:
+            if (pex_inherit_path != "false"
+                    and dependencies.check_venv_has_requirements(None, requirements)):
+                cmd.extend(["--venv-repository"])
+            elif is_uv_available():
+                venv_repo_path = os.path.join(tempdir, "venv_repo")
+                dependencies.create_uv_venv(
+                    venv_repo_path,
+                    requirements,
+                    additional_repo=additional_repo,
+                    additional_indexes=additional_indexes,
+                )
+                cmd.extend(["--venv-repository", venv_repo_path])
+            else:
+                _logger.warning("Not running from venv or venv missing some requirements, "
+                                "skipping optimization because `uv ` is not available.")
+
+            cmd.extend(["--max-install-jobs", "0"])
+
+        if get_venv_optimization_level() >= 2:
+            cmd.extend(["--no-pre-install-wheel"])
+
+        sources_dir = os.path.join(tempdir, "sources")
         if editable_requirements and len(editable_requirements) > 0:
+            os.makedirs(sources_dir, exist_ok=True)
             for current_package in editable_requirements.values():
                 _logger.debug("Add current path as source", current_package)
                 shutil.copytree(
                     current_package,
-                    os.path.join(tempdir, os.path.basename(current_package)),
+                    os.path.join(sources_dir, os.path.basename(current_package)),
                 )
-            cmd.append(f"--sources-directory={tempdir}")
+            cmd.append(f"--sources-directory={sources_dir}")
 
         for req in requirements:
-            pkg_name = req.split("=")[0]
-            if pkg_name in ignored_packages:
-                _logger.debug(f"Ignore requirement {req}")
-            else:
-                _logger.debug(f"Add requirement {req}")
-                cmd.append(req)
-        if _is_criteo():
-            cmd.append(f"--index-url={CRITEO_PYPI_URL}")
+            _logger.debug(f"Add requirement {req}")
+            cmd.append(req)
+
+        pypi_index = get_pypi_index()
+        if pypi_index:
+            cmd.append(f"--index-url={pypi_index}")
 
         if additional_repo is not None:
-            additional_repo = (
-                additional_repo
-                if isinstance(additional_repo, list)
-                else [additional_repo]
-            )
-            for repo in additional_repo:
+            repos = additional_repo if isinstance(additional_repo, list) else [additional_repo]
+            for repo in repos:
                 cmd.append(f"--index-url={repo}")
 
         if additional_indexes:
@@ -233,7 +237,7 @@ def pack_in_pex(
         check_large_pex(allow_large_pex, output + tmp_ext)
 
         if allow_large_pex:
-            shutil.make_archive(output, "zip", output + tmp_ext)
+            _make_zip_archive(output, output + tmp_ext, params.use_zipfile, params.compress_level)
 
     return output + ".zip" if allow_large_pex else output
 
@@ -284,8 +288,6 @@ class Packer(object):
         self,
         output: str,
         reqs: List[str],
-        additional_packages: Dict[str, str],
-        ignored_packages: Collection[str],
         editable_requirements: Dict[str, str],
         allow_large_pex: bool = False,
         include_pex_tools: bool = False,
@@ -294,25 +296,25 @@ class Packer(object):
     ) -> str:
         raise NotImplementedError
 
-    def pack_from_spec(
-        self,
-        spec_file: str,
-        output: str,
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-    ) -> str:
-        raise NotImplementedError
-
 
 def get_env_name(env_var_name: str) -> str:
     """
-    Return default virtual env
+    Return a stable, collision-resistant environment name.
+
+    When the environment variable is set (e.g. VIRTUAL_ENV), we append a short hash
+    of its path to the basename. This prevents collisions when multiple venvs share
+    the same directory name (e.g. many projects using ".venv" or "venv-linux").
     """
     virtual_env_path = os.environ.get(env_var_name)
     if not virtual_env_path:
         return "default"
     else:
-        return os.path.basename(virtual_env_path)
+        normalized_path = os.path.normpath(
+            os.path.realpath(os.path.abspath(virtual_env_path))
+        )
+        short_hash = hashlib.sha1(normalized_path.encode("utf-8")).hexdigest()[:7]
+        base = os.path.basename(normalized_path)
+        return f"{base}_{short_hash}"
 
 
 class PexPacker(Packer):
@@ -326,8 +328,6 @@ class PexPacker(Packer):
         self,
         output: str,
         reqs: List[str],
-        additional_packages: Dict[str, str],
-        ignored_packages: Collection[str],
         editable_requirements: Dict[str, str],
         allow_large_pex: bool = False,
         include_pex_tools: bool = False,
@@ -337,26 +337,11 @@ class PexPacker(Packer):
         return pack_in_pex(
             reqs,
             output,
-            ignored_packages,
             editable_requirements=editable_requirements,
             allow_large_pex=allow_large_pex,
             include_pex_tools=include_pex_tools,
             additional_repo=additional_repo,
             additional_indexes=additional_indexes,
-        )
-
-    def pack_from_spec(
-        self,
-        spec_file: str,
-        output: str,
-        allow_large_pex: bool = False,
-        include_pex_tools: bool = False,
-    ) -> str:
-        return pack_spec_in_pex(
-            spec_file=spec_file,
-            output=output,
-            allow_large_pex=allow_large_pex,
-            include_pex_tools=include_pex_tools,
         )
 
 
@@ -445,15 +430,6 @@ def resolve_zip_from_pex_dir(pex_dir: str) -> str:
     return pex_file
 
 
-def detect_packer_from_spec(spec_file: str) -> Packer:
-    if os.path.basename(spec_file) == "requirements.txt":
-        return PEX_PACKER
-    else:
-        raise ValueError(
-            f"Archive format {spec_file} unsupported. Must be requirements.txt"
-        )
-
-
 def detect_packer_from_env() -> Packer:
     return PEX_PACKER
 
@@ -462,7 +438,7 @@ def detect_packer_from_file(zip_file: str) -> Packer:
     if zip_file.endswith(".pex") or zip_file.endswith(".pex.zip"):
         return PEX_PACKER
     else:
-        raise ValueError(f"Archive format {zip_file} unsupported. Must be .pex")
+        raise ValueError(f"Archive format {zip_file} unsupported. Must be .pex or .pex.zip")
 
 
 def get_current_pex_filepath() -> str:
@@ -552,17 +528,4 @@ def get_default_fs() -> str:
 def _running_from_pex() -> bool:
     # Env variable PEX has been introduced in pex==2.1.54 and is now the
     # preferred way to detect whether we run from within a pex
-    if "PEX" in os.environ:
-        return True
-
-    # We still temporarilly support the previous way
-    try:
-        import _pex
-
-        return True
-    except ModuleNotFoundError:
-        return False
-
-
-def _is_criteo() -> bool:
-    return "CRITEO_ENV" in os.environ
+    return "PEX" in os.environ

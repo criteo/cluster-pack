@@ -1,9 +1,10 @@
 cloudpickle
-pex>=2.1.137
+pex>=2.69.1
 pip>=22.0
 pyarrow
 fire
-types-setuptools
+setuptools
+wheel
 wheel-filename
 # fsspec.get() on arrow-based filesystems (HDFS) is broken in 2025.12.0 and 2026.1.0
 # (fsspec/filesystem_spec#1944/#1950, fixed by #1981 in 2026.2.0)

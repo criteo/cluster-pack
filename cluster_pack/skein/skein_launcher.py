@@ -9,7 +9,7 @@ from typing import Dict, Optional, List, Callable, Any
 
 from cluster_pack.skein import skein_config_builder
 from cluster_pack import filesystem
-from cluster_pack.packaging import _get_current_user
+from cluster_pack.settings import _get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ def submit(
 def submit_func(
     skein_client: skein.Client,
     func: Callable,
-    args: List[Any] = [],
+    args: Optional[List[Any]] = None,
     name: str = "skein_launcher",
     num_cores: int = 1,
     memory: str = "1 GiB",
@@ -144,6 +144,8 @@ def submit_func(
                             and the entry point will be <output>/__main__.py
     :return: SkeinConfig
     """
+
+    args = args or []
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         skein_config = skein_config_builder.build_with_func(

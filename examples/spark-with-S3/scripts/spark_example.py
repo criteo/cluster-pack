@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # https://s3fs.readthedocs.io/en/latest/api.html#s3fs.core.S3FileSystem
     s3_args = {"use_ssl": False, "client_kwargs": {"endpoint_url": "http://s3:9000"}}
     archive, _ = cluster_pack.upload_env(
-        package_path="s3://test/envs/myenv.pex", fs_args=s3_args
+        package_path="s3://test/envs/myenv.pex", fs_args=s3_args, force_upload=True
     )
 
     ssb = SparkSession.builder
